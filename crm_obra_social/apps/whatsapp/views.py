@@ -693,12 +693,15 @@ class QRCodeView(LoginRequiredMixin, View):
 
     def get(self, request):
         from .sender import get_qr_code, get_connection_state, ensure_instance_exists
+        force = request.GET.get('force') == '1'
         try:
             ensure_instance_exists()
             state = get_connection_state()
-            if state == 'open':
+            if state == 'open' and not force:
                 return JsonResponse({'connected': True, 'qr_base64': None})
-            qr = get_qr_code()
+            qr = get_qr_code(force=force)
+            if qr is None and state == 'open':
+                return JsonResponse({'connected': True, 'qr_base64': None})
             return JsonResponse({'connected': False, 'qr_base64': qr})
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)

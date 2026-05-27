@@ -144,14 +144,21 @@ def send_interactive_message(to: str, body_text: str, buttons: list, header_text
 
 
 def logout_instance():
-    """Logout (disconnect) the Evolution API WhatsApp instance."""
-    url = _evo_url(f'/instance/logout/{_instance()}')
+    """Logout (disconnect) the Evolution API WhatsApp instance. Falls back to restart if already closed."""
+    instance = _instance()
     try:
-        response = requests.delete(url, headers=_evo_headers(), timeout=10)
-        response.raise_for_status()
-        logger.info('Instance logged out')
+        response = requests.delete(_evo_url(f'/instance/logout/{instance}'), headers=_evo_headers(), timeout=10)
+        if response.ok:
+            logger.info('Instance logged out')
+            return
+    except Exception:
+        pass
+    # Fallback: restart the instance so it enters close state and can show a new QR
+    try:
+        requests.post(_evo_url(f'/instance/restart/{instance}'), headers=_evo_headers(), timeout=10)
+        logger.info('Instance restarted (fallback from logout)')
     except Exception as e:
-        logger.error('Error logging out instance: %s', e)
+        logger.error('Error restarting instance: %s', e)
         raise
 
 
@@ -171,13 +178,13 @@ def get_connection_state() -> str:
         return 'error'
 
 
-def get_qr_code() -> str | None:
+def get_qr_code(force: bool = False) -> str | None:
     """
     Get QR code for scanning (base64 PNG string).
-    Returns None if instance is already connected.
+    Returns None if instance is already connected (unless force=True).
     """
     state = get_connection_state()
-    if state == 'open':
+    if state == 'open' and not force:
         return None
 
     url = _evo_url(f'/instance/connect/{_instance()}')

@@ -37,6 +37,9 @@
           <button class="btn btn-outline-secondary btn-sm" onclick="checkStatus()">
             <i class="bi bi-arrow-clockwise"></i> Actualizar
           </button>
+          <button class="btn btn-outline-warning btn-sm" onclick="loadQR(true)" title="Forzar nuevo QR aunque muestre conectado">
+            <i class="bi bi-qr-code-scan"></i> Forzar QR
+          </button>
           <button class="btn btn-outline-danger btn-sm" id="disconnectBtn"
                   onclick="disconnectInstance()"
                   {% if connection_state != 'open' %}style="display:none"{% endif %}>
@@ -209,18 +212,21 @@ function checkStatus() {
     });
 }
 
-function loadQR() {
+function loadQR(force) {
   const container = document.getElementById('qrContainer');
   const wrapper = document.getElementById('qrImageWrapper');
   const spinner = document.getElementById('qrSpinner');
   const errDiv = document.getElementById('qrError');
+  const qrSection = document.getElementById('qrSection');
 
+  qrSection.style.display = '';
   container.style.display = 'none';
   wrapper.style.display = 'none';
   spinner.style.display = '';
   errDiv.style.display = 'none';
 
-  fetch('{% url "whatsapp:qr_code" %}')
+  const url = '{% url "whatsapp:qr_code" %}' + (force ? '?force=1' : '');
+  fetch(url)
     .then(r => r.json())
     .then(data => {
       spinner.style.display = 'none';
