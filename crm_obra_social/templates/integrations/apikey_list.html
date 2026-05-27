@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Integraciones API{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-plug text-success"></i> Integraciones API</h4>
+  <div class="d-flex gap-2">
+    <a href="{% url 'integrations:docs' %}" class="btn btn-outline-info btn-sm"><i class="bi bi-book"></i> Documentación</a>
+    <a href="{% url 'integrations:apikey_create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nueva clave API</a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-12 col-lg-7">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-transparent fw-semibold">Claves API activas</div>
+      <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr><th>Nombre</th><th>Clave</th><th>Usos</th><th>Último uso</th><th>Estado</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for k in keys %}
+            <tr>
+              <td>
+                <div class="fw-semibold">{{ k.nombre }}</div>
+                {% if k.descripcion %}<div class="text-muted small">{{ k.descripcion|truncatechars:50 }}</div>{% endif %}
+              </td>
+              <td><code class="small">...{{ k.key|stringformat:"s"|slice:"-8:" }}</code></td>
+              <td class="text-muted small">{{ k.total_usos }}</td>
+              <td class="text-muted small">{{ k.ultimo_uso_at|date:"d/m H:i"|default:"—" }}</td>
+              <td>
+                <span class="badge bg-{% if k.activa %}success{% else %}secondary{% endif %}">
+                  {% if k.activa %}Activa{% else %}Inactiva{% endif %}
+                </span>
+              </td>
+              <td>
+                <div class="d-flex gap-1">
+                  <button class="btn btn-sm btn-outline-{% if k.activa %}warning{% else %}success{% endif %} btn-toggle"
+                          data-url="{% url 'integrations:apikey_toggle' k.pk %}">
+                    {% if k.activa %}<i class="bi bi-pause-fill"></i>{% else %}<i class="bi bi-play-fill"></i>{% endif %}
+                  </button>
+                  <form method="post" action="{% url 'integrations:apikey_delete' k.pk %}" class="d-inline"
+                        onsubmit="return confirm('¿Eliminar esta clave? Los webhooks que la usen dejarán de funcionar.')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-center text-muted py-4">No hay claves API creadas todavía.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">Últimas solicitudes recibidas</div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0">
+          <thead class="table-light"><tr><th>Fecha</th><th>Endpoint</th><th>Estado</th><th>Lead</th></tr></thead>
+          <tbody>
+            {% for log in logs %}
+            <tr>
+              <td class="small text-muted">{{ log.created_at|date:"d/m H:i" }}</td>
+              <td class="small font-monospace">{{ log.endpoint|truncatechars:30 }}</td>
+              <td>
+                <span class="badge bg-{% if log.status == 'ok' %}success{% else %}danger{% endif %}">
+                  {{ log.response_status }}
+                </span>
+              </td>
+              <td class="small">
+                {% if log.lead_creado %}
+                <a href="{% url 'leads:detail' log.lead_creado_id %}">{{ log.lead_creado.nombre_completo|truncatechars:20 }}</a>
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center text-muted py-3">Sin actividad todavía.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.btn-toggle').forEach(btn => {
+  btn.addEventListener('click', function() {
+    fetch(this.dataset.url, {method:'POST', headers:{'X-CSRFToken':'{{ csrf_token }}'}})
+      .then(r => r.json()).then(() => location.reload());
+  });
+});
+</script>
+{% endblock %}

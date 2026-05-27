@@ -1,0 +1,7 @@
+[
+  {"model": "leads.plan", "pk": 1, "fields": {"nombre": "Plan Individual", "descripcion": "Cobertura para una persona", "activo": true}},
+  {"model": "leads.plan", "pk": 2, "fields": {"nombre": "Plan Familiar", "descripcion": "Cobertura para todo el grupo familiar", "activo": true}},
+  {"model": "leads.plan", "pk": 3, "fields": {"nombre": "Plan Empresa PyME", "descripcion": "Cobertura grupal para empresas pequeñas y medianas", "activo": true}},
+  {"model": "leads.plan", "pk": 4, "fields": {"nombre": "Plan Maternidad", "descripcion": "Cobertura especial con prestaciones de maternidad", "activo": true}},
+  {"model": "leads.plan", "pk": 5, "fields": {"nombre": "Plan Senior", "descripcion": "Cobertura adaptada para mayores de 60 años", "activo": true}}
+]

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Campaña: {{ campana.nombre }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <a href="{% url 'campaigns:list' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Campañas</a>
+    <h4 class="mt-1 fw-bold">{{ campana.nombre }}</h4>
+  </div>
+  {% if campana.status in 'borrador,programada' %}
+  <form method="post" action="{% url 'campaigns:lanzar' campana.pk %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-success" onclick="return confirm('¿Lanzar la campaña ahora?')">
+      <i class="bi bi-send"></i> Lanzar campaña
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-2"><div class="card border-0 shadow-sm text-center p-3"><div class="text-muted small">Destinatarios</div><div class="fs-4 fw-bold">{{ destinatarios_preview.total }}</div><div class="text-muted" style="font-size:.7rem;">{{ destinatarios_preview.leads }}L / {{ destinatarios_preview.clientes }}C</div></div></div>
+  <div class="col-6 col-md-2"><div class="card border-0 shadow-sm text-center p-3"><div class="text-muted small">Enviados</div><div class="fs-4 fw-bold text-primary">{{ campana.enviados }}</div></div></div>
+  <div class="col-6 col-md-2"><div class="card border-0 shadow-sm text-center p-3"><div class="text-muted small">Entregados</div><div class="fs-4 fw-bold text-info">{{ campana.entregados }}</div></div></div>
+  <div class="col-6 col-md-2"><div class="card border-0 shadow-sm text-center p-3"><div class="text-muted small">Leídos</div><div class="fs-4 fw-bold text-success">{{ campana.leidos }}</div></div></div>
+  <div class="col-6 col-md-2"><div class="card border-0 shadow-sm text-center p-3"><div class="text-muted small">Errores</div><div class="fs-4 fw-bold text-danger">{{ campana.errores }}</div></div></div>
+  <div class="col-6 col-md-2"><div class="card border-0 shadow-sm text-center p-3"><div class="text-muted small">Estado</div><span class="badge bg-{% if campana.status == 'completada' %}success{% elif campana.status == 'en_ejecucion' %}primary{% else %}secondary{% endif %} fs-6">{{ campana.get_status_display }}</span></div></div>
+</div>
+
+<!-- Logs -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-transparent fw-semibold">Log de envíos</div>
+  <div class="card-body p-0">
+    <table class="table table-sm table-hover mb-0">
+      <thead class="table-light"><tr><th>Contacto</th><th>Teléfono</th><th>Estado</th><th>Detalle</th><th>Fecha</th></tr></thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td class="small">
+            {% if log.lead %}
+              <span class="badge bg-primary me-1" style="font-size:.6rem;">Lead</span>
+              <a href="{% url 'leads:detail' log.lead_id %}">{{ log.lead.nombre_completo }}</a>
+            {% elif log.cliente %}
+              <span class="badge bg-success me-1" style="font-size:.6rem;">Cliente</span>
+              {{ log.cliente.nombre_completo }}
+            {% else %}
+              {{ log.nombre_contacto|default:"—" }}
+            {% endif %}
+          </td>
+          <td class="small font-monospace">{{ log.telefono }}</td>
+          <td><span class="badge bg-{% if log.status == 'enviado' %}success{% else %}danger{% endif %}">{{ log.get_status_display }}</span></td>
+          <td class="small text-muted">{{ log.error_detalle|default:"—" }}</td>
+          <td class="small text-muted">{{ log.created_at|date:"d/m H:i" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-3">Sin logs todavía.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Automatizaciones{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-lightning-charge text-warning"></i> Automatizaciones</h4>
+  <div class="d-flex gap-2">
+    <a href="{% url 'automations:logs' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-list-ul"></i> Ver logs</a>
+    <a href="{% url 'automations:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nueva regla</a>
+  </div>
+</div>
+
+<div class="alert alert-info small py-2 mb-3">
+  <strong>Las reglas se evalúan automáticamente cada hora.</strong>
+  Cada regla se aplica una sola vez por lead (no se repite). Podés ejecutar cualquier regla manualmente con el botón ▶.
+</div>
+
+{% if reglas %}
+<div class="row g-3">
+  {% for r in reglas %}
+  <div class="col-12">
+    <div class="card border-0 shadow-sm {% if not r.activa %}opacity-50{% endif %}">
+      <div class="card-body d-flex justify-content-between align-items-start gap-3 flex-wrap">
+        <div class="flex-grow-1">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge bg-{% if r.activa %}success{% else %}secondary{% endif %}">
+              {% if r.activa %}Activa{% else %}Inactiva{% endif %}
+            </span>
+            <h6 class="mb-0 fw-semibold">{{ r.nombre }}</h6>
+          </div>
+          {% if r.descripcion %}<p class="text-muted small mb-1">{{ r.descripcion }}</p>{% endif %}
+          <div class="d-flex flex-wrap gap-2 small">
+            <span class="badge bg-light text-dark border">
+              <i class="bi bi-clock"></i> {{ r.get_trigger_tipo_display }} — {{ r.trigger_dias }} día{% if r.trigger_dias != 1 %}s{% endif %}
+            </span>
+            {% if r.condicion_estado %}
+            <span class="badge bg-light text-dark border"><i class="bi bi-filter"></i> Solo si: {{ r.condicion_estado }}</span>
+            {% endif %}
+            <span class="badge bg-primary">
+              <i class="bi bi-arrow-right"></i> {{ r.get_accion_tipo_display }}
+              {% if r.accion_estado_destino %}: {{ r.accion_estado_destino }}{% endif %}
+              {% if r.accion_prioridad_destino %}: {{ r.accion_prioridad_destino }}{% endif %}
+              {% if r.accion_plantilla %}: {{ r.accion_plantilla.nombre }}{% endif %}
+            </span>
+            <span class="text-muted">{{ r.logs.count }} ejecución{% if r.logs.count != 1 %}es{% endif %}</span>
+          </div>
+        </div>
+        <div class="d-flex gap-1 align-items-center flex-shrink-0">
+          <button class="btn btn-sm btn-outline-{% if r.activa %}warning{% else %}success{% endif %} btn-toggle"
+                  data-url="{% url 'automations:toggle' r.pk %}"
+                  title="{% if r.activa %}Desactivar{% else %}Activar{% endif %}">
+            {% if r.activa %}<i class="bi bi-pause-fill"></i>{% else %}<i class="bi bi-play-fill"></i>{% endif %}
+          </button>
+          <form method="post" action="{% url 'automations:ejecutar' r.pk %}" class="d-inline"
+                onsubmit="return confirm('¿Ejecutar esta regla ahora manualmente?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-primary" title="Ejecutar ahora">
+              <i class="bi bi-play-circle"></i>
+            </button>
+          </form>
+          <a href="{% url 'automations:update' r.pk %}" class="btn btn-sm btn-outline-secondary" title="Editar">
+            <i class="bi bi-pencil"></i>
+          </a>
+          <a href="{% url 'automations:delete' r.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar">
+            <i class="bi bi-trash"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body text-center text-muted py-5">
+    <i class="bi bi-lightning-charge" style="font-size:2rem;"></i>
+    <p class="mt-2">No hay reglas de automatización configuradas todavía.</p>
+    <a href="{% url 'automations:create' %}" class="btn btn-primary btn-sm">Crear la primera regla</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.btn-toggle').forEach(btn => {
+  btn.addEventListener('click', function() {
+    fetch(this.dataset.url, {method:'POST', headers:{'X-CSRFToken': '{{ csrf_token }}'}})
+      .then(r => r.json())
+      .then(() => location.reload());
+  });
+});
+</script>
+{% endblock %}

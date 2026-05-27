@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Eliminar campaña{% endblock %}
+{% block content %}
+<div class="card border-0 shadow-sm" style="max-width:480px;margin:auto;">
+  <div class="card-body text-center py-5">
+    <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size:2.5rem;"></i>
+    <h5 class="mt-3">¿Eliminar campaña "{{ object.nombre }}"?</h5>
+    <form method="post" class="d-flex gap-2 justify-content-center mt-3">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+      <a href="{% url 'campaigns:list' %}" class="btn btn-outline-secondary">Cancelar</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

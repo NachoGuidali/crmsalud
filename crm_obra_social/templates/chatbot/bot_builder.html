@@ -1,0 +1,774 @@
+{% extends "base.html" %}
+{% block title %}Editor — {{ bot.nombre }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/drawflow/dist/drawflow.min.css">
+<style>
+  /* ── Layout ── */
+  .builder-wrap {
+    display: flex;
+    height: calc(100vh - 56px);
+    margin: -1rem calc(-1 * var(--bs-gutter-x, .75rem)) 0;
+    overflow: hidden;
+  }
+
+  /* ── Left sidebar: node library ── */
+  .node-library {
+    width: 220px;
+    min-width: 220px;
+    background: #fff;
+    border-right: 1px solid #dee2e6;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .node-library-header {
+    padding: 12px 14px;
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #6c757d;
+    border-bottom: 1px solid #f0f0f0;
+    background: #f8f9fa;
+  }
+  .node-library-group {
+    padding: 8px 10px 4px;
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #adb5bd;
+    margin-top: 4px;
+  }
+  .node-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    margin: 2px 8px;
+    border-radius: 8px;
+    cursor: grab;
+    user-select: none;
+    font-size: .82rem;
+    font-weight: 500;
+    color: #212529;
+    transition: background .15s;
+  }
+  .node-item:hover { background: #f0f4ff; }
+  .node-item:active { cursor: grabbing; }
+  .node-icon {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .9rem;
+    flex-shrink: 0;
+  }
+
+  /* ── Canvas ── */
+  .canvas-area {
+    flex: 1;
+    position: relative;
+    background: #f4f6fb;
+    overflow: hidden;
+  }
+  #drawflow {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ── Right config panel ── */
+  .config-panel {
+    width: 300px;
+    min-width: 300px;
+    background: #fff;
+    border-left: 1px solid #dee2e6;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .config-panel-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8f9fa;
+  }
+  .config-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .config-panel-footer {
+    padding: 12px 16px;
+    border-top: 1px solid #dee2e6;
+    background: #f8f9fa;
+  }
+  .config-empty {
+    text-align: center;
+    color: #adb5bd;
+    padding: 40px 20px;
+  }
+
+  /* ── Top toolbar ── */
+  .builder-toolbar {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 100;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    padding: 6px 10px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.1);
+    align-items: center;
+  }
+  .toolbar-divider {
+    width: 1px; height: 20px;
+    background: #dee2e6;
+    margin: 0 4px;
+  }
+  #save-status {
+    font-size: .75rem;
+    color: #6c757d;
+  }
+
+  /* ── Drawflow node overrides ── */
+  .drawflow-node {
+    border-radius: 10px !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,.12) !important;
+    border: 2px solid transparent !important;
+    min-width: 180px !important;
+    padding: 0 !important;
+  }
+  .drawflow-node.selected {
+    border-color: #0d6efd !important;
+    box-shadow: 0 2px 16px rgba(13,110,253,.3) !important;
+  }
+  .drawflow-node .drawflow_content_node {
+    padding: 0;
+  }
+  .df-node-inner {
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .df-node-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    font-size: .78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .df-node-body {
+    padding: 8px 12px 10px;
+    font-size: .82rem;
+    color: #495057;
+    background: #fff;
+    min-height: 32px;
+  }
+  .df-node-body .preview-text {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    color: #6c757d;
+    font-size: .78rem;
+    font-style: italic;
+  }
+
+  /* Connector dots */
+  .drawflow-node .input, .drawflow-node .output {
+    width: 14px !important;
+    height: 14px !important;
+    background: #fff !important;
+    border: 2px solid #adb5bd !important;
+    border-radius: 50% !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+  }
+  .drawflow-node .input { left: -7px !important; }
+  .drawflow-node .output { right: -7px !important; }
+  .drawflow-node .input:hover, .drawflow-node .output:hover {
+    background: #0d6efd !important;
+    border-color: #0d6efd !important;
+  }
+
+  /* Connection lines */
+  .connection .main-path {
+    stroke: #0d6efd;
+    stroke-width: 2px;
+  }
+
+  /* Form fields inside config panel */
+  .config-field { margin-bottom: 14px; }
+  .config-field label { font-size: .8rem; font-weight: 600; margin-bottom: 4px; display: block; color: #495057; }
+  .config-field input, .config-field textarea, .config-field select {
+    font-size: .82rem;
+  }
+  .option-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .option-row input { flex: 1; }
+
+  /* Zoom controls */
+  .zoom-controls {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 100;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="builder-wrap">
+
+  <!-- Left: node library -->
+  <div class="node-library">
+    <div class="node-library-header">
+      <i class="bi bi-grid-3x3-gap"></i> Nodos
+    </div>
+
+    <div class="node-library-group">Inicio</div>
+    <div class="node-item" draggable="true" data-type="initial_step">
+      <div class="node-icon" style="background:#fff3cd;color:#856404;"><i class="bi bi-play-circle-fill"></i></div>
+      Inicio
+    </div>
+
+    <div class="node-library-group">Mensajes</div>
+    <div class="node-item" draggable="true" data-type="send_message">
+      <div class="node-icon" style="background:#d1ecf1;color:#0c5460;"><i class="bi bi-chat-left-text-fill"></i></div>
+      Enviar mensaje
+    </div>
+    <div class="node-item" draggable="true" data-type="ask_question">
+      <div class="node-icon" style="background:#d4edda;color:#155724;"><i class="bi bi-question-circle-fill"></i></div>
+      Hacer pregunta
+    </div>
+    <div class="node-item" draggable="true" data-type="buttons">
+      <div class="node-icon" style="background:#cce5ff;color:#004085;"><i class="bi bi-ui-checks"></i></div>
+      Botones
+    </div>
+    <div class="node-item" draggable="true" data-type="list_options">
+      <div class="node-icon" style="background:#e2d9f3;color:#432874;"><i class="bi bi-list-ul"></i></div>
+      Lista de opciones
+    </div>
+
+    <div class="node-library-group">Lógica</div>
+    <div class="node-item" draggable="true" data-type="set_condition">
+      <div class="node-icon" style="background:#fff3cd;color:#856404;"><i class="bi bi-signpost-split-fill"></i></div>
+      Condición
+    </div>
+
+    <div class="node-library-group">CRM</div>
+    <div class="node-item" draggable="true" data-type="update_attribute">
+      <div class="node-icon" style="background:#d1ecf1;color:#0c5460;"><i class="bi bi-pencil-square"></i></div>
+      Actualizar atributo
+    </div>
+    <div class="node-item" draggable="true" data-type="set_label">
+      <div class="node-icon" style="background:#fde8d8;color:#7d3900;"><i class="bi bi-tag-fill"></i></div>
+      Asignar etiqueta
+    </div>
+    <div class="node-item" draggable="true" data-type="assign_user">
+      <div class="node-icon" style="background:#d4edda;color:#155724;"><i class="bi bi-person-fill-check"></i></div>
+      Asignar agente
+    </div>
+    <div class="node-item" draggable="true" data-type="assign_team">
+      <div class="node-icon" style="background:#cce5ff;color:#004085;"><i class="bi bi-people-fill"></i></div>
+      Asignar equipo
+    </div>
+
+    <div class="node-library-group">Suscripción</div>
+    <div class="node-item" draggable="true" data-type="subscribe">
+      <div class="node-icon" style="background:#d4edda;color:#155724;"><i class="bi bi-person-plus-fill"></i></div>
+      Suscribir
+    </div>
+    <div class="node-item" draggable="true" data-type="unsubscribe">
+      <div class="node-icon" style="background:#f8d7da;color:#721c24;"><i class="bi bi-person-dash-fill"></i></div>
+      Desuscribir
+    </div>
+  </div>
+
+  <!-- Center: canvas -->
+  <div class="canvas-area">
+    <!-- Toolbar -->
+    <div class="builder-toolbar">
+      <a href="{% url 'chatbot:list' %}" class="btn btn-sm btn-outline-secondary" title="Volver">
+        <i class="bi bi-arrow-left"></i>
+      </a>
+      <div class="toolbar-divider"></div>
+      <span class="fw-semibold small">{{ bot.nombre }}</span>
+      <div class="toolbar-divider"></div>
+      <button id="btn-undo" class="btn btn-sm btn-outline-secondary" title="Deshacer (Ctrl+Z)">
+        <i class="bi bi-arrow-counterclockwise"></i>
+      </button>
+      <button id="btn-redo" class="btn btn-sm btn-outline-secondary" title="Rehacer (Ctrl+Y)">
+        <i class="bi bi-arrow-clockwise"></i>
+      </button>
+      <div class="toolbar-divider"></div>
+      <button id="btn-clear" class="btn btn-sm btn-outline-danger" title="Limpiar canvas">
+        <i class="bi bi-trash"></i>
+      </button>
+      <button id="btn-save" class="btn btn-sm btn-primary" title="Guardar (Ctrl+S)">
+        <i class="bi bi-floppy"></i> Guardar
+      </button>
+      <span id="save-status"></span>
+    </div>
+
+    <!-- Drawflow container -->
+    <div id="drawflow"></div>
+
+    <!-- Zoom controls -->
+    <div class="zoom-controls">
+      <button class="btn btn-sm btn-light border" id="btn-zoom-in" title="Acercar"><i class="bi bi-plus"></i></button>
+      <button class="btn btn-sm btn-light border" id="btn-zoom-reset" title="Restablecer zoom"><i class="bi bi-aspect-ratio"></i></button>
+      <button class="btn btn-sm btn-light border" id="btn-zoom-out" title="Alejar"><i class="bi bi-dash"></i></button>
+    </div>
+  </div>
+
+  <!-- Right: config panel -->
+  <div class="config-panel">
+    <div class="config-panel-header" id="config-header">
+      <i class="bi bi-sliders" id="config-icon"></i>
+      <span id="config-title" class="fw-semibold small">Configuración</span>
+    </div>
+    <div class="config-panel-body" id="config-body">
+      <div class="config-empty">
+        <i class="bi bi-cursor-fill fs-2 d-block mb-2"></i>
+        <p class="small">Haz clic en un nodo para configurarlo</p>
+      </div>
+    </div>
+    <div class="config-panel-footer d-none" id="config-footer">
+      <button class="btn btn-primary btn-sm w-100" id="btn-apply">
+        <i class="bi bi-check-lg"></i> Aplicar cambios
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/drawflow/dist/drawflow.min.js"></script>
+<script>
+const FLOW_API_URL = "{% url 'chatbot:flow_api' bot.pk %}";
+const CSRF_TOKEN = "{{ csrf_token }}";
+
+// ── Node definitions ──────────────────────────────────────────────────
+const NODE_DEFS = {
+  initial_step:     { label: 'Inicio',             icon: 'bi-play-circle-fill',   color: '#856404', bg: '#fff3cd', inputs: 0, outputs: 1 },
+  send_message:     { label: 'Enviar mensaje',      icon: 'bi-chat-left-text-fill',color: '#0c5460', bg: '#d1ecf1', inputs: 1, outputs: 1 },
+  ask_question:     { label: 'Hacer pregunta',      icon: 'bi-question-circle-fill',color:'#155724', bg: '#d4edda', inputs: 1, outputs: 1 },
+  buttons:          { label: 'Botones',              icon: 'bi-ui-checks',          color: '#004085', bg: '#cce5ff', inputs: 1, outputs: 3 },
+  list_options:     { label: 'Lista de opciones',   icon: 'bi-list-ul',            color: '#432874', bg: '#e2d9f3', inputs: 1, outputs: 3 },
+  set_condition:    { label: 'Condición',            icon: 'bi-signpost-split-fill',color: '#856404', bg: '#fff3cd', inputs: 1, outputs: 2 },
+  update_attribute: { label: 'Actualizar atributo', icon: 'bi-pencil-square',      color: '#0c5460', bg: '#d1ecf1', inputs: 1, outputs: 1 },
+  set_label:        { label: 'Asignar etiqueta',    icon: 'bi-tag-fill',           color: '#7d3900', bg: '#fde8d8', inputs: 1, outputs: 1 },
+  assign_user:      { label: 'Asignar agente',      icon: 'bi-person-fill-check',  color: '#155724', bg: '#d4edda', inputs: 1, outputs: 1 },
+  assign_team:      { label: 'Asignar equipo',      icon: 'bi-people-fill',        color: '#004085', bg: '#cce5ff', inputs: 1, outputs: 1 },
+  subscribe:        { label: 'Suscribir',            icon: 'bi-person-plus-fill',   color: '#155724', bg: '#d4edda', inputs: 1, outputs: 1 },
+  unsubscribe:      { label: 'Desuscribir',          icon: 'bi-person-dash-fill',   color: '#721c24', bg: '#f8d7da', inputs: 1, outputs: 1 },
+};
+
+// ── Build node HTML ───────────────────────────────────────────────────
+function buildNodeHTML(type, data) {
+  const def = NODE_DEFS[type];
+  if (!def) return `<div class="df-node-inner"><div class="df-node-body">${type}</div></div>`;
+  const preview = getPreviewText(type, data);
+  return `
+    <div class="df-node-inner" data-type="${type}">
+      <div class="df-node-header" style="background:${def.bg};color:${def.color};">
+        <i class="bi ${def.icon}"></i> ${def.label}
+      </div>
+      <div class="df-node-body">
+        <div class="preview-text">${preview || '<em style="color:#ccc;">Sin configurar</em>'}</div>
+      </div>
+    </div>`;
+}
+
+function getPreviewText(type, data) {
+  if (!data) return '';
+  switch(type) {
+    case 'initial_step':    return 'Inicio del flujo';
+    case 'send_message':    return escHtml(data.message || '');
+    case 'ask_question':    return escHtml(data.question || '');
+    case 'buttons':         return escHtml(data.body || '') + (data.buttons?.length ? ` [${data.buttons.length} botones]` : '');
+    case 'list_options':    return escHtml(data.body || '') + (data.options?.length ? ` [${data.options.length} opciones]` : '');
+    case 'set_condition':   return escHtml(`Si: ${data.variable || '?'} ${data.operator || ''} ${data.value || ''}`);
+    case 'update_attribute':return escHtml(`${data.attribute || '?'} = ${data.value || ''}`);
+    case 'set_label':       return escHtml(data.label || '');
+    case 'assign_user':     return escHtml(data.user || '');
+    case 'assign_team':     return escHtml(data.team || '');
+    case 'subscribe':       return 'Suscribir contacto';
+    case 'unsubscribe':     return 'Desuscribir contacto';
+    default: return '';
+  }
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Drawflow init ─────────────────────────────────────────────────────
+const editor = new Drawflow(document.getElementById('drawflow'));
+editor.reroute = true;
+editor.reroute_fix_curvature = true;
+editor.force_first_input = false;
+editor.line_path = 5;
+editor.start();
+
+// ── Drag & drop from library ──────────────────────────────────────────
+let dragType = null;
+
+document.querySelectorAll('.node-item').forEach(el => {
+  el.addEventListener('dragstart', e => {
+    dragType = el.dataset.type;
+  });
+});
+
+const canvas = document.getElementById('drawflow');
+canvas.addEventListener('dragover', e => e.preventDefault());
+canvas.addEventListener('drop', e => {
+  e.preventDefault();
+  if (!dragType) return;
+  const rect = canvas.getBoundingClientRect();
+  const zoom = editor.zoom;
+  const x = (e.clientX - rect.left - editor.canvas_x) / zoom;
+  const y = (e.clientY - rect.top - editor.canvas_y) / zoom;
+  addNode(dragType, {}, x, y);
+  dragType = null;
+});
+
+function addNode(type, data, x, y) {
+  const def = NODE_DEFS[type];
+  if (!def) return;
+  const html = buildNodeHTML(type, data);
+  editor.addNode(type, def.inputs, def.outputs, x, y, type, data, html);
+}
+
+// ── Config panel ──────────────────────────────────────────────────────
+let selectedNodeId = null;
+
+editor.on('nodeSelected', id => {
+  selectedNodeId = id;
+  renderConfigPanel(id);
+});
+
+editor.on('nodeUnselected', () => {
+  if (!selectedNodeId) return;
+  selectedNodeId = null;
+  resetConfigPanel();
+});
+
+editor.on('nodeMoved', () => markDirty());
+editor.on('connectionCreated', () => markDirty());
+editor.on('connectionRemoved', () => markDirty());
+
+function renderConfigPanel(nodeId) {
+  const node = editor.getNodeFromId(nodeId);
+  if (!node) return;
+  const type = node.name;
+  const data = node.data || {};
+  const def = NODE_DEFS[type] || {};
+
+  document.getElementById('config-title').textContent = def.label || type;
+  document.getElementById('config-icon').className = `bi ${def.icon || 'bi-sliders'}`;
+  document.getElementById('config-footer').classList.remove('d-none');
+
+  const body = document.getElementById('config-body');
+  body.innerHTML = buildConfigForm(type, data);
+}
+
+function resetConfigPanel() {
+  document.getElementById('config-title').textContent = 'Configuración';
+  document.getElementById('config-icon').className = 'bi bi-sliders';
+  document.getElementById('config-footer').classList.add('d-none');
+  document.getElementById('config-body').innerHTML = `
+    <div class="config-empty">
+      <i class="bi bi-cursor-fill fs-2 d-block mb-2"></i>
+      <p class="small">Haz clic en un nodo para configurarlo</p>
+    </div>`;
+}
+
+function buildConfigForm(type, data) {
+  const tf = (name, label, val, ph='') => `
+    <div class="config-field">
+      <label>${label}</label>
+      <input type="text" class="form-control form-control-sm" name="${name}" value="${escHtml(val||'')}" placeholder="${ph}">
+    </div>`;
+  const ta = (name, label, val, ph='') => `
+    <div class="config-field">
+      <label>${label}</label>
+      <textarea class="form-control form-control-sm" name="${name}" rows="3" placeholder="${ph}">${escHtml(val||'')}</textarea>
+    </div>`;
+  const sel = (name, label, val, opts) => `
+    <div class="config-field">
+      <label>${label}</label>
+      <select class="form-select form-select-sm" name="${name}">
+        ${opts.map(o => `<option value="${o.v}" ${val===o.v?'selected':''}>${o.l}</option>`).join('')}
+      </select>
+    </div>`;
+
+  switch(type) {
+    case 'initial_step':
+      return `<p class="small text-muted">Este es el nodo de inicio del flujo. No requiere configuración.</p>`;
+
+    case 'send_message':
+      return ta('message','Mensaje', data.message, 'Escribe el mensaje...')
+           + tf('delay','Espera antes (segundos)', data.delay, '0');
+
+    case 'ask_question':
+      return ta('question','Pregunta', data.question, 'Escribe la pregunta...')
+           + tf('variable','Guardar respuesta en variable', data.variable, 'ej: nombre_cliente')
+           + tf('timeout','Timeout (seg, 0=sin límite)', data.timeout, '0');
+
+    case 'buttons':
+      return ta('body','Texto del mensaje', data.body, 'Mensaje con botones...')
+           + buildOptionsEditor('buttons', data.buttons || ['','',''], 3, 'Botón');
+
+    case 'list_options':
+      return tf('button_text','Texto del botón lista', data.button_text, 'Ver opciones')
+           + ta('body','Descripción', data.body, 'Descripción de la lista...')
+           + buildOptionsEditor('options', data.options || ['','',''], 5, 'Opción');
+
+    case 'set_condition':
+      return tf('variable','Variable', data.variable, 'ej: estado_lead')
+           + sel('operator','Operador', data.operator, [
+               {v:'eq',l:'igual a (=)'},{v:'neq',l:'diferente de (≠)'},
+               {v:'contains',l:'contiene'},{v:'starts',l:'empieza con'},
+               {v:'gt',l:'mayor que (>)'},{v:'lt',l:'menor que (<)'},
+             ])
+           + tf('value','Valor', data.value, 'ej: caliente')
+           + `<p class="small text-muted mt-2"><i class="bi bi-info-circle"></i> Salida 1 = Sí | Salida 2 = No</p>`;
+
+    case 'update_attribute':
+      return sel('attribute','Atributo', data.attribute, [
+               {v:'nombre',l:'Nombre'},{v:'email',l:'Email'},{v:'telefono',l:'Teléfono'},
+               {v:'estado',l:'Estado lead'},{v:'plan_interes',l:'Plan de interés'},
+               {v:'prioridad',l:'Prioridad'},{v:'nota',l:'Nota'},
+             ])
+           + tf('value','Nuevo valor', data.value, 'ej: interesado');
+
+    case 'set_label':
+      return tf('label','Nombre de etiqueta', data.label, 'ej: prospecto_caliente');
+
+    case 'assign_user':
+      return tf('user','Agente (email o nombre)', data.user, 'ej: juan@empresa.com');
+
+    case 'assign_team':
+      return tf('team','Equipo', data.team, 'ej: ventas');
+
+    case 'subscribe':
+      return `<p class="small text-muted">Suscribe al contacto para recibir campañas masivas.</p>`;
+
+    case 'unsubscribe':
+      return `<p class="small text-muted">Desuscribe al contacto de campañas masivas.</p>`;
+
+    default:
+      return `<p class="text-muted small">Sin configuración para este tipo de nodo.</p>`;
+  }
+}
+
+function buildOptionsEditor(name, values, max, placeholder) {
+  const rows = (values || []).slice(0, max);
+  while (rows.length < 1) rows.push('');
+  let html = `<div class="config-field"><label>${placeholder}es</label><div id="${name}-list">`;
+  rows.forEach((v, i) => {
+    html += `<div class="option-row">
+      <input type="text" class="form-control form-control-sm" name="${name}[]" value="${escHtml(v)}" placeholder="${placeholder} ${i+1}">
+      <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeOption(this)"><i class="bi bi-x"></i></button>
+    </div>`;
+  });
+  html += `</div>`;
+  if (rows.length < max) {
+    html += `<button type="button" class="btn btn-sm btn-outline-primary mt-1 w-100" onclick="addOption('${name}','${placeholder}',${max})">
+      <i class="bi bi-plus"></i> Agregar ${placeholder.toLowerCase()}
+    </button>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function addOption(name, placeholder, max) {
+  const list = document.getElementById(`${name}-list`);
+  const current = list.querySelectorAll('.option-row').length;
+  if (current >= max) return;
+  const div = document.createElement('div');
+  div.className = 'option-row';
+  div.innerHTML = `<input type="text" class="form-control form-control-sm" name="${name}[]" placeholder="${placeholder} ${current+1}">
+    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeOption(this)"><i class="bi bi-x"></i></button>`;
+  list.appendChild(div);
+}
+
+function removeOption(btn) {
+  btn.closest('.option-row').remove();
+}
+
+// ── Apply config ──────────────────────────────────────────────────────
+document.getElementById('btn-apply').addEventListener('click', () => {
+  if (!selectedNodeId) return;
+  const node = editor.getNodeFromId(selectedNodeId);
+  if (!node) return;
+  const type = node.name;
+  const body = document.getElementById('config-body');
+  const newData = {};
+
+  body.querySelectorAll('[name]').forEach(el => {
+    if (el.name.endsWith('[]')) {
+      const key = el.name.slice(0, -2);
+      if (!newData[key]) newData[key] = [];
+      if (el.value.trim()) newData[key].push(el.value.trim());
+    } else {
+      newData[el.name] = el.value;
+    }
+  });
+
+  editor.updateNodeDataFromId(selectedNodeId, newData);
+
+  // Refresh node HTML
+  const newHTML = buildNodeHTML(type, newData);
+  const nodeEl = document.querySelector(`#node-${selectedNodeId} .drawflow_content_node`);
+  if (nodeEl) nodeEl.innerHTML = newHTML;
+
+  markDirty();
+  showSaveStatus('Cambios pendientes…', '#f0ad4e');
+});
+
+// ── Save ──────────────────────────────────────────────────────────────
+let isDirty = false;
+
+function markDirty() {
+  isDirty = true;
+  showSaveStatus('Cambios sin guardar', '#dc3545');
+}
+
+function showSaveStatus(msg, color) {
+  const el = document.getElementById('save-status');
+  el.textContent = msg;
+  el.style.color = color;
+}
+
+async function saveFlow() {
+  const data = editor.export();
+  const btn = document.getElementById('btn-save');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Guardando…';
+  btn.disabled = true;
+  try {
+    const res = await fetch(FLOW_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': CSRF_TOKEN,
+      },
+      body: JSON.stringify({ data }),
+    });
+    if (res.ok) {
+      isDirty = false;
+      showSaveStatus('Guardado ✓', '#198754');
+    } else {
+      showSaveStatus('Error al guardar', '#dc3545');
+    }
+  } catch {
+    showSaveStatus('Error de red', '#dc3545');
+  } finally {
+    btn.innerHTML = orig;
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('btn-save').addEventListener('click', saveFlow);
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    saveFlow();
+  }
+});
+
+// ── Zoom ──────────────────────────────────────────────────────────────
+document.getElementById('btn-zoom-in').addEventListener('click', () => editor.zoom_in());
+document.getElementById('btn-zoom-out').addEventListener('click', () => editor.zoom_out());
+document.getElementById('btn-zoom-reset').addEventListener('click', () => editor.zoom_reset());
+
+// ── Undo/redo (basic history) ─────────────────────────────────────────
+const history = [];
+let historyIdx = -1;
+
+function pushHistory() {
+  history.splice(historyIdx + 1);
+  history.push(JSON.stringify(editor.export()));
+  historyIdx = history.length - 1;
+  if (history.length > 50) { history.shift(); historyIdx--; }
+}
+
+editor.on('nodeCreated', pushHistory);
+editor.on('nodeRemoved', pushHistory);
+editor.on('connectionCreated', pushHistory);
+editor.on('connectionRemoved', pushHistory);
+
+document.getElementById('btn-undo').addEventListener('click', () => {
+  if (historyIdx > 0) {
+    historyIdx--;
+    editor.import(JSON.parse(history[historyIdx]));
+    markDirty();
+  }
+});
+document.getElementById('btn-redo').addEventListener('click', () => {
+  if (historyIdx < history.length - 1) {
+    historyIdx++;
+    editor.import(JSON.parse(history[historyIdx]));
+    markDirty();
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey||e.metaKey) && e.key==='z') { document.getElementById('btn-undo').click(); }
+  if ((e.ctrlKey||e.metaKey) && e.key==='y') { document.getElementById('btn-redo').click(); }
+});
+
+// ── Clear ─────────────────────────────────────────────────────────────
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (!confirm('¿Limpiar todo el canvas? Esta acción no se puede deshacer.')) return;
+  editor.clearModuleSelected();
+  markDirty();
+});
+
+// ── Load flow on start ────────────────────────────────────────────────
+async function loadFlow() {
+  try {
+    const res = await fetch(FLOW_API_URL);
+    const json = await res.json();
+    if (json.data && Object.keys(json.data).length > 0) {
+      editor.import(json.data);
+      // Restore node HTML after import
+      refreshAllNodeHTML();
+      history.push(JSON.stringify(editor.export()));
+      historyIdx = 0;
+    } else {
+      // Add default initial_step node
+      addNode('initial_step', {}, 100, 200);
+    }
+    showSaveStatus('', '');
+  } catch {
+    showSaveStatus('Error cargando flujo', '#dc3545');
+  }
+}
+
+function refreshAllNodeHTML() {
+  const data = editor.export();
+  const nodes = data.drawflow?.Home?.data || {};
+  Object.entries(nodes).forEach(([id, node]) => {
+    const html = buildNodeHTML(node.name, node.data);
+    const el = document.querySelector(`#node-${id} .drawflow_content_node`);
+    if (el) el.innerHTML = html;
+  });
+}
+
+loadFlow();
+</script>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{% if campo %}Editar campo{% else %}Nuevo campo{% endif %}{% endblock %}
+{% block nav_leads %}active{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{% url 'leads:campos' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Campos personalizados</a>
+  <h4 class="mt-1 fw-bold">{% if campo %}Editar: {{ campo.nombre }}{% else %}Nuevo campo personalizado{% endif %}</h4>
+</div>
+
+<div class="card border-0 shadow-sm" style="max-width:600px;">
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label small fw-semibold">{{ form.nombre.label }} *</label>
+          {{ form.nombre }}
+          {% if form.nombre.errors %}<div class="invalid-feedback d-block">{{ form.nombre.errors.0 }}</div>{% endif %}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold">{{ form.tipo.label }}</label>
+          {{ form.tipo }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small fw-semibold">{{ form.alcance.label }}</label>
+          {{ form.alcance }}
+        </div>
+        <div class="col-12" id="opciones-section" {% if form.instance.tipo != 'lista' and not form.errors %}style="display:none"{% endif %}>
+          <label class="form-label small fw-semibold">{{ form.opciones_texto.label }}</label>
+          {{ form.opciones_texto }}
+          <div class="form-text">{{ form.opciones_texto.help_text }}</div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">{{ form.orden.label }}</label>
+          {{ form.orden }}
+          <div class="form-text">Número menor → aparece primero.</div>
+        </div>
+        <div class="col-md-4 d-flex align-items-end gap-3 pb-1">
+          <div class="form-check">
+            {{ form.requerido }}
+            <label class="form-check-label small">{{ form.requerido.label }}</label>
+          </div>
+          <div class="form-check">
+            {{ form.activo }}
+            <label class="form-check-label small">{{ form.activo.label }}</label>
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar</button>
+        <a href="{% url 'leads:campos' %}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const tipoSelect = document.getElementById('id_tipo');
+  const opcionesSection = document.getElementById('opciones-section');
+  function toggleOpciones() {
+    opcionesSection.style.display = tipoSelect.value === 'lista' ? 'block' : 'none';
+  }
+  tipoSelect.addEventListener('change', toggleOpciones);
+  toggleOpciones();
+</script>
+{% endblock %}

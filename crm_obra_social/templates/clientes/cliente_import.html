@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Importar Clientes{% endblock %}
+{% block nav_clientes %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <a href="{% url 'clientes:list' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Clientes</a>
+    <h4 class="mb-0 fw-bold mt-1"><i class="bi bi-cloud-upload text-success"></i> Importar Clientes</h4>
+  </div>
+</div>
+
+{% if resultado %}
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-transparent fw-semibold">Resultado de la importación</div>
+  <div class="card-body">
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-md-3">
+        <div class="border rounded p-3 text-center">
+          <div class="fs-3 fw-bold text-success">{{ stats.created }}</div>
+          <div class="small text-muted">Creados</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="border rounded p-3 text-center">
+          <div class="fs-3 fw-bold text-primary">{{ stats.updated }}</div>
+          <div class="small text-muted">Actualizados</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="border rounded p-3 text-center">
+          <div class="fs-3 fw-bold text-secondary">{{ stats.skipped }}</div>
+          <div class="small text-muted">Omitidos</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="border rounded p-3 text-center">
+          <div class="fs-3 fw-bold text-danger">{{ stats.error }}</div>
+          <div class="small text-muted">Errores</div>
+        </div>
+      </div>
+    </div>
+    <p class="text-muted small mb-0">Total de filas procesadas: <strong>{{ total_filas }}</strong></p>
+    {% if errors %}
+    <hr>
+    <p class="fw-semibold text-danger small">Filas con error:</p>
+    <ul class="list-unstyled small">
+      {% for e in errors %}
+      <li class="mb-1"><span class="badge bg-danger me-1">Fila {{ e.fila }}</span> {{ e.msg }} <span class="text-muted">— {{ e.datos }}</span></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <a href="{% url 'clientes:list' %}" class="btn btn-success btn-sm mt-2"><i class="bi bi-person-check"></i> Ver clientes</a>
+  </div>
+</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-transparent fw-semibold">Subir archivo</div>
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% for field in form %}
+      <div class="mb-3">
+        <label class="form-label fw-semibold small">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+        {% for err in field.errors %}<div class="text-danger small mt-1">{{ err }}</div>{% endfor %}
+      </div>
+      {% endfor %}
+      <button type="submit" class="btn btn-success"><i class="bi bi-cloud-upload"></i> Importar</button>
+    </form>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mt-3">
+  <div class="card-header bg-transparent fw-semibold">Columnas reconocidas</div>
+  <div class="card-body small">
+    <div class="row g-2">
+      <div class="col-12 col-md-6">
+        <table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>Columna</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>nombre_completo</code></td><td>Nombre (requerido)</td></tr>
+            <tr><td><code>dni</code></td><td>DNI sin puntos</td></tr>
+            <tr><td><code>telefono</code></td><td>Teléfono con código de país</td></tr>
+            <tr><td><code>email</code></td><td>Email</td></tr>
+            <tr><td><code>plan</code></td><td>Nombre del plan (debe existir)</td></tr>
+            <tr><td><code>numero_afiliado</code></td><td>N° de afiliado</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-12 col-md-6">
+        <table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>Columna</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>localidad</code></td><td>Ciudad</td></tr>
+            <tr><td><code>provincia</code></td><td>Provincia</td></tr>
+            <tr><td><code>grupo_familiar</code></td><td>Cantidad de integrantes</td></tr>
+            <tr><td><code>notas</code></td><td>Observaciones</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="text-muted mt-2 mb-0">Duplicados se detectan por DNI primero, luego por teléfono.</p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{% if action == 'crear' %}Nuevo chatbot{% else %}Editar chatbot{% endif %}{% endblock %}
+{% block nav_chatbot %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-4">
+  <a href="{% url 'chatbot:list' %}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i>
+  </a>
+  <h4 class="mb-0 fw-bold">
+    {% if action == 'crear' %}
+    <i class="bi bi-plus-circle text-primary"></i> Nuevo chatbot
+    {% else %}
+    <i class="bi bi-pencil text-primary"></i> Editar chatbot
+    {% endif %}
+  </h4>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-md-7 col-lg-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Nombre <span class="text-danger">*</span></label>
+            <input type="text" name="nombre" class="form-control"
+                   value="{{ bot.nombre|default:nombre }}"
+                   placeholder="Ej: Bot de bienvenida" required autofocus>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Descripción</label>
+            <textarea name="descripcion" class="form-control" rows="3"
+                      placeholder="Descripción del flujo (opcional)">{{ bot.descripcion|default:descripcion }}</textarea>
+          </div>
+          {% if action == 'editar' %}
+          <div class="mb-4">
+            <div class="form-check form-switch">
+              <input type="checkbox" name="activo" class="form-check-input" id="activoSwitch"
+                     {% if bot.activo %}checked{% endif %}>
+              <label class="form-check-label" for="activoSwitch">Bot activo</label>
+            </div>
+          </div>
+          {% endif %}
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-lg"></i>
+              {% if action == 'crear' %}Crear y abrir editor{% else %}Guardar{% endif %}
+            </button>
+            <a href="{% url 'chatbot:list' %}" class="btn btn-outline-secondary">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

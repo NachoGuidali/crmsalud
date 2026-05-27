@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Nueva clave API{% endblock %}
+{% block content %}
+<div class="mb-3">
+  <a href="{% url 'integrations:list' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Integraciones</a>
+  <h4 class="mt-1 fw-bold">Nueva clave API</h4>
+</div>
+<div class="card border-0 shadow-sm" style="max-width:560px;">
+  <div class="card-body">
+    <div class="alert alert-warning small py-2 mb-3">
+      La clave se genera automáticamente. <strong>Copiala inmediatamente</strong> al crearla — no podrás verla completa después.
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Nombre / origen *</label>
+        <input name="nombre" class="form-control" required placeholder="ej: Formulario web home, Landing Google Ads">
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Descripción</label>
+        <textarea name="descripcion" class="form-control" rows="2" placeholder="Para qué se usa esta clave..."></textarea>
+      </div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Origen por defecto</label>
+          <select name="origen_default" class="form-select">
+            {% for val, label in origen_choices %}
+            <option value="{{ val }}"{% if val == 'web' %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Estado inicial</label>
+          <select name="estado_inicial" class="form-select">
+            {% for val, label in estado_choices %}
+            <option value="{{ val }}"{% if val == 'nuevo' %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Agente asignado</label>
+          <select name="agente_default" class="form-select">
+            <option value="">Sin asignar</option>
+            {% for a in agents %}
+            <option value="{{ a.pk }}">{{ a.get_full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-key"></i> Crear clave</button>
+        <a href="{% url 'integrations:list' %}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

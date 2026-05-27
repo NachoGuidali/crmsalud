@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% load crm_tags %}
+{% block title %}{{ lead.nombre_completo }} — Lead{% endblock %}
+{% block nav_leads %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <a href="{% url 'leads:list' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Leads</a>
+    <h4 class="mb-0 fw-bold mt-1">{{ lead.nombre_completo }}</h4>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'leads:update' lead.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil"></i> Editar</a>
+    <a href="{% url 'tasks:create' %}?lead={{ lead.pk }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus"></i> Tarea</a>
+    <a href="{% url 'quotes:create' %}?lead={{ lead.pk }}" class="btn btn-outline-success btn-sm"><i class="bi bi-file-earmark-text"></i> Cotización</a>
+    {% if lead.conversacion_whatsapp %}
+    <a href="{% url 'whatsapp:conversacion' lead.conversacion_whatsapp.pk %}" class="btn btn-success btn-sm"><i class="bi bi-whatsapp"></i> WhatsApp</a>
+    {% else %}
+    <form method="post" action="{% url 'whatsapp:iniciar_conversacion' lead.pk %}" class="d-inline">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline-success btn-sm"><i class="bi bi-whatsapp"></i> Iniciar conversación</button>
+    </form>
+    {% endif %}
+    {% if request.user.can_see_all_leads %}
+    <form method="post" action="{% url 'leads:convertir' lead.pk %}" class="d-inline"
+          onsubmit="return confirm('¿Convertir a {{ lead.nombre_completo }} en Cliente? El lead será eliminado.')">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-person-check"></i> Convertir a Cliente</button>
+    </form>
+    <a href="{% url 'leads:delete' lead.pk %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Lead info -->
+  <div class="col-12 col-lg-4">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-transparent fw-semibold">Datos del lead</div>
+      <div class="card-body">
+        <dl class="row mb-0 small">
+          <dt class="col-5">DNI</dt><dd class="col-7">{{ lead.dni }}</dd>
+          <dt class="col-5">Teléfono</dt><dd class="col-7"><a href="tel:{{ lead.telefono }}">{{ lead.telefono }}</a></dd>
+          <dt class="col-5">Email</dt><dd class="col-7">{{ lead.email|default:"—" }}</dd>
+          <dt class="col-5">Nacimiento</dt><dd class="col-7">{{ lead.fecha_nacimiento|date:"d/m/Y"|default:"—" }}</dd>
+          <dt class="col-5">Localidad</dt><dd class="col-7">{{ lead.localidad|default:"—" }}</dd>
+          <dt class="col-5">Provincia</dt><dd class="col-7">{{ lead.provincia|default:"—" }}</dd>
+          <dt class="col-5">Plan</dt><dd class="col-7">{{ lead.plan_interes|default:"—" }}</dd>
+          <dt class="col-5">Grupo familiar</dt><dd class="col-7">{{ lead.grupo_familiar }}</dd>
+          <dt class="col-5">Origen</dt><dd class="col-7">{{ lead.get_origen_display }}</dd>
+          <dt class="col-5">Prioridad</dt><dd class="col-7"><span class="badge bg-{{ lead.get_prioridad_badge_class }}">{{ lead.get_prioridad_display }}</span></dd>
+          <dt class="col-5">Agente</dt><dd class="col-7">{{ lead.agente.get_full_name|default:"Sin asignar" }}</dd>
+          <dt class="col-5">Creado</dt><dd class="col-7">{{ lead.created_at|date:"d/m/Y H:i" }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <!-- Change state -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-transparent fw-semibold d-flex align-items-center justify-content-between">
+        Estado actual
+        <span class="badge bg-{{ lead.get_estado_badge_class }} fs-6">{{ lead.get_estado_display }}</span>
+      </div>
+      <div class="card-body">
+        <form method="post" action="{% url 'leads:change_estado' lead.pk %}">
+          {% csrf_token %}
+          {{ estado_form.estado }}
+          {{ estado_form.nota }}
+          <button type="submit" class="btn btn-primary btn-sm mt-2 w-100">Cambiar estado</button>
+        </form>
+      </div>
+    </div>
+
+    {% if lead.notas %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">Notas internas</div>
+      <div class="card-body small">{{ lead.notas|linebreaksbr }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Tabs: tareas, cotizaciones, mensajes, historial -->
+  <div class="col-12 col-lg-8">
+    <ul class="nav nav-tabs" id="leadTabs">
+      <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabTareas">Tareas ({{ tareas|length }})</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabCotizaciones">Cotizaciones ({{ cotizaciones|length }})</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabMensajes">Mensajes ({{ mensajes|length }})</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabDocumentos">Documentos ({{ documentos|length }})</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabHistorial">Historial</button></li>
+      {% if campos %}<li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabCampos">Campos ({{ campos|length }})</button></li>{% endif %}
+    </ul>
+    <div class="tab-content border border-top-0 rounded-bottom p-3 bg-white">
+
+      <!-- Tareas -->
+      <div class="tab-pane fade show active" id="tabTareas">
+        <a href="{% url 'tasks:create' %}?lead={{ lead.pk }}" class="btn btn-sm btn-primary mb-2"><i class="bi bi-plus"></i> Nueva tarea</a>
+        {% for tarea in tareas %}
+        <div class="d-flex justify-content-between align-items-start border-bottom py-2 small">
+          <div>
+            <i class="bi bi-{{ tarea.get_tipo_icon }} text-primary"></i>
+            <strong>{{ tarea.get_tipo_display }}</strong>
+            <span class="text-muted ms-2">{{ tarea.fecha_programada|date:"d/m H:i" }}</span>
+            <div class="text-muted">{{ tarea.descripcion|truncatechars:80 }}</div>
+          </div>
+          <span class="badge bg-{% if tarea.status == 'completada' %}success{% elif tarea.status == 'vencida' %}danger{% else %}warning text-dark{% endif %}">{{ tarea.get_status_display }}</span>
+        </div>
+        {% empty %}
+        <p class="text-muted small">Sin tareas registradas.</p>
+        {% endfor %}
+      </div>
+
+      <!-- Cotizaciones -->
+      <div class="tab-pane fade" id="tabCotizaciones">
+        <a href="{% url 'quotes:create' %}?lead={{ lead.pk }}" class="btn btn-sm btn-success mb-2"><i class="bi bi-plus"></i> Nueva cotización</a>
+        {% for c in cotizaciones %}
+        <div class="d-flex justify-content-between align-items-center border-bottom py-2 small">
+          <div>
+            <strong>{{ c.plan|default:"Sin plan" }}</strong> — ${{ c.monto_mensual }} /mes
+            <div class="text-muted">{{ c.cantidad_integrantes }} integrante(s) · {{ c.created_at|date:"d/m/Y" }}</div>
+          </div>
+          <div class="d-flex gap-1 align-items-center">
+            <span class="badge bg-secondary">{{ c.get_status_display }}</span>
+            <a href="{% url 'quotes:detail' c.pk %}" class="btn btn-xs btn-outline-primary btn-sm"><i class="bi bi-eye"></i></a>
+            <a href="{% url 'quotes:pdf' c.pk %}" class="btn btn-xs btn-outline-danger btn-sm"><i class="bi bi-file-pdf"></i></a>
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-muted small">Sin cotizaciones.</p>
+        {% endfor %}
+      </div>
+
+      <!-- Mensajes -->
+      <div class="tab-pane fade" id="tabMensajes">
+        {% if lead.conversacion_whatsapp %}
+        <a href="{% url 'whatsapp:conversacion' lead.conversacion_whatsapp.pk %}" class="btn btn-sm btn-success mb-2"><i class="bi bi-whatsapp"></i> Abrir chat completo</a>
+        {% else %}
+        <form method="post" action="{% url 'whatsapp:iniciar_conversacion' lead.pk %}" class="mb-2">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-whatsapp"></i> Iniciar conversación por WhatsApp</button>
+        </form>
+        {% endif %}
+        {% for msg in mensajes %}
+        <div class="d-flex {% if msg.direccion == 'out' %}justify-content-end{% endif %} mb-1">
+          <div class="rounded p-2 small {% if msg.direccion == 'out' %}bg-primary text-white{% else %}bg-light border{% endif %}" style="max-width:80%;">
+            {{ msg.contenido|default:"[media]" }}
+            <div class="{% if msg.direccion == 'out' %}text-white-50{% else %}text-muted{% endif %}" style="font-size:.7rem;">{{ msg.timestamp|date:"d/m H:i" }}</div>
+          </div>
+        </div>
+        {% empty %}
+        <p class="text-muted small">Sin mensajes de WhatsApp.</p>
+        {% endfor %}
+      </div>
+
+      <!-- Documentos -->
+      <div class="tab-pane fade" id="tabDocumentos">
+        <!-- Upload form -->
+        <form method="post" action="{% url 'leads:documento_upload' lead.pk %}" enctype="multipart/form-data" class="mb-3 border rounded p-3 bg-light">
+          {% csrf_token %}
+          <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-4">
+              <label class="form-label small fw-semibold mb-1">Archivo</label>
+              <input type="file" name="archivo" class="form-control form-control-sm" required accept=".pdf,.jpg,.jpeg,.png,.docx,.doc,.xlsx,.xls">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label small fw-semibold mb-1">Tipo</label>
+              <select name="tipo" class="form-select form-select-sm">
+                {% for val, label in documento_tipos %}
+                <option value="{{ val }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label small fw-semibold mb-1">Descripción (opcional)</label>
+              <input type="text" name="nombre" class="form-control form-control-sm" placeholder="Ej: Recibo feb 2025">
+            </div>
+            <div class="col-auto">
+              <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-upload"></i> Subir</button>
+            </div>
+          </div>
+        </form>
+        <!-- Document list -->
+        {% if documentos %}
+        <ul class="list-group list-group-flush">
+          {% for doc in documentos %}
+          <li class="list-group-item px-0 d-flex align-items-center gap-2">
+            <i class="bi bi-{{ doc.icono }} fs-5"></i>
+            <div class="flex-grow-1">
+              <a href="{{ doc.archivo.url }}" target="_blank" class="fw-semibold text-decoration-none small">{{ doc.nombre }}</a>
+              <div class="text-muted" style="font-size:.72rem;">{{ doc.get_tipo_display }} · {{ doc.created_at|date:"d/m/Y" }} · {{ doc.subido_por.get_full_name|default:"Sistema" }}</div>
+            </div>
+            <form method="post" action="{% url 'leads:documento_delete' doc.pk %}" class="d-inline"
+                  onsubmit="return confirm('¿Eliminar este documento?')">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-danger btn-sm py-0"><i class="bi bi-trash"></i></button>
+            </form>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted small">Sin documentos subidos todavía.</p>
+        {% endif %}
+      </div>
+
+      <!-- Historial -->
+      <div class="tab-pane fade" id="tabHistorial">
+        <ul class="list-group list-group-flush">
+          {% for h in historial %}
+          <li class="list-group-item px-0 small">
+            <span class="text-muted">{{ h.created_at|date:"d/m/Y H:i" }}</span>
+            <strong class="ms-2">{{ h.cambiado_por.get_full_name|default:"Sistema" }}</strong>
+            cambió de
+            <span class="badge bg-secondary">{{ h.get_estado_anterior_display|default:"—" }}</span>
+            a
+            <span class="badge bg-primary">{{ h.get_estado_nuevo_display }}</span>
+            {% if h.nota %}<div class="text-muted fst-italic">{{ h.nota }}</div>{% endif %}
+          </li>
+          {% empty %}
+          <li class="list-group-item px-0 text-muted small">Sin historial.</li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <!-- Campos personalizados -->
+      {% if campos %}
+      <div class="tab-pane fade" id="tabCampos">
+        <form method="post" action="{% url 'leads:update_campos' lead.pk %}">
+          {% csrf_token %}
+          <div class="row g-3">
+            {% for campo in campos %}
+            <div class="col-12 col-md-6">
+              <label class="form-label small fw-semibold">
+                {{ campo.nombre }}
+                {% if campo.requerido %}<span class="text-danger">*</span>{% endif %}
+                <span class="text-muted fw-normal">({{ campo.get_tipo_display }})</span>
+              </label>
+              {% if campo.tipo == 'lista' %}
+              <select name="campo_{{ campo.slug }}" class="form-select form-select-sm">
+                <option value="">— Sin valor —</option>
+                {% for opcion in campo.opciones %}
+                <option value="{{ opcion }}" {% if lead.datos_extra and lead.datos_extra|dict_key:campo.slug == opcion %}selected{% endif %}>{{ opcion }}</option>
+                {% endfor %}
+              </select>
+              {% elif campo.tipo == 'booleano' %}
+              <div class="form-check mt-1">
+                <input type="checkbox" class="form-check-input" name="campo_{{ campo.slug }}" id="lc_{{ campo.slug }}"
+                  {% if lead.datos_extra and lead.datos_extra|dict_key:campo.slug %}checked{% endif %}>
+                <label class="form-check-label small" for="lc_{{ campo.slug }}">Sí</label>
+              </div>
+              {% elif campo.tipo == 'fecha' %}
+              <input type="date" name="campo_{{ campo.slug }}" class="form-control form-control-sm"
+                value="{{ lead.datos_extra|dict_key:campo.slug|default:'' }}">
+              {% elif campo.tipo == 'numero' %}
+              <input type="number" name="campo_{{ campo.slug }}" class="form-control form-control-sm"
+                value="{{ lead.datos_extra|dict_key:campo.slug|default:'' }}" step="any">
+              {% else %}
+              <input type="text" name="campo_{{ campo.slug }}" class="form-control form-control-sm"
+                value="{{ lead.datos_extra|dict_key:campo.slug|default:'' }}">
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          <div class="mt-3">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-lg"></i> Guardar campos</button>
+          </div>
+        </form>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}

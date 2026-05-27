@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% block title %}Configuración WhatsApp{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-4">
+  <i class="bi bi-whatsapp text-success fs-3"></i>
+  <div>
+    <h4 class="mb-0 fw-bold">Configuración WhatsApp</h4>
+    <small class="text-muted">Evolution API — conexión por QR Code (sin API oficial de Meta)</small>
+  </div>
+</div>
+
+<div class="row g-4" style="max-width:900px;">
+
+  <!-- Estado de conexión -->
+  <div class="col-12">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div id="statusIcon" class="fs-2">
+          {% if connection_state == 'open' %}
+            <i class="bi bi-check-circle-fill text-success"></i>
+          {% elif connection_state == 'connecting' %}
+            <i class="bi bi-arrow-repeat text-warning"></i>
+          {% else %}
+            <i class="bi bi-x-circle-fill text-danger"></i>
+          {% endif %}
+        </div>
+        <div>
+          <div class="fw-bold" id="statusText">
+            {% if connection_state == 'open' %}WhatsApp conectado{% elif connection_state == 'connecting' %}Conectando...{% else %}Sin conexión{% endif %}
+          </div>
+          <small class="text-muted" id="statusDetail">
+            {% if connection_state == 'open' %}La instancia está activa y puede enviar y recibir mensajes.{% else %}Escaneá el QR con el celular para conectar WhatsApp.{% endif %}
+          </small>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm ms-auto" onclick="checkStatus()">
+          <i class="bi bi-arrow-clockwise"></i> Actualizar estado
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR Code panel -->
+  <div class="col-md-5" id="qrSection" {% if connection_state == 'open' %}style="display:none"{% endif %}>
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-transparent border-0 fw-semibold">
+        <i class="bi bi-qr-code"></i> Escanear QR para conectar
+      </div>
+      <div class="card-body text-center">
+        <div id="qrContainer">
+          <p class="text-muted small mb-3">Hacé clic en el botón para generar el QR y escanearlo con el celular desde WhatsApp → Dispositivos vinculados.</p>
+          <button class="btn btn-success" onclick="loadQR()">
+            <i class="bi bi-qr-code-scan"></i> Mostrar QR
+          </button>
+        </div>
+        <div id="qrImageWrapper" style="display:none">
+          <img id="qrImage" src="" alt="QR Code" class="img-fluid rounded" style="max-width:280px;">
+          <p class="text-muted small mt-2 mb-1">El QR expira en ~20 segundos. Si expira, recargá.</p>
+          <button class="btn btn-outline-secondary btn-sm" onclick="loadQR()">
+            <i class="bi bi-arrow-clockwise"></i> Recargar QR
+          </button>
+        </div>
+        <div id="qrSpinner" style="display:none" class="py-4">
+          <div class="spinner-border text-success" role="status"></div>
+          <div class="small text-muted mt-2">Cargando QR...</div>
+        </div>
+        <div id="qrError" style="display:none" class="alert alert-danger small mt-2 mb-0"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Credentials form -->
+  <div class="col-md-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent border-0 fw-semibold">
+        <i class="bi bi-gear"></i> Credenciales de Evolution API
+      </div>
+      <div class="card-body">
+        <form method="post" id="configForm">
+          {% csrf_token %}
+          <div class="row g-3">
+
+            <div class="col-12">
+              <label class="form-label fw-semibold">URL de Evolution API <span class="text-danger">*</span></label>
+              <input type="url" name="evolution_api_url"
+                     value="{{ config.evolution_api_url }}"
+                     class="form-control font-monospace"
+                     placeholder="http://evolution-api:8080">
+              <div class="form-text">URL base del servicio Evolution API (dentro de Docker: <code>http://evolution-api:8080</code>).</div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label fw-semibold">API Key <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <input type="password" name="evolution_api_key" id="evolution_api_key"
+                       value="{{ config.evolution_api_key }}"
+                       class="form-control font-monospace"
+                       placeholder="tu_api_key_segura">
+                <button type="button" class="btn btn-outline-secondary" onclick="toggleField('evolution_api_key')">
+                  <i class="bi bi-eye" id="evolution_api_key_icon"></i>
+                </button>
+              </div>
+              <div class="form-text">Clave configurada en <code>AUTHENTICATION_API_KEY</code> de Evolution API.</div>
+            </div>
+
+            <div class="col-md-7">
+              <label class="form-label fw-semibold">Nombre de instancia</label>
+              <input type="text" name="evolution_instance_name"
+                     value="{{ config.evolution_instance_name|default:'crm-supreg' }}"
+                     class="form-control font-monospace"
+                     placeholder="crm-supreg">
+              <div class="form-text">Nombre único de la instancia en Evolution API.</div>
+            </div>
+
+            <div class="col-md-5">
+              <label class="form-label fw-semibold">Token de Webhook</label>
+              <input type="text" name="webhook_token"
+                     value="{{ config.webhook_token }}"
+                     class="form-control font-monospace"
+                     placeholder="token_secreto">
+              <div class="form-text">Se valida en el header <code>apikey</code> de cada webhook entrante.</div>
+            </div>
+
+          </div>
+
+          <div class="mt-4">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-floppy"></i> Guardar configuración</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Webhook URL info -->
+  <div class="col-12">
+    <div class="card border-0 bg-light">
+      <div class="card-body">
+        <h6 class="fw-bold mb-2"><i class="bi bi-link-45deg"></i> URL del Webhook para Evolution API</h6>
+        <p class="text-muted small mb-2">Configurá esta URL en la instancia de Evolution API (campo <code>webhook.url</code>):</p>
+        <div class="input-group">
+          <input type="text" class="form-control font-monospace form-control-sm"
+                 value="{{ request.scheme }}://{{ request.get_host }}/whatsapp/webhook/" readonly id="webhookUrl">
+          <button class="btn btn-outline-secondary btn-sm" onclick="copyWebhookUrl()">
+            <i class="bi bi-clipboard"></i> Copiar
+          </button>
+        </div>
+        <p class="text-muted small mt-2 mb-0">Eventos a suscribir: <code>messages.upsert</code>, <code>messages.update</code>, <code>connection.update</code></p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{% block extra_js %}
+<script>
+function toggleField(id) {
+  const input = document.getElementById(id);
+  const icon = document.getElementById(id + '_icon');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.className = 'bi bi-eye-slash';
+  } else {
+    input.type = 'password';
+    icon.className = 'bi bi-eye';
+  }
+}
+
+function copyWebhookUrl() {
+  const url = document.getElementById('webhookUrl').value;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = event.target.closest('button');
+    btn.innerHTML = '<i class="bi bi-check-lg"></i> Copiado';
+    setTimeout(() => btn.innerHTML = '<i class="bi bi-clipboard"></i> Copiar', 2000);
+  });
+}
+
+function checkStatus() {
+  fetch('{% url "whatsapp:connection_status" %}')
+    .then(r => r.json())
+    .then(data => {
+      const icon = document.getElementById('statusIcon');
+      const text = document.getElementById('statusText');
+      const detail = document.getElementById('statusDetail');
+      const qrSection = document.getElementById('qrSection');
+      if (data.connected) {
+        icon.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i>';
+        text.textContent = 'WhatsApp conectado';
+        detail.textContent = 'La instancia está activa y puede enviar y recibir mensajes.';
+        qrSection.style.display = 'none';
+      } else {
+        icon.innerHTML = '<i class="bi bi-x-circle-fill text-danger"></i>';
+        text.textContent = 'Sin conexión';
+        detail.textContent = 'Escaneá el QR con el celular para conectar WhatsApp.';
+        qrSection.style.display = '';
+      }
+    })
+    .catch(() => {
+      document.getElementById('statusText').textContent = 'Error al verificar estado';
+    });
+}
+
+function loadQR() {
+  const container = document.getElementById('qrContainer');
+  const wrapper = document.getElementById('qrImageWrapper');
+  const spinner = document.getElementById('qrSpinner');
+  const errDiv = document.getElementById('qrError');
+
+  container.style.display = 'none';
+  wrapper.style.display = 'none';
+  spinner.style.display = '';
+  errDiv.style.display = 'none';
+
+  fetch('{% url "whatsapp:qr_code" %}')
+    .then(r => r.json())
+    .then(data => {
+      spinner.style.display = 'none';
+      if (data.connected) {
+        checkStatus();
+        return;
+      }
+      if (data.qr_base64) {
+        const img = document.getElementById('qrImage');
+        // Evolution API may return just base64 data or full data URI
+        img.src = data.qr_base64.startsWith('data:') ? data.qr_base64 : 'data:image/png;base64,' + data.qr_base64;
+        wrapper.style.display = '';
+        // Poll status every 3s while QR is visible
+        startStatusPolling();
+      } else {
+        errDiv.textContent = 'No se pudo obtener el QR. Verificá las credenciales.';
+        errDiv.style.display = '';
+        container.style.display = '';
+      }
+    })
+    .catch(e => {
+      spinner.style.display = 'none';
+      errDiv.textContent = 'Error al cargar el QR: ' + e.message;
+      errDiv.style.display = '';
+      container.style.display = '';
+    });
+}
+
+let statusPollInterval = null;
+function startStatusPolling() {
+  if (statusPollInterval) clearInterval(statusPollInterval);
+  statusPollInterval = setInterval(() => {
+    fetch('{% url "whatsapp:connection_status" %}')
+      .then(r => r.json())
+      .then(data => {
+        if (data.connected) {
+          clearInterval(statusPollInterval);
+          checkStatus();
+        }
+      });
+  }, 3000);
+}
+</script>
+{% endblock %}
+{% endblock %}

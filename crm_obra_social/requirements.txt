@@ -1,0 +1,15 @@
+Django==5.1.4
+djangorestframework==3.15.2
+psycopg2-binary==2.9.9
+redis==5.0.7
+celery==5.4.0
+django-celery-beat==2.7.0
+django-celery-results==2.6.0
+gunicorn==22.0.0
+whitenoise==6.7.0
+requests==2.32.3
+Pillow==10.4.0
+WeasyPrint==62.3
+django-debug-toolbar==4.4.2
+python-decouple==3.8
+openpyxl==3.1.5

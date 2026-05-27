@@ -1,0 +1,94 @@
+/* CRM Obra Social — main styles */
+
+:root {
+  --sidebar-width: 0;
+}
+
+body {
+  background-color: #f4f6f9;
+  font-size: .9rem;
+}
+
+/* Navbar */
+.navbar-brand {
+  font-size: 1rem;
+  letter-spacing: -.01em;
+}
+
+/* Cards */
+.card {
+  border-radius: 10px;
+}
+
+.card-header {
+  border-bottom: 1px solid #edf0f2;
+  font-size: .85rem;
+  padding: .75rem 1rem;
+}
+
+/* Tables */
+.table th {
+  font-size: .78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #6c757d;
+}
+
+/* Badges */
+.badge {
+  font-weight: 500;
+}
+
+/* Forms */
+.form-control, .form-select {
+  font-size: .875rem;
+}
+
+.form-label {
+  font-size: .82rem;
+  margin-bottom: .25rem;
+}
+
+/* Lead priority colors */
+.border-left-alta   { border-left: 3px solid #dc3545 !important; }
+.border-left-media  { border-left: 3px solid #ffc107 !important; }
+.border-left-baja   { border-left: 3px solid #198754 !important; }
+
+/* WhatsApp chat */
+.chat-container {
+  scrollbar-width: thin;
+  scrollbar-color: #ccc transparent;
+}
+
+/* Kanban */
+.kanban-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+  transform: translateY(-1px);
+  transition: all .15s ease;
+}
+
+/* Pagination */
+.pagination .page-link {
+  font-size: .82rem;
+}
+
+/* Utility */
+.fs-xs { font-size: .75rem; }
+.cursor-pointer { cursor: pointer; }
+
+/* Responsive table wrapper */
+.table-responsive {
+  border-radius: 0 0 10px 10px;
+}
+
+/* Alert tweaks */
+.alert {
+  font-size: .875rem;
+}
+
+/* Active nav */
+.navbar .nav-link.active {
+  font-weight: 600;
+  border-bottom: 2px solid rgba(255,255,255,.7);
+}

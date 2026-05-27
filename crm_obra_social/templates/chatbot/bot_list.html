@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Chatbots{% endblock %}
+{% block nav_chatbot %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <h4 class="mb-0 fw-bold">
+    <i class="bi bi-diagram-3 text-primary"></i> Chatbots
+    <span class="text-muted fs-6 fw-normal ms-1">({{ bots|length }})</span>
+  </h4>
+  <a href="{% url 'chatbot:create' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-lg"></i> Nuevo chatbot
+  </a>
+</div>
+
+{% if bots %}
+<div class="row g-3">
+  {% for bot in bots %}
+  <div class="col-12 col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-start justify-content-between mb-2">
+          <div class="d-flex align-items-center gap-2">
+            <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center flex-shrink-0"
+                 style="width:42px;height:42px;">
+              <i class="bi bi-diagram-3 fs-5"></i>
+            </div>
+            <div>
+              <h6 class="mb-0 fw-semibold">{{ bot.nombre }}</h6>
+              <small class="text-muted">{{ bot.created_at|date:"d/m/Y" }}</small>
+            </div>
+          </div>
+          <form method="post" action="{% url 'chatbot:toggle' bot.pk %}" class="d-inline toggle-form">
+            {% csrf_token %}
+            <button type="submit"
+                    class="btn btn-sm {% if bot.activo %}btn-success{% else %}btn-outline-secondary{% endif %} toggle-btn"
+                    title="{% if bot.activo %}Activo{% else %}Inactivo{% endif %}"
+                    data-bot="{{ bot.pk }}">
+              <i class="bi {% if bot.activo %}bi-toggle-on{% else %}bi-toggle-off{% endif %}"></i>
+            </button>
+          </form>
+        </div>
+        {% if bot.descripcion %}
+        <p class="small text-muted mb-3">{{ bot.descripcion|truncatechars:80 }}</p>
+        {% else %}
+        <p class="small text-muted mb-3 fst-italic">Sin descripción</p>
+        {% endif %}
+      </div>
+      <div class="card-footer bg-transparent border-top-0 pt-0 pb-3 px-3">
+        <div class="d-flex gap-2">
+          <a href="{% url 'chatbot:builder' bot.pk %}" class="btn btn-primary btn-sm flex-fill">
+            <i class="bi bi-pencil-square"></i> Editar flujo
+          </a>
+          <a href="{% url 'chatbot:update' bot.pk %}" class="btn btn-outline-secondary btn-sm" title="Configuración">
+            <i class="bi bi-gear"></i>
+          </a>
+          <form method="post" action="{% url 'chatbot:delete' bot.pk %}" class="d-inline"
+                onsubmit="return confirm('¿Eliminar bot {{ bot.nombre }}?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar">
+              <i class="bi bi-trash"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5">
+  <i class="bi bi-diagram-3" style="font-size:3rem;color:#dee2e6;"></i>
+  <h5 class="mt-3 text-muted">No hay chatbots todavía</h5>
+  <p class="text-muted small mb-4">Crea tu primer flujo de conversación para WhatsApp.</p>
+  <a href="{% url 'chatbot:create' %}" class="btn btn-primary">
+    <i class="bi bi-plus-lg"></i> Crear chatbot
+  </a>
+</div>
+{% endif %}
+
+<script>
+document.querySelectorAll('.toggle-form').forEach(form => {
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = this.querySelector('.toggle-btn');
+    fetch(this.action, {
+      method: 'POST',
+      headers: {'X-CSRFToken': this.querySelector('[name=csrfmiddlewaretoken]').value},
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.activo) {
+        btn.className = 'btn btn-sm btn-success toggle-btn';
+        btn.innerHTML = '<i class="bi bi-toggle-on"></i>';
+        btn.title = 'Activo';
+      } else {
+        btn.className = 'btn btn-sm btn-outline-secondary toggle-btn';
+        btn.innerHTML = '<i class="bi bi-toggle-off"></i>';
+        btn.title = 'Inactivo';
+      }
+    });
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Bot WhatsApp{% endblock %}
+{% block nav_whatsapp %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-robot text-primary"></i> Bot de respuestas automáticas</h4>
+  <a href="{% url 'whatsapp:bot_create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nueva regla</a>
+</div>
+
+<div class="alert alert-info small py-2 mb-3">
+  Las reglas se evalúan <strong>en orden</strong> cuando llega un mensaje. Solo se aplica la <strong>primera regla que coincida</strong>.
+  Podés reordenar cambiando el número de orden.
+</div>
+
+{% if reglas %}
+<div class="row g-3">
+  {% for r in reglas %}
+  <div class="col-12">
+    <div class="card border-0 shadow-sm {% if not r.activa %}opacity-50{% endif %}">
+      <div class="card-body d-flex justify-content-between align-items-start gap-3 flex-wrap">
+        <div class="flex-grow-1">
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="fw-bold text-muted small">{{ r.orden }}</span>
+            <span class="badge bg-{% if r.activa %}success{% else %}secondary{% endif %}">{% if r.activa %}Activa{% else %}Inactiva{% endif %}</span>
+            <h6 class="mb-0 fw-semibold">{{ r.nombre }}</h6>
+          </div>
+          <div class="d-flex flex-wrap gap-2 small">
+            <span class="badge bg-light text-dark border">
+              {% if r.trigger_tipo == 'primer_mensaje' %}<i class="bi bi-person-plus"></i> Bienvenida
+              {% else %}<i class="bi bi-chat-quote"></i> Palabras clave: {{ r.palabras_clave|join:", " }}
+              {% endif %}
+            </span>
+            <span class="badge bg-primary">
+              {% if r.respuesta_tipo == 'texto' %}<i class="bi bi-chat-text"></i> Texto
+              {% elif r.respuesta_tipo == 'plantilla' %}<i class="bi bi-file-text"></i> Plantilla: {{ r.respuesta_plantilla.nombre|default:"—" }}
+              {% else %}<i class="bi bi-ui-checks"></i> Botones interactivos
+              {% endif %}
+            </span>
+            {% if r.accion_estado %}
+            <span class="badge bg-warning text-dark"><i class="bi bi-arrow-right"></i> Estado → {{ r.accion_estado }}</span>
+            {% endif %}
+            {% if r.accion_prioridad %}
+            <span class="badge bg-info"><i class="bi bi-flag"></i> Prioridad → {{ r.accion_prioridad }}</span>
+            {% endif %}
+          </div>
+          {% if r.respuesta_tipo == 'texto' and r.respuesta_texto %}
+          <div class="text-muted small mt-1 fst-italic">"{{ r.respuesta_texto|truncatechars:80 }}"</div>
+          {% endif %}
+        </div>
+        <div class="d-flex gap-1 flex-shrink-0">
+          <button class="btn btn-sm btn-outline-{% if r.activa %}warning{% else %}success{% endif %} btn-toggle"
+                  data-url="{% url 'whatsapp:bot_toggle' r.pk %}">
+            {% if r.activa %}<i class="bi bi-pause-fill"></i>{% else %}<i class="bi bi-play-fill"></i>{% endif %}
+          </button>
+          <a href="{% url 'whatsapp:bot_update' r.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+          <form method="post" action="{% url 'whatsapp:bot_delete' r.pk %}" class="d-inline"
+                onsubmit="return confirm('¿Eliminar esta regla?')">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body text-center text-muted py-5">
+    <i class="bi bi-robot" style="font-size:2rem;"></i>
+    <p class="mt-2">No hay reglas de bot configuradas todavía.</p>
+    <a href="{% url 'whatsapp:bot_create' %}" class="btn btn-primary btn-sm">Crear la primera regla</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.btn-toggle').forEach(btn => {
+  btn.addEventListener('click', function() {
+    fetch(this.dataset.url, {method:'POST', headers:{'X-CSRFToken':'{{ csrf_token }}'}})
+      .then(r => r.json()).then(() => location.reload());
+  });
+});
+</script>
+{% endblock %}

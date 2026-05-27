@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+{% block title %}Chat con {{ conv.get_display_name }}{% endblock %}
+{% block nav_whatsapp %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+.chat-container { height: calc(100vh - 320px); min-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 12px; background: #e5ddd5; border-radius: 8px; }
+.bubble { max-width: 72%; border-radius: 12px; padding: 8px 12px; font-size: .9rem; word-break: break-word; }
+.bubble-in  { align-self: flex-start; background: #fff; border-radius: 0 12px 12px 12px; }
+.bubble-out { align-self: flex-end;   background: #d9fdd3; border-radius: 12px 0 12px 12px; }
+.bubble-time { font-size: .7rem; color: #667781; margin-top: 2px; }
+.btn-interactivo { display: inline-block; border: 1px solid #0d6efd; color: #0d6efd; border-radius: 8px; padding: 3px 10px; margin: 2px 3px 0 0; font-size: .8rem; cursor: default; }
+.media-thumb { max-width: 220px; max-height: 200px; border-radius: 8px; cursor: pointer; }
+audio { max-width: 240px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+  <div>
+    <a href="{% url 'whatsapp:inbox' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Inbox</a>
+    <h5 class="mb-0 fw-bold mt-1">
+      <i class="bi bi-whatsapp text-success"></i> {{ conv.get_display_name }}
+      <small class="text-muted fw-normal ms-1">{{ conv.telefono }}</small>
+    </h5>
+  </div>
+  <div class="d-flex gap-2 align-items-center flex-wrap">
+    {% if conv.lead %}
+    <a href="{% url 'leads:detail' conv.lead.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-person"></i> Ver lead</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if request.user.can_see_all_leads and agents %}
+<form method="post" class="mb-2 d-flex gap-2 align-items-center">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="assign_agent">
+  <select name="agente_id" class="form-select form-select-sm" style="max-width:220px;">
+    <option value="">Sin asignar</option>
+    {% for a in agents %}
+    <option value="{{ a.pk }}" {% if conv.agente_id == a.pk %}selected{% endif %}>{{ a.get_full_name }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-sm btn-outline-secondary">Asignar agente</button>
+</form>
+{% endif %}
+
+<!-- Chat -->
+<div class="chat-container" id="chatContainer">
+  {% for msg in mensajes %}
+  <div class="d-flex {% if msg.direccion == 'out' %}justify-content-end{% endif %}" data-msg-id="{{ msg.pk }}">
+    <div class="bubble {% if msg.direccion == 'out' %}bubble-out{% else %}bubble-in{% endif %}">
+      {% if msg.tipo == 'image' %}
+        {% if msg.media_url %}
+        <img src="{{ msg.media_url }}" class="media-thumb" onclick="window.open(this.src)" alt="Imagen">
+        {% else %}
+        <i class="bi bi-image text-muted"></i> <span class="text-muted small">Imagen ({{ msg.media_id|truncatechars:12 }})</span>
+        {% endif %}
+        {% if msg.contenido %}<div class="small mt-1">{{ msg.contenido }}</div>{% endif %}
+      {% elif msg.tipo == 'video' %}
+        {% if msg.media_url %}
+        <video class="media-thumb" controls><source src="{{ msg.media_url }}"></video>
+        {% else %}
+        <i class="bi bi-camera-video text-muted"></i> <span class="text-muted small">Video</span>
+        {% endif %}
+      {% elif msg.tipo == 'audio' %}
+        {% if msg.media_url %}
+        <audio controls src="{{ msg.media_url }}"></audio>
+        {% else %}
+        <i class="bi bi-mic text-muted"></i> <span class="text-muted small">Audio</span>
+        {% endif %}
+      {% elif msg.tipo == 'document' %}
+        {% if msg.media_url %}
+        <a href="{{ msg.media_url }}" target="_blank" class="d-flex align-items-center gap-1 text-decoration-none"><i class="bi bi-file-earmark-pdf text-danger"></i> {{ msg.contenido|default:"Documento" }}</a>
+        {% else %}
+        <a href="#" class="text-muted"><i class="bi bi-file-earmark"></i> {{ msg.contenido|default:"Documento" }}</a>
+        {% endif %}
+      {% elif msg.tipo == 'interactive' %}
+        <div>{{ msg.contenido|linebreaksbr }}</div>
+      {% else %}
+        {{ msg.contenido|linebreaksbr }}
+      {% endif %}
+      <div class="bubble-time d-flex justify-content-between align-items-center gap-2">
+        <span>{{ msg.timestamp|date:"d/m H:i" }}</span>
+        {% if msg.direccion == 'out' %}
+        <span>
+          {% if msg.status == 'read' %}<i class="bi bi-check2-all text-primary"></i>
+          {% elif msg.status == 'delivered' %}<i class="bi bi-check2-all"></i>
+          {% elif msg.status == 'sent' %}<i class="bi bi-check2"></i>
+          {% elif msg.status == 'failed' %}<i class="bi bi-x-circle text-danger" title="{{ msg.error_detalle }}"></i>
+          {% else %}<i class="bi bi-clock"></i>{% endif %}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="text-center text-muted py-4" id="empty-placeholder">Sin mensajes todavía.</div>
+  {% endfor %}
+</div>
+
+<!-- Reply area -->
+<div class="mt-2" id="replyArea">
+  <div id="textReply">
+    <form method="post" class="d-flex gap-2">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="send_text">
+      <input type="text" name="body" id="textInput" class="form-control" placeholder="Escribí un mensaje..." autocomplete="off">
+      <button type="submit" class="btn btn-success px-3"><i class="bi bi-send"></i></button>
+    </form>
+  </div>
+
+  <!-- Tabs for template, interactive -->
+  <ul class="nav nav-tabs mt-2" id="sendTabs">
+    <li class="nav-item"><a class="nav-link active" href="#" data-tab="template"><i class="bi bi-file-text"></i> Plantilla</a></li>
+    <li class="nav-item" id="interactiveTab">
+      <a class="nav-link" href="#" data-tab="interactive"><i class="bi bi-ui-checks"></i> Botones interactivos</a>
+    </li>
+  </ul>
+
+  <!-- Template sender -->
+  <div id="tab-template" class="border border-top-0 p-3 rounded-bottom bg-white">
+    {% if plantillas %}
+    <form method="post" id="templateForm">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="send_template">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-5">
+          <label class="form-label small fw-semibold">Plantilla</label>
+          <select name="plantilla_id" class="form-select form-select-sm" id="plantillaSelect">
+            <option value="">— Seleccioná una plantilla —</option>
+            {% for p in plantillas %}
+            <option value="{{ p.pk }}"
+                    data-vars='{{ p.variables|safe }}'
+                    data-cuerpo="{{ p.cuerpo }}"
+                    data-header="{{ p.header_tipo }}"
+                    data-footer="{{ p.footer }}">
+              {{ p.nombre }}
+              {% if p.header_tipo != 'none' %}<span class="text-muted">[{{ p.get_header_tipo_display }}]</span>{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 col-md-5" id="varFields"></div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-outline-success btn-sm"><i class="bi bi-send"></i> Enviar</button>
+        </div>
+      </div>
+      <div id="plantillaPreview" class="mt-2 p-2 bg-light rounded small text-muted" style="display:none;white-space:pre-wrap;"></div>
+    </form>
+    {% else %}
+    <p class="text-muted small mb-0">No hay plantillas. <a href="{% url 'whatsapp:plantilla_list' %}">Ir a plantillas</a></p>
+    {% endif %}
+  </div>
+
+  <!-- Interactive sender -->
+  <div id="tab-interactive" class="border border-top-0 p-3 rounded-bottom bg-white" style="display:none">
+    <form method="post" id="interactiveForm">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="send_interactive">
+      <div class="mb-2">
+        <label class="form-label small fw-semibold">Header (opcional)</label>
+        <input type="text" name="interactive_header" class="form-control form-control-sm" placeholder="Texto del encabezado">
+      </div>
+      <div class="mb-2">
+        <label class="form-label small fw-semibold">Cuerpo del mensaje *</label>
+        <textarea name="interactive_body" class="form-control form-control-sm" rows="3" placeholder="Texto principal del mensaje..." required></textarea>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small fw-semibold">Footer (opcional)</label>
+        <input type="text" name="interactive_footer" class="form-control form-control-sm" placeholder="Texto del pie">
+      </div>
+      <div class="mb-2">
+        <label class="form-label small fw-semibold">Botones (máximo 3, máximo 20 caracteres cada uno)</label>
+        <div id="btnContainer">
+          <input type="text" name="btn_title" class="form-control form-control-sm mb-1" placeholder="Botón 1" maxlength="20">
+          <input type="text" name="btn_title" class="form-control form-control-sm mb-1" placeholder="Botón 2 (opcional)" maxlength="20">
+          <input type="text" name="btn_title" class="form-control form-control-sm" placeholder="Botón 3 (opcional)" maxlength="20">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-ui-checks"></i> Enviar con botones</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const LAST_MSG_ID_INIT = {{ last_msg_id }};
+const CONV_PK = {{ conv.pk }};
+const POLL_URL = "{% url 'whatsapp:conversacion_messages_api' conv.pk %}";
+
+let lastMsgId = LAST_MSG_ID_INIT;
+
+// Scroll to bottom
+function scrollChat() {
+  const c = document.getElementById('chatContainer');
+  if (c) c.scrollTop = c.scrollHeight;
+}
+scrollChat();
+
+// Render a new message bubble
+function renderBubble(msg) {
+  const wrap = document.createElement('div');
+  wrap.className = 'd-flex ' + (msg.direccion === 'out' ? 'justify-content-end' : '');
+  wrap.dataset.msgId = msg.id;
+
+  let body = '';
+  if (msg.tipo === 'image' && msg.media_url) {
+    body = `<img src="${msg.media_url}" class="media-thumb" onclick="window.open(this.src)" alt="Imagen">`;
+  } else if (msg.tipo === 'audio' && msg.media_url) {
+    body = `<audio controls src="${msg.media_url}"></audio>`;
+  } else if (msg.tipo === 'video' && msg.media_url) {
+    body = `<video class="media-thumb" controls><source src="${msg.media_url}"></video>`;
+  } else if (msg.tipo === 'document' && msg.media_url) {
+    body = `<a href="${msg.media_url}" target="_blank"><i class="bi bi-file-earmark-pdf text-danger"></i> ${msg.contenido || 'Documento'}</a>`;
+  } else {
+    body = msg.contenido.replace(/\n/g, '<br>');
+  }
+
+  let statusIcon = '';
+  if (msg.direccion === 'out') {
+    const icons = {read:'bi-check2-all text-primary', delivered:'bi-check2-all', sent:'bi-check2', failed:'bi-x-circle text-danger', pending:'bi-clock'};
+    statusIcon = `<i class="bi ${icons[msg.status] || 'bi-clock'}"></i>`;
+  }
+
+  wrap.innerHTML = `
+    <div class="bubble ${msg.direccion === 'out' ? 'bubble-out' : 'bubble-in'}">
+      ${body}
+      <div class="bubble-time d-flex justify-content-between align-items-center gap-2">
+        <span>${msg.timestamp}</span>
+        ${msg.direccion === 'out' ? `<span>${statusIcon}</span>` : ''}
+      </div>
+    </div>`;
+
+  const chat = document.getElementById('chatContainer');
+  const empty = document.getElementById('empty-placeholder');
+  if (empty) empty.remove();
+  chat.appendChild(wrap);
+}
+
+// Poll for new messages every 4 seconds
+function pollMessages() {
+  fetch(`${POLL_URL}?since_id=${lastMsgId}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.mensajes && data.mensajes.length > 0) {
+        data.mensajes.forEach(msg => {
+          if (!document.querySelector(`[data-msg-id="${msg.id}"]`)) {
+            renderBubble(msg);
+            lastMsgId = Math.max(lastMsgId, msg.id);
+          }
+        });
+        scrollChat();
+      }
+    })
+    .catch(() => {});
+}
+setInterval(pollMessages, 4000);
+
+// Tab switching
+document.querySelectorAll('[data-tab]').forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelectorAll('[data-tab]').forEach(l => l.classList.remove('active'));
+    link.classList.add('active');
+    const tab = link.dataset.tab;
+    document.getElementById('tab-template').style.display = tab === 'template' ? '' : 'none';
+    document.getElementById('tab-interactive').style.display = tab === 'interactive' ? '' : 'none';
+  });
+});
+
+// Template variable fields + preview
+const plantillaSelect = document.getElementById('plantillaSelect');
+if (plantillaSelect) {
+  plantillaSelect.addEventListener('change', function () {
+    const opt = this.options[this.selectedIndex];
+    let vars = [];
+    try { vars = JSON.parse(opt.dataset.vars || '[]'); } catch(e) {}
+    const container = document.getElementById('varFields');
+    container.innerHTML = '';
+    vars.forEach((v, i) => {
+      container.innerHTML += `<input type="text" name="var_${i + 1}" class="form-control form-control-sm mb-1 var-input" placeholder="${v || 'Variable ' + (i+1)}">`;
+    });
+    const preview = document.getElementById('plantillaPreview');
+    if (opt.value) {
+      preview.style.display = '';
+      preview.textContent = opt.dataset.cuerpo || '';
+    } else {
+      preview.style.display = 'none';
+    }
+    container.querySelectorAll('.var-input').forEach((inp) => {
+      inp.addEventListener('input', updatePreview);
+    });
+  });
+
+  function updatePreview() {
+    const opt = plantillaSelect.options[plantillaSelect.selectedIndex];
+    let text = opt.dataset.cuerpo || '';
+    document.querySelectorAll('.var-input').forEach((inp, i) => {
+      text = text.replace('{{' + (i + 1) + '}}', inp.value || '{{' + (i + 1) + '}}');
+    });
+    document.getElementById('plantillaPreview').textContent = text;
+  }
+}
+
+// Auto-focus text input on load
+const textInput = document.getElementById('textInput');
+if (textInput) textInput.focus();
+</script>
+{% endblock %}

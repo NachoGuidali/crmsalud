@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Campañas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-megaphone text-primary"></i> Campañas WhatsApp</h4>
+  <a href="{% url 'campaigns:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nueva campaña</a>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Nombre</th><th>Plantilla</th><th>Estado</th><th>Total</th><th>Enviados</th><th>Errores</th><th>Fecha</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for c in campanas %}
+        <tr>
+          <td class="fw-semibold">{{ c.nombre }}</td>
+          <td class="small">{{ c.plantilla.nombre }}</td>
+          <td><span class="badge bg-{% if c.status == 'completada' %}success{% elif c.status == 'en_ejecucion' %}primary{% elif c.status == 'programada' %}info{% else %}secondary{% endif %}">{{ c.get_status_display }}</span></td>
+          <td>{{ c.total_destinatarios }}</td>
+          <td>{{ c.enviados }}</td>
+          <td class="{% if c.errores > 0 %}text-danger fw-bold{% endif %}">{{ c.errores }}</td>
+          <td class="small text-muted">{{ c.created_at|date:"d/m/Y" }}</td>
+          <td>
+            <a href="{% url 'campaigns:detail' c.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+            {% if c.status == 'borrador' %}
+            <a href="{% url 'campaigns:delete' c.pk %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-center text-muted py-4">Sin campañas creadas.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

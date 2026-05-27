@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}CRM Obra Social{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/static/css/main.css">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+{% if user.is_authenticated %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="{% url 'reports:dashboard' %}">
+      <i class="bi bi-heart-pulse-fill"></i> CRM Obra Social
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarMain">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a class="nav-link {% block nav_dashboard %}{% endblock %}" href="{% url 'reports:dashboard' %}">
+            <i class="bi bi-speedometer2"></i> Dashboard
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% block nav_leads %}{% endblock %}" href="{% url 'leads:list' %}">
+            <i class="bi bi-people"></i> Leads
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% block nav_contacts %}{% endblock %}" href="{% url 'leads:contact_list' %}">
+            <i class="bi bi-person-lines-fill"></i> Contactos
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% block nav_clientes %}{% endblock %}" href="{% url 'clientes:list' %}">
+            <i class="bi bi-person-check-fill"></i> Clientes
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% block nav_kanban %}{% endblock %}" href="{% url 'leads:kanban' %}">
+            <i class="bi bi-kanban"></i> Kanban
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% block nav_whatsapp %}{% endblock %}" href="{% url 'whatsapp:inbox' %}">
+            <i class="bi bi-whatsapp"></i> Inbox
+            {% if unread_messages_count > 0 %}
+            <span class="badge bg-danger rounded-pill">{{ unread_messages_count }}</span>
+            {% endif %}
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% block nav_tasks %}{% endblock %}" href="{% url 'tasks:agenda' %}">
+            <i class="bi bi-calendar-check"></i> Agenda
+            {% if pending_tasks_count > 0 %}
+            <span class="badge bg-warning text-dark rounded-pill">{{ pending_tasks_count }}</span>
+            {% endif %}
+          </a>
+        </li>
+        {% if user.can_see_all_leads %}
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            <i class="bi bi-bar-chart"></i> Más
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'campaigns:list' %}"><i class="bi bi-megaphone"></i> Campañas</a></li>
+            <li><a class="dropdown-item" href="{% url 'whatsapp:plantilla_list' %}"><i class="bi bi-file-text"></i> Plantillas</a></li>
+            <li><a class="dropdown-item" href="{% url 'whatsapp:bot_list' %}"><i class="bi bi-robot"></i> Bot WhatsApp</a></li>
+            <li><a class="dropdown-item {% block nav_chatbot %}{% endblock %}" href="{% url 'chatbot:list' %}"><i class="bi bi-diagram-3"></i> Chatbot Visual</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{% url 'automations:list' %}"><i class="bi bi-lightning-charge"></i> Automatizaciones</a></li>
+            <li><a class="dropdown-item" href="{% url 'integrations:list' %}"><i class="bi bi-plug"></i> Integraciones API</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{% url 'reports_detail:conversion' %}"><i class="bi bi-funnel"></i> Reporte conversión</a></li>
+            <li><a class="dropdown-item" href="{% url 'reports_detail:mensajes' %}"><i class="bi bi-chat-dots"></i> Reporte mensajes</a></li>
+            <li><a class="dropdown-item" href="{% url 'users:list' %}"><i class="bi bi-person-gear"></i> Usuarios</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{% url 'leads:campos' %}"><i class="bi bi-sliders"></i> Campos personalizados</a></li>
+            {% if user.can_see_all_leads %}
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{% url 'whatsapp:config' %}"><i class="bi bi-whatsapp text-success"></i> Configurar WhatsApp</a></li>
+            {% endif %}
+          </ul>
+        </li>
+        {% endif %}
+      </ul>
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" role="button" data-bs-toggle="dropdown">
+            {% if user.avatar %}
+            <img src="{{ user.avatar.url }}" class="rounded-circle" width="28" height="28" alt="avatar">
+            {% else %}
+            <i class="bi bi-person-circle fs-5"></i>
+            {% endif %}
+            {{ user.get_full_name|default:user.username }}
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{% url 'users:profile' %}"><i class="bi bi-person"></i> Mi perfil</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <form method="post" action="{% url 'users:logout' %}">
+                {% csrf_token %}
+                <button type="submit" class="dropdown-item text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</button>
+              </form>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+{% endif %}
+
+<main class="{% if user.is_authenticated %}container-fluid py-3{% endif %}">
+  {% if messages %}
+  <div class="{% if user.is_authenticated %}mb-3{% endif %}">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

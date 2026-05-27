@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}{% if cliente %}Editar cliente{% else %}Nuevo cliente{% endif %}{% endblock %}
+{% block nav_clientes %}active{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{% url 'clientes:list' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Clientes</a>
+  <h4 class="mt-1 fw-bold">{% if cliente %}Editar: {{ cliente.nombre_completo }}{% else %}Nuevo cliente{% endif %}</h4>
+</div>
+
+<div class="card border-0 shadow-sm" style="max-width:720px;">
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="row g-3">
+        {% for field in form %}
+        <div class="col-12 {% if field.name == 'notas' %}{% else %}col-md-6{% endif %}">
+          <label class="form-label small fw-semibold">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+          {{ field }}
+          {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+          {% if field.errors %}<div class="invalid-feedback d-block">{{ field.errors.0 }}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar</button>
+        <a href="{% if cliente %}{% url 'clientes:detail' cliente.pk %}{% else %}{% url 'clientes:list' %}{% endif %}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

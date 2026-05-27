@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% load crm_tags %}
+{% block title %}{{ cliente.nombre_completo }} — Cliente{% endblock %}
+{% block nav_clientes %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <a href="{% url 'clientes:list' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Clientes</a>
+    <h4 class="mb-0 fw-bold mt-1">
+      {{ cliente.nombre_completo }}
+      <span class="badge bg-success ms-2 fs-6">Cliente</span>
+    </h4>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'tasks:create' %}?cliente={{ cliente.pk }}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nueva tarea</a>
+    <a href="{% url 'clientes:update' cliente.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil"></i> Editar</a>
+    {% if request.user.can_see_all_leads %}
+    <a href="{% url 'clientes:delete' cliente.pk %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Datos del cliente -->
+  <div class="col-12 col-lg-4">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-transparent fw-semibold">Datos del cliente</div>
+      <div class="card-body">
+        <dl class="row mb-0 small">
+          <dt class="col-5">DNI</dt><dd class="col-7">{{ cliente.dni|default:"—" }}</dd>
+          <dt class="col-5">Teléfono</dt><dd class="col-7">
+            {% if cliente.telefono %}<a href="tel:{{ cliente.telefono }}">{{ cliente.telefono }}</a>{% else %}—{% endif %}
+          </dd>
+          <dt class="col-5">Email</dt><dd class="col-7">{{ cliente.email|default:"—" }}</dd>
+          <dt class="col-5">Nacimiento</dt><dd class="col-7">{{ cliente.fecha_nacimiento|date:"d/m/Y"|default:"—" }}</dd>
+          <dt class="col-5">Localidad</dt><dd class="col-7">{{ cliente.localidad|default:"—" }}</dd>
+          <dt class="col-5">Provincia</dt><dd class="col-7">{{ cliente.provincia|default:"—" }}</dd>
+          <dt class="col-5">Plan</dt><dd class="col-7">{{ cliente.plan|default:"—" }}</dd>
+          <dt class="col-5">N° afiliado</dt><dd class="col-7">{{ cliente.numero_afiliado|default:"—" }}</dd>
+          <dt class="col-5">Grupo familiar</dt><dd class="col-7">{{ cliente.grupo_familiar }}</dd>
+          <dt class="col-5">Agente</dt><dd class="col-7">{{ cliente.agente.get_full_name|default:"Sin asignar" }}</dd>
+          <dt class="col-5">Alta</dt><dd class="col-7">{{ cliente.created_at|date:"d/m/Y" }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    {% if cliente.notas %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">Notas</div>
+      <div class="card-body small">{{ cliente.notas|linebreaksbr }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Campos personalizados -->
+  <div class="col-12 col-lg-8">
+    {% if campos %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-semibold d-flex align-items-center justify-content-between">
+        Campos personalizados
+        <span class="text-muted small fw-normal">{{ campos|length }} campo{{ campos|length|pluralize }}</span>
+      </div>
+      <div class="card-body">
+        <form method="post" action="{% url 'clientes:detail' cliente.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="save_campos">
+          <div class="row g-3">
+            {% for campo in campos %}
+            <div class="col-12 col-md-6">
+              <label class="form-label small fw-semibold">
+                {{ campo.nombre }}
+                {% if campo.requerido %}<span class="text-danger">*</span>{% endif %}
+                <span class="text-muted fw-normal">({{ campo.get_tipo_display }})</span>
+              </label>
+              {% if campo.tipo == 'lista' %}
+              <select name="campo_{{ campo.slug }}" class="form-select form-select-sm">
+                <option value="">— Sin valor —</option>
+                {% for opcion in campo.opciones %}
+                <option value="{{ opcion }}" {% if cliente.datos_extra|dict_key:campo.slug == opcion %}selected{% endif %}>{{ opcion }}</option>
+                {% endfor %}
+              </select>
+              {% elif campo.tipo == 'booleano' %}
+              <div class="form-check mt-1">
+                <input type="checkbox" class="form-check-input" name="campo_{{ campo.slug }}" id="campo_{{ campo.slug }}"
+                  {% if cliente.datos_extra and cliente.datos_extra|dict_key:campo.slug %}checked{% endif %}>
+                <label class="form-check-label small" for="campo_{{ campo.slug }}">Sí</label>
+              </div>
+              {% elif campo.tipo == 'fecha' %}
+              <input type="date" name="campo_{{ campo.slug }}" class="form-control form-control-sm"
+                value="{{ cliente.datos_extra|dict_key:campo.slug|default:'' }}">
+              {% elif campo.tipo == 'numero' %}
+              <input type="number" name="campo_{{ campo.slug }}" class="form-control form-control-sm"
+                value="{{ cliente.datos_extra|dict_key:campo.slug|default:'' }}" step="any">
+              {% else %}
+              <input type="text" name="campo_{{ campo.slug }}" class="form-control form-control-sm"
+                value="{{ cliente.datos_extra|dict_key:campo.slug|default:'' }}">
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          <div class="mt-3">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-lg"></i> Guardar campos</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% else %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-body text-center text-muted py-4">
+        <i class="bi bi-sliders" style="font-size:1.8rem;"></i>
+        <p class="mt-2 small">No hay campos personalizados configurados para clientes.</p>
+        {% if request.user.can_see_all_leads %}
+        <a href="{% url 'leads:campo_create' %}" class="btn btn-outline-primary btn-sm">Crear campos</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Tareas -->
+<div class="card border-0 shadow-sm mt-3">
+  <div class="card-header bg-transparent fw-semibold d-flex justify-content-between align-items-center">
+    Tareas
+    <a href="{% url 'tasks:create' %}?cliente={{ cliente.pk }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg"></i> Nueva</a>
+  </div>
+  <div class="card-body p-0">
+    {% if tareas %}
+    <ul class="list-group list-group-flush">
+      {% for t in tareas %}
+      <li class="list-group-item d-flex align-items-start gap-2 py-2">
+        <i class="bi bi-{{ t.get_tipo_icon }} text-muted mt-1"></i>
+        <div class="flex-grow-1">
+          <div class="small fw-semibold">{{ t.descripcion|truncatechars:80 }}</div>
+          <div class="text-muted" style="font-size:.75rem;">{{ t.fecha_programada|date:"d/m/Y H:i" }}</div>
+          {% if t.resultado %}<div class="text-muted small">{{ t.resultado|truncatechars:60 }}</div>{% endif %}
+        </div>
+        <span class="badge {% if t.status == 'completada' %}bg-success{% elif t.is_vencida %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+          {% if t.is_vencida and t.status == 'pendiente' %}Vencida{% else %}{{ t.get_status_display }}{% endif %}
+        </span>
+        {% if t.status == 'pendiente' %}
+        <a href="{% url 'tasks:completar' t.pk %}" class="btn btn-sm btn-outline-success">Completar</a>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="text-center text-muted py-4 small">
+      <i class="bi bi-calendar-x"></i> Sin tareas registradas.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

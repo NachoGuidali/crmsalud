@@ -1,0 +1,531 @@
+{% extends "base.html" %}
+{% block title %}Nueva campaña{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{% url 'campaigns:list' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Campañas</a>
+  <h4 class="mt-1 fw-bold">Nueva campaña masiva</h4>
+</div>
+
+<form method="post" id="campanaForm">
+  {% csrf_token %}
+  {{ form.variables_mapping_json }}
+  {{ form.contactos_ids_json }}
+  {{ form.contactos_clientes_ids_json }}
+  {{ form.modo_seleccion }}
+  {{ form.tipo_destinatario }}
+
+  <div class="row g-4">
+    <div class="col-12 col-lg-7">
+
+      <!-- General -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent fw-semibold">Datos generales</div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Nombre de la campaña *</label>
+            {{ form.nombre }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Plantilla *</label>
+            {{ form.plantilla }}
+            <div class="form-text">Solo se muestran plantillas activas.</div>
+          </div>
+          <div class="mb-0">
+            <label class="form-label fw-semibold">Programar envío (opcional)</label>
+            {{ form.fecha_programada }}
+            <div class="form-text">Si no completás este campo, la campaña se lanza manualmente.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Variable mapping -->
+      <div class="card border-0 shadow-sm mb-4" id="variablesMappingCard" style="display:none">
+        <div class="card-header bg-transparent fw-semibold"><i class="bi bi-braces"></i> Mapeo de variables</div>
+        <div class="card-body">
+          <p class="text-muted small mb-3">Definí de dónde viene el valor de cada <code>{{1}}</code>, <code>{{2}}</code>... para cada contacto.</p>
+          <div id="variableRows"></div>
+        </div>
+      </div>
+
+      <!-- Destinatarios -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent fw-semibold d-flex align-items-center justify-content-between">
+          <span><i class="bi bi-people"></i> Destinatarios</span>
+          <span id="previewBadge" class="badge bg-primary" style="font-size:.85rem;display:none">
+            <i class="bi bi-person-check"></i> <span id="previewCount">0</span> destinatarios
+          </span>
+        </div>
+        <div class="card-body">
+
+          <!-- Mode tabs -->
+          <div class="btn-group mb-3 w-100" role="group">
+            <button type="button" class="btn btn-outline-primary active" id="btnModoSegmento" onclick="setModo('segmento')">
+              <i class="bi bi-funnel"></i> Por segmento
+            </button>
+            <button type="button" class="btn btn-outline-primary" id="btnModoManual" onclick="setModo('manual')">
+              <i class="bi bi-ui-checks-grid"></i> Selección manual
+            </button>
+          </div>
+
+          <!-- ── SEGMENT MODE ── -->
+          <div id="panelSegmento">
+            <!-- Tipo destinatario -->
+            <div class="mb-3">
+              <label class="form-label small fw-semibold">¿A quiénes enviar?</label>
+              <div class="btn-group w-100" role="group" id="tipoGroup">
+                <button type="button" class="btn btn-sm btn-outline-secondary active" data-tipo="leads" onclick="setTipo('leads')">
+                  <i class="bi bi-person-lines-fill"></i> Solo Leads
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-tipo="clientes" onclick="setTipo('clientes')">
+                  <i class="bi bi-person-check-fill"></i> Solo Clientes
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-tipo="todos" onclick="setTipo('todos')">
+                  <i class="bi bi-people-fill"></i> Leads y Clientes
+                </button>
+              </div>
+            </div>
+
+            <p class="text-muted small">Solo se envía a contactos con teléfono válido (+...). Dejá los filtros vacíos para enviar a todos.</p>
+
+            <div class="row g-3">
+              <div class="col-md-6 seg-leads-only">
+                <label class="form-label small">Estado del lead</label>
+                {{ form.seg_estado }}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small">Plan de interés</label>
+                {{ form.seg_plan }}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small">Provincia</label>
+                {{ form.seg_provincia }}
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small">Días sin contacto (mínimo)</label>
+                {{ form.seg_dias_sin_contacto }}
+              </div>
+            </div>
+          </div>
+
+          <!-- ── MANUAL MODE ── -->
+          <div id="panelManual" style="display:none">
+
+            <!-- Type filter tabs -->
+            <div class="btn-group btn-group-sm mb-3" role="group">
+              <button type="button" class="btn btn-outline-secondary active" data-tipo-buscar="todos" onclick="setTipoBuscar('todos')">
+                <i class="bi bi-people"></i> Todos
+              </button>
+              <button type="button" class="btn btn-outline-secondary" data-tipo-buscar="leads" onclick="setTipoBuscar('leads')">
+                <i class="bi bi-person-lines-fill text-primary"></i> Leads
+              </button>
+              <button type="button" class="btn btn-outline-secondary" data-tipo-buscar="clientes" onclick="setTipoBuscar('clientes')">
+                <i class="bi bi-person-check-fill text-success"></i> Clientes
+              </button>
+            </div>
+
+            <!-- Search -->
+            <div class="mb-2">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" id="contactoSearch" class="form-control"
+                       placeholder="Nombre, teléfono, DNI..." autocomplete="off">
+              </div>
+              <div class="form-text">Resultados en tiempo real.</div>
+            </div>
+
+            <!-- Search results -->
+            <div id="searchResults" class="border rounded mb-3" style="display:none;max-height:260px;overflow-y:auto;">
+              <table class="table table-sm table-hover mb-0">
+                <thead class="table-light sticky-top small">
+                  <tr>
+                    <th style="width:32px"></th>
+                    <th>Nombre</th>
+                    <th>Teléfono</th>
+                    <th>Estado / Tipo</th>
+                  </tr>
+                </thead>
+                <tbody id="searchResultsBody"></tbody>
+              </table>
+              <div id="loadMoreWrap" class="text-center p-2" style="display:none">
+                <button type="button" class="btn btn-link btn-sm" onclick="loadMoreContactos()">Cargar más...</button>
+              </div>
+              <div id="searchEmpty" class="text-center text-muted small py-3" style="display:none">Sin resultados.</div>
+            </div>
+
+            <!-- Selected contacts summary -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="small fw-semibold">
+                Seleccionados:
+                <span class="badge bg-primary" title="Leads"><i class="bi bi-person-lines-fill"></i> <span id="selectedLeadsCount">0</span></span>
+                <span class="badge bg-success ms-1" title="Clientes"><i class="bi bi-person-check-fill"></i> <span id="selectedClientesCount">0</span></span>
+              </div>
+              <button type="button" class="btn btn-link btn-sm text-danger p-0" onclick="clearSelection()">
+                <i class="bi bi-x-circle"></i> Limpiar
+              </button>
+            </div>
+            <div id="selectedChips" class="d-flex flex-wrap gap-1 mb-2"></div>
+            <div id="noSelectionWarning" class="text-muted small fst-italic">Buscá y seleccioná contactos arriba.</div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Crear campaña</button>
+        <a href="{% url 'campaigns:list' %}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </div>
+
+    <!-- Preview panel -->
+    <div class="col-12 col-lg-5">
+      <div class="card border-0 shadow-sm sticky-top" style="top:70px;" id="templatePreviewCard" style="display:none">
+        <div class="card-header bg-transparent fw-semibold"><i class="bi bi-eye"></i> Preview plantilla</div>
+        <div class="card-body" style="background:#e5ddd5;border-radius:0 0 8px 8px;">
+          <div class="bg-white rounded-3 p-3 shadow-sm" style="max-width:300px;font-size:.9rem;">
+            <div id="prevHeader" class="fw-semibold small mb-1 text-muted" style="display:none"></div>
+            <div id="prevBody" style="white-space:pre-wrap;color:#111;"></div>
+            <div id="prevFooter" class="text-muted small mt-1" style="display:none"></div>
+            <div id="prevBtns" class="mt-2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+{{ plantillas_data|json_script:"plantillas-data" }}
+{{ extra_keys_json|default:"[]"|json_script:"extra-keys" }}
+{{ planes|json_script:"planes-data" }}
+
+<script>
+const TEMPLATE_DATA = JSON.parse(document.getElementById('plantillas-data').textContent);
+const EXTRA_KEYS = JSON.parse(document.getElementById('extra-keys').textContent);
+const BUSCAR_URL = "{% url 'campaigns:api_contactos' %}";
+const PREVIEW_COUNT_URL = "{% url 'campaigns:api_preview_count' %}";
+
+const CAMPO_CHOICES = [
+  {val:'nombre_completo', label:'Nombre completo'},
+  {val:'email',           label:'Email'},
+  {val:'plan',            label:'Plan'},
+  {val:'localidad',       label:'Localidad'},
+  {val:'provincia',       label:'Provincia'},
+  {val:'telefono',        label:'Teléfono'},
+];
+
+// ── Mode / Tipo ──────────────────────────────────────────────────────────────
+let currentModo = 'segmento';
+let currentTipo = 'leads';
+let currentTipoBuscar = 'todos';
+
+function setModo(modo) {
+  currentModo = modo;
+  document.querySelector('[name="modo_seleccion"]').value = modo;
+  document.getElementById('panelSegmento').style.display = modo === 'segmento' ? '' : 'none';
+  document.getElementById('panelManual').style.display   = modo === 'manual'   ? '' : 'none';
+  document.getElementById('btnModoSegmento').classList.toggle('active', modo === 'segmento');
+  document.getElementById('btnModoManual').classList.toggle('active',   modo === 'manual');
+  updatePreviewCount();
+}
+
+function setTipo(tipo) {
+  currentTipo = tipo;
+  document.querySelector('[name="tipo_destinatario"]').value = tipo;
+  document.querySelectorAll('#tipoGroup [data-tipo]').forEach(b => {
+    b.classList.toggle('active', b.dataset.tipo === tipo);
+  });
+  // Hide "estado" filter for clientes-only
+  document.querySelectorAll('.seg-leads-only').forEach(el => {
+    el.style.display = tipo === 'clientes' ? 'none' : '';
+  });
+  updatePreviewCount();
+}
+
+function setTipoBuscar(tipo) {
+  currentTipoBuscar = tipo;
+  document.querySelectorAll('[data-tipo-buscar]').forEach(b => {
+    b.classList.toggle('active', b.dataset.tipoBuscar === tipo);
+  });
+  const q = document.getElementById('contactoSearch').value.trim();
+  if (q.length >= 1 || tipo !== 'todos') fetchContactos(q, 1, false);
+}
+
+// ── Preview count ────────────────────────────────────────────────────────────
+let previewTimer = null;
+
+function updatePreviewCount() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(_fetchPreviewCount, 400);
+}
+
+function _fetchPreviewCount() {
+  const badge = document.getElementById('previewBadge');
+  const countEl = document.getElementById('previewCount');
+
+  if (currentModo === 'manual') {
+    const lc = Object.values(selectedContacts).filter(c => c.tipo === 'lead').length;
+    const cc = Object.values(selectedContacts).filter(c => c.tipo === 'cliente').length;
+    countEl.textContent = lc + cc;
+    badge.title = `${lc} leads, ${cc} clientes`;
+    badge.style.display = '';
+    return;
+  }
+
+  const estado = document.querySelector('[name="seg_estado"]')?.value || '';
+  const planEl = document.querySelector('[name="seg_plan"]');
+  const plan_id = planEl ? planEl.value : '';
+  const provincia = document.querySelector('[name="seg_provincia"]')?.value || '';
+  const dias = document.querySelector('[name="seg_dias_sin_contacto"]')?.value || '';
+
+  const params = new URLSearchParams({tipo: currentTipo, modo: 'segmento'});
+  if (estado) params.set('estado', estado);
+  if (plan_id) params.set('plan_id', plan_id);
+  if (provincia) params.set('provincia', provincia);
+  if (dias) params.set('dias', dias);
+
+  fetch(`${PREVIEW_COUNT_URL}?${params}`)
+    .then(r => r.json())
+    .then(data => {
+      countEl.textContent = data.total;
+      badge.title = `${data.leads} leads, ${data.clientes} clientes`;
+      badge.style.display = '';
+    }).catch(() => {});
+}
+
+// Attach filter change listeners
+['seg_estado','seg_plan','seg_provincia','seg_dias_sin_contacto'].forEach(name => {
+  const el = document.querySelector(`[name="${name}"]`);
+  if (el) el.addEventListener('change', updatePreviewCount);
+  if (el && el.tagName === 'INPUT') el.addEventListener('input', updatePreviewCount);
+});
+
+// ── Contact search & selection ────────────────────────────────────────────────
+// selectedContacts: { "lead_1": {...}, "cliente_3": {...} }
+let selectedContacts = {};
+let currentPage = 1;
+let currentQ = '';
+let searchTimer = null;
+
+document.getElementById('contactoSearch').addEventListener('input', function() {
+  clearTimeout(searchTimer);
+  const q = this.value.trim();
+  searchTimer = setTimeout(() => {
+    currentQ = q;
+    currentPage = 1;
+    fetchContactos(q, 1, false);
+  }, 300);
+});
+document.getElementById('contactoSearch').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); clearTimeout(searchTimer); fetchContactos(currentQ, 1, false); }
+});
+
+function loadMoreContactos() {
+  currentPage++;
+  fetchContactos(currentQ, currentPage, true);
+}
+
+function fetchContactos(q, page, append) {
+  const params = new URLSearchParams({q, page, tipo: currentTipoBuscar});
+  fetch(`${BUSCAR_URL}?${params}`)
+    .then(r => r.json())
+    .then(data => {
+      const tbody = document.getElementById('searchResultsBody');
+      const emptyEl = document.getElementById('searchEmpty');
+      if (!append) tbody.innerHTML = '';
+
+      if (data.results.length === 0 && !append) {
+        emptyEl.style.display = '';
+      } else {
+        emptyEl.style.display = 'none';
+        data.results.forEach(c => {
+          const key = `${c.tipo}_${c.id}`;
+          const checked = !!selectedContacts[key];
+          const tipoBadge = c.tipo === 'lead'
+            ? '<span class="badge bg-primary" style="font-size:.65rem;">Lead</span>'
+            : '<span class="badge bg-success" style="font-size:.65rem;">Cliente</span>';
+          const tr = document.createElement('tr');
+          tr.className = checked ? 'table-success' : '';
+          tr.id = `row-${key}`;
+          tr.innerHTML = `
+            <td><input type="checkbox" class="form-check-input contact-cb"
+                 data-key="${key}" data-id="${c.id}" data-tipo="${c.tipo}"
+                 data-nombre="${c.nombre.replace(/"/g,'&quot;')}"
+                 data-telefono="${c.telefono}"
+                 ${checked ? 'checked' : ''} onchange="toggleContact(this)"></td>
+            <td class="small fw-semibold">${c.nombre}</td>
+            <td class="small font-monospace">${c.telefono}</td>
+            <td class="small">${tipoBadge} <span class="text-muted">${c.subtitulo}</span></td>`;
+          tbody.appendChild(tr);
+        });
+      }
+
+      document.getElementById('searchResults').style.display = '';
+      document.getElementById('loadMoreWrap').style.display = data.has_next ? '' : 'none';
+    });
+}
+
+function toggleContact(cb) {
+  const key = cb.dataset.key;
+  const row = document.getElementById(`row-${key}`);
+  if (cb.checked) {
+    selectedContacts[key] = {key, id: parseInt(cb.dataset.id), tipo: cb.dataset.tipo, nombre: cb.dataset.nombre, telefono: cb.dataset.telefono};
+    if (row) row.classList.add('table-success');
+  } else {
+    delete selectedContacts[key];
+    if (row) row.classList.remove('table-success');
+  }
+  renderSelectedChips();
+  updateContactosJson();
+  updatePreviewCount();
+}
+
+function removeContact(key) {
+  delete selectedContacts[key];
+  const cb = document.querySelector(`.contact-cb[data-key="${key}"]`);
+  if (cb) { cb.checked = false; document.getElementById(`row-${key}`)?.classList.remove('table-success'); }
+  renderSelectedChips();
+  updateContactosJson();
+  updatePreviewCount();
+}
+
+function clearSelection() {
+  selectedContacts = {};
+  document.querySelectorAll('.contact-cb').forEach(cb => { cb.checked = false; });
+  document.querySelectorAll('[id^="row-"]').forEach(r => r.classList.remove('table-success'));
+  renderSelectedChips();
+  updateContactosJson();
+  updatePreviewCount();
+}
+
+function renderSelectedChips() {
+  const container = document.getElementById('selectedChips');
+  const leads = Object.values(selectedContacts).filter(c => c.tipo === 'lead');
+  const clientes = Object.values(selectedContacts).filter(c => c.tipo === 'cliente');
+  document.getElementById('selectedLeadsCount').textContent = leads.length;
+  document.getElementById('selectedClientesCount').textContent = clientes.length;
+  document.getElementById('noSelectionWarning').style.display = leads.length + clientes.length === 0 ? '' : 'none';
+  container.innerHTML = Object.values(selectedContacts).map(c => {
+    const color = c.tipo === 'lead' ? 'primary' : 'success';
+    const icon  = c.tipo === 'lead' ? 'bi-person-lines-fill' : 'bi-person-check-fill';
+    return `<span class="badge bg-${color} d-inline-flex align-items-center gap-1" style="font-size:.78rem;padding:5px 8px;">
+      <i class="bi ${icon}"></i> ${c.nombre}
+      <button type="button" class="btn-close btn-close-white" style="width:.5rem;height:.5rem;" onclick="removeContact('${c.key}')"></button>
+    </span>`;
+  }).join('');
+}
+
+function updateContactosJson() {
+  const leads = Object.values(selectedContacts).filter(c => c.tipo === 'lead').map(c => c.id);
+  const clientes = Object.values(selectedContacts).filter(c => c.tipo === 'cliente').map(c => c.id);
+  document.querySelector('[name="contactos_ids_json"]').value = JSON.stringify(leads);
+  document.querySelector('[name="contactos_clientes_ids_json"]').value = JSON.stringify(clientes);
+}
+
+// ── Template variable mapping ─────────────────────────────────────────────────
+let currentMapping = [];
+
+function buildVariableRows(template) {
+  const card = document.getElementById('variablesMappingCard');
+  const container = document.getElementById('variableRows');
+  container.innerHTML = '';
+  if (!template || !template.variables || template.variables.length === 0) {
+    card.style.display = 'none'; currentMapping = []; updateMappingJson(); return;
+  }
+  card.style.display = '';
+  currentMapping = template.variables.map(() => ({tipo:'campo', valor:'nombre_completo'}));
+
+  const extraOpts = EXTRA_KEYS.length > 0
+    ? EXTRA_KEYS.map(k => `<option value="${k}">${k} (dato extra)</option>`).join('')
+    : '<option value="" disabled>— importá un archivo primero —</option>';
+
+  template.variables.forEach((varName, i) => {
+    const row = document.createElement('div');
+    row.className = 'mb-3 p-2 border rounded bg-light';
+    row.innerHTML = `
+      <label class="form-label small fw-semibold"><code>` + '{{' + (i+1) + '}}' + `</code> — ${varName}</label>
+      <div class="row g-2">
+        <div class="col-auto">
+          <select class="form-select form-select-sm var-tipo" data-idx="${i}">
+            <option value="campo">Campo del contacto</option>
+            <option value="extra">Dato extra</option>
+            <option value="fijo">Texto fijo</option>
+          </select>
+        </div>
+        <div class="col">
+          <select class="form-select form-select-sm var-campo" data-idx="${i}">
+            ${CAMPO_CHOICES.map(c=>`<option value="${c.val}"${c.val==='nombre_completo'?' selected':''}>${c.label}</option>`).join('')}
+          </select>
+          <select class="form-select form-select-sm var-extra d-none" data-idx="${i}">${extraOpts}</select>
+          <input type="text" class="form-control form-control-sm var-extra-manual d-none" data-idx="${i}" placeholder="Nombre columna extra">
+          <input type="text" class="form-control form-control-sm var-fijo d-none" data-idx="${i}" placeholder="Texto igual para todos">
+        </div>
+      </div>`;
+    container.appendChild(row);
+  });
+
+  container.querySelectorAll('.var-tipo').forEach(sel => {
+    sel.addEventListener('change', function() {
+      const idx = parseInt(this.dataset.idx);
+      const tipo = this.value;
+      const row = this.closest('.row');
+      row.querySelector('.var-campo').classList.toggle('d-none', tipo !== 'campo');
+      row.querySelector('.var-extra').classList.toggle('d-none', tipo !== 'extra' || EXTRA_KEYS.length === 0);
+      row.querySelector('.var-extra-manual').classList.toggle('d-none', tipo !== 'extra' || EXTRA_KEYS.length > 0);
+      row.querySelector('.var-fijo').classList.toggle('d-none', tipo !== 'fijo');
+      currentMapping[idx].tipo = tipo;
+      currentMapping[idx].valor = tipo === 'campo' ? row.querySelector('.var-campo').value
+        : tipo === 'extra' ? (EXTRA_KEYS.length>0 ? row.querySelector('.var-extra').value : row.querySelector('.var-extra-manual').value)
+        : '';
+      updateMappingJson();
+    });
+  });
+  container.querySelectorAll('.var-campo,.var-extra,.var-extra-manual,.var-fijo').forEach(el => {
+    el.addEventListener('change', function() { currentMapping[parseInt(this.dataset.idx)].valor = this.value; updateMappingJson(); });
+    el.addEventListener('input',  function() { currentMapping[parseInt(this.dataset.idx)].valor = this.value; updateMappingJson(); });
+  });
+  updateMappingJson();
+}
+
+function updateMappingJson() {
+  document.querySelector('[name="variables_mapping_json"]').value = JSON.stringify(currentMapping);
+}
+
+// ── Template preview ──────────────────────────────────────────────────────────
+function updateTemplatePreview(template) {
+  const card = document.getElementById('templatePreviewCard');
+  if (!template) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  document.getElementById('prevBody').textContent = template.cuerpoRaw;
+  const headerEl = document.getElementById('prevHeader');
+  if (template.header_tipo !== 'none' && template.header_contenido) {
+    headerEl.textContent = template.header_tipo === 'text' ? template.header_contenido : `[${template.header_tipo.toUpperCase()}]`;
+    headerEl.style.display = '';
+  } else headerEl.style.display = 'none';
+  const footerEl = document.getElementById('prevFooter');
+  if (template.footer) { footerEl.textContent = template.footer; footerEl.style.display = ''; }
+  else footerEl.style.display = 'none';
+  document.getElementById('prevBtns').innerHTML = (template.botones || []).slice(0,3).map(b =>
+    `<div class="text-primary text-center border-top pt-1 mt-1 small">` +
+    (b.tipo==='url' ? '<i class="bi bi-box-arrow-up-right"></i> ' : b.tipo==='phone' ? '<i class="bi bi-telephone"></i> ' : '') +
+    b.texto + `</div>`
+  ).join('');
+}
+
+// ── Wire up template select ───────────────────────────────────────────────────
+const plantillaSelect = document.getElementById('id_plantilla');
+if (plantillaSelect) {
+  plantillaSelect.addEventListener('change', function() {
+    const pk = String(this.value);
+    const tpl = TEMPLATE_DATA[pk] || null;
+    buildVariableRows(tpl);
+    updateTemplatePreview(tpl);
+  });
+  if (plantillaSelect.value) plantillaSelect.dispatchEvent(new Event('change'));
+}
+
+// Initial preview count
+updatePreviewCount();
+</script>
+{% endblock %}

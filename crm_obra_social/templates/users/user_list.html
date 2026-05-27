@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Usuarios{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-person-gear text-primary"></i> Usuarios del sistema</h4>
+  <a href="{% url 'users:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nuevo usuario</a>
+</div>
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light"><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Email</th><th>Activo</th><th></th></tr></thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td class="fw-semibold">{{ u.username }}</td>
+          <td>{{ u.get_full_name|default:"—" }}</td>
+          <td><span class="badge bg-{% if u.role == 'superadmin' %}danger{% elif u.role == 'supervisor' %}primary{% else %}secondary{% endif %}">{{ u.get_role_display }}</span></td>
+          <td class="small">{{ u.email|default:"—" }}</td>
+          <td>{% if u.is_active %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}</td>
+          <td><a href="{% url 'users:update' u.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-4">Sin usuarios.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Completar tarea{% endblock %}
+{% block content %}
+<div class="mb-3">
+  <a href="{% url 'leads:detail' tarea.lead_id %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> {{ tarea.lead.nombre_completo }}</a>
+  <h4 class="mt-1 fw-bold">Completar tarea</h4>
+</div>
+<div class="card border-0 shadow-sm" style="max-width:480px;">
+  <div class="card-body">
+    <div class="mb-3 small text-muted">
+      <strong>{{ tarea.get_tipo_display }}</strong> — {{ tarea.descripcion }}<br>
+      Programada: {{ tarea.fecha_programada|date:"d/m/Y H:i" }}
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Resultado de la tarea</label>
+        {{ form.resultado }}
+      </div>
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Marcar completada</button>
+        <a href="{% url 'leads:detail' tarea.lead_id %}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

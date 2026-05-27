@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Reporte de conversión{% endblock %}
+
+{% block content %}
+<h4 class="fw-bold mb-4"><i class="bi bi-funnel text-primary"></i> Reporte de conversión</h4>
+
+<div class="row g-3">
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">Funnel de pipeline</div>
+      <div class="card-body">
+        {% for stage in funnel %}
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="small">{{ stage.label }}</span>
+          <div class="d-flex align-items-center gap-2">
+            <div class="progress flex-grow-1" style="width:120px;height:8px;">
+              <div class="progress-bar" style="width:{{ stage.count }}%"></div>
+            </div>
+            <span class="badge bg-secondary">{{ stage.count }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-3">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">Por origen</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          {% for r in por_origen %}
+          <tr><td class="small">{{ r.origen }}</td><td class="small fw-bold">{{ r.total }}</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-3">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">Por agente</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          {% for r in por_agente %}
+          <tr><td class="small">{{ r.agente__first_name }} {{ r.agente__last_name }}</td><td class="small fw-bold">{{ r.total }}</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mt-3">
+  <a href="{% url 'reports_detail:exportar' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> Exportar CSV</a>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{% if form.instance.pk %}Editar usuario{% else %}Nuevo usuario{% endif %}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{% url 'users:list' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Usuarios</a>
+  <h4 class="mt-1 fw-bold">{% if form.instance.pk %}Editar usuario{% else %}Nuevo usuario{% endif %}</h4>
+</div>
+<div class="card border-0 shadow-sm" style="max-width:560px;">
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% for field in form %}
+      <div class="mb-3">
+        <label class="form-label fw-semibold">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<div class="invalid-feedback d-block">{{ field.errors.0 }}</div>{% endif %}
+      </div>
+      {% endfor %}
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{% url 'users:list' %}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

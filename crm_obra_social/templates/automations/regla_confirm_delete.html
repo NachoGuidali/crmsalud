@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Eliminar regla{% endblock %}
+{% block content %}
+<div class="card border-0 shadow-sm" style="max-width:500px;">
+  <div class="card-body">
+    <h5 class="fw-bold text-danger">¿Eliminar regla "{{ object.nombre }}"?</h5>
+    <p class="text-muted">Esta acción no se puede deshacer. Los logs asociados también se eliminarán.</p>
+    <form method="post" class="d-flex gap-2">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">Eliminar</button>
+      <a href="{% url 'automations:list' %}" class="btn btn-outline-secondary">Cancelar</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

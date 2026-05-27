@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Cotización #{{ cotizacion.pk }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <a href="{% url 'leads:detail' cotizacion.lead_id %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> {{ cotizacion.lead.nombre_completo }}</a>
+    <h4 class="mt-1 fw-bold">Cotización #{{ cotizacion.pk }}</h4>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'quotes:pdf' cotizacion.pk %}" class="btn btn-outline-danger btn-sm"><i class="bi bi-file-pdf"></i> Descargar PDF</a>
+    <form method="post" action="{% url 'quotes:send_whatsapp' cotizacion.pk %}" style="display:inline;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-whatsapp"></i> Enviar por WhatsApp</button>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">Detalle</div>
+      <div class="card-body">
+        <dl class="row small mb-0">
+          <dt class="col-5">Plan</dt><dd class="col-7">{{ cotizacion.plan|default:"—" }}</dd>
+          <dt class="col-5">Integrantes</dt><dd class="col-7">{{ cotizacion.cantidad_integrantes }}</dd>
+          <dt class="col-5">Monto mensual</dt><dd class="col-7 fw-bold fs-5">${{ cotizacion.monto_mensual }}</dd>
+          <dt class="col-5">Estado</dt><dd class="col-7"><span class="badge bg-secondary">{{ cotizacion.get_status_display }}</span></dd>
+          <dt class="col-5">Fecha</dt><dd class="col-7">{{ cotizacion.created_at|date:"d/m/Y" }}</dd>
+          {% if cotizacion.notas %}<dt class="col-5">Notas</dt><dd class="col-7">{{ cotizacion.notas }}</dd>{% endif %}
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">Grupo familiar</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead class="table-light"><tr><th>Nombre</th><th>DNI</th><th>Parentesco</th><th>Nacimiento</th><th>Edad</th></tr></thead>
+          <tbody>
+            {% for i in integrantes %}
+            <tr>
+              <td class="small">{{ i.nombre }}</td>
+              <td class="small">{{ i.dni }}</td>
+              <td class="small">{{ i.get_parentesco_display }}</td>
+              <td class="small">{{ i.fecha_nacimiento|date:"d/m/Y" }}</td>
+              <td class="small">{{ i.edad }} años</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-muted text-center">Sin integrantes.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

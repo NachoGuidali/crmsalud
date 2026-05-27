@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Kanban — Leads{% endblock %}
+{% block nav_kanban %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+.kanban-wrapper { overflow-x: auto; }
+.kanban-board { display: flex; gap: 12px; min-width: max-content; padding-bottom: 16px; }
+.kanban-col { width: 240px; flex-shrink: 0; }
+.kanban-col-header { font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; padding: 6px 10px; border-radius: 6px 6px 0 0; }
+.kanban-cards { min-height: 200px; background: #f8f9fa; border-radius: 0 0 6px 6px; padding: 6px; }
+.kanban-card { background: #fff; border-radius: 6px; padding: 10px; margin-bottom: 6px; cursor: grab; box-shadow: 0 1px 3px rgba(0,0,0,.08); border-left: 4px solid transparent; font-size: .85rem; }
+.kanban-card:active { cursor: grabbing; }
+.kanban-card.dragging { opacity: .5; }
+.kanban-cards.drag-over { background: #e9ecef; outline: 2px dashed #0d6efd; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-kanban text-primary"></i> Pipeline Kanban</h4>
+  <div class="d-flex gap-2">
+    <a href="{% url 'leads:list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-list"></i> Vista lista</a>
+    <a href="{% url 'leads:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nuevo lead</a>
+  </div>
+</div>
+
+<div class="kanban-wrapper">
+  <div class="kanban-board" id="kanbanBoard">
+    {% for estado_key, col in columns.items %}
+    <div class="kanban-col">
+      <div class="kanban-col-header bg-{{ col.color }} text-white">
+        {{ col.label }}
+        <span class="badge bg-white text-dark ms-1 float-end">{{ col.leads|length }}</span>
+      </div>
+      <div class="kanban-cards" data-estado="{{ estado_key }}" id="col-{{ estado_key }}">
+        {% for lead in col.leads %}
+        <div class="kanban-card" draggable="true" data-id="{{ lead.pk }}" data-estado="{{ lead.estado }}">
+          <div class="fw-semibold">
+            <a href="{% url 'leads:detail' lead.pk %}" class="text-decoration-none text-dark">{{ lead.nombre_completo }}</a>
+          </div>
+          <div class="text-muted" style="font-size:.78rem;">{{ lead.telefono }}</div>
+          {% if lead.plan_interes %}
+          <div class="text-muted" style="font-size:.78rem;">{{ lead.plan_interes }}</div>
+          {% endif %}
+          <div class="mt-1">
+            <span class="badge bg-{{ lead.get_prioridad_badge_class }}" style="font-size:.7rem;">{{ lead.get_prioridad_display }}</span>
+            {% if lead.agente %}
+            <span class="text-muted" style="font-size:.72rem;">{{ lead.agente.get_full_name }}</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+let dragged = null;
+
+document.querySelectorAll('.kanban-card').forEach(card => {
+  card.addEventListener('dragstart', e => { dragged = card; card.classList.add('dragging'); });
+  card.addEventListener('dragend', () => card.classList.remove('dragging'));
+});
+
+document.querySelectorAll('.kanban-cards').forEach(col => {
+  col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drag-over'); });
+  col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
+  col.addEventListener('drop', async e => {
+    e.preventDefault();
+    col.classList.remove('drag-over');
+    if (!dragged) return;
+    const newEstado = col.dataset.estado;
+    const leadId = dragged.dataset.id;
+    if (dragged.dataset.estado === newEstado) return;
+
+    const res = await fetch(`/leads/${leadId}/mover/`, {
+      method: 'POST',
+      headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/x-www-form-urlencoded'},
+      body: `estado=${newEstado}`,
+    });
+    if (res.ok) {
+      const data = await res.json();
+      dragged.dataset.estado = newEstado;
+      col.appendChild(dragged);
+    }
+  });
+});
+</script>
+{% endblock %}

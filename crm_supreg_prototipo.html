@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM Supreg — Prototipo</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ─────────────────────────────────────────── */
+:root {
+  --bg:        #0D1117;
+  --bg2:       #161C26;
+  --bg3:       #1E2736;
+  --bg4:       #252E40;
+  --border:    rgba(255,255,255,0.07);
+  --border2:   rgba(255,255,255,0.12);
+  --text:      #E8ECF4;
+  --text2:     #8B95A8;
+  --text3:     #5A6478;
+  --blue:      #3B7EF6;
+  --blue-dim:  rgba(59,126,246,0.12);
+  --blue-glow: rgba(59,126,246,0.25);
+  --violet:    #7C5CFC;
+  --violet-dim:rgba(124,92,252,0.12);
+  --green:     #22C97A;
+  --green-dim: rgba(34,201,122,0.12);
+  --amber:     #F59E0B;
+  --amber-dim: rgba(245,158,11,0.12);
+  --red:       #EF4444;
+  --red-dim:   rgba(239,68,68,0.12);
+  --cyan:      #06B6D4;
+  --cyan-dim:  rgba(6,182,212,0.12);
+  --radius:    10px;
+  --radius-lg: 14px;
+  --shadow:    0 4px 24px rgba(0,0,0,0.35);
+  --sidebar-w: 220px;
+  --font-head: 'Space Grotesk', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html,body { height:100%; font-family:var(--font-body); background:var(--bg); color:var(--text); font-size:14px; line-height:1.5; }
+
+/* ── LAYOUT ──────────────────────────────────────────── */
+.app { display:flex; height:100vh; overflow:hidden; }
+
+/* ── SIDEBAR ─────────────────────────────────────────── */
+.sidebar {
+  width:var(--sidebar-w); flex-shrink:0; background:var(--bg2);
+  border-right:1px solid var(--border); display:flex; flex-direction:column;
+  padding:0; overflow:hidden;
+}
+.sidebar-logo {
+  padding:20px 18px 16px;
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:10px;
+}
+.sidebar-logo .logo-mark {
+  width:32px; height:32px; border-radius:8px;
+  background:linear-gradient(135deg, var(--blue) 0%, var(--violet) 100%);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-head); font-weight:700; font-size:14px; color:#fff; flex-shrink:0;
+}
+.sidebar-logo .logo-text { font-family:var(--font-head); font-weight:600; font-size:15px; color:var(--text); }
+.sidebar-logo .logo-sub  { font-size:10px; color:var(--text3); letter-spacing:.04em; text-transform:uppercase; }
+
+.sidebar-nav { flex:1; padding:10px 0; overflow-y:auto; }
+.nav-section { padding:16px 18px 6px; font-size:10px; font-weight:600; color:var(--text3); letter-spacing:.08em; text-transform:uppercase; }
+.nav-item {
+  display:flex; align-items:center; gap:10px; padding:8px 18px;
+  cursor:pointer; color:var(--text2); font-size:13.5px; font-weight:400;
+  border-left:2px solid transparent; transition:all .15s;
+  user-select:none;
+}
+.nav-item:hover { background:var(--bg3); color:var(--text); }
+.nav-item.active { color:var(--blue); background:var(--blue-dim); border-left-color:var(--blue); font-weight:500; }
+.nav-item .nav-icon { width:18px; text-align:center; font-size:15px; flex-shrink:0; }
+.nav-item .nav-badge {
+  margin-left:auto; background:var(--blue); color:#fff;
+  font-size:10px; font-weight:600; padding:1px 6px; border-radius:20px;
+}
+
+.sidebar-bottom {
+  padding:14px 18px; border-top:1px solid var(--border);
+  display:flex; align-items:center; gap:10px;
+}
+.avatar-sm {
+  width:30px; height:30px; border-radius:50%;
+  background:linear-gradient(135deg,var(--blue),var(--violet));
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:600; color:#fff; flex-shrink:0;
+}
+.avatar-info .name  { font-size:13px; font-weight:500; color:var(--text); }
+.avatar-info .role  { font-size:11px; color:var(--text3); }
+
+/* ── MAIN ─────────────────────────────────────────────── */
+.main { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+/* ── TOPBAR ───────────────────────────────────────────── */
+.topbar {
+  height:54px; flex-shrink:0; background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; padding:0 22px; gap:12px;
+}
+.topbar-title { font-family:var(--font-head); font-weight:600; font-size:17px; color:var(--text); margin-right:auto; }
+.topbar-search {
+  display:flex; align-items:center; gap:8px;
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:8px; padding:0 12px; height:32px; width:220px;
+}
+.topbar-search input {
+  background:none; border:none; outline:none; color:var(--text);
+  font-size:13px; font-family:var(--font-body); width:100%;
+}
+.topbar-search input::placeholder { color:var(--text3); }
+.topbar-search .icon { color:var(--text3); font-size:14px; }
+
+.btn {
+  display:inline-flex; align-items:center; gap:6px; padding:0 14px; height:32px;
+  border-radius:8px; font-size:13px; font-weight:500; font-family:var(--font-body);
+  cursor:pointer; border:none; transition:all .15s; white-space:nowrap;
+}
+.btn-primary { background:var(--blue); color:#fff; }
+.btn-primary:hover { background:#2d6de0; }
+.btn-ghost { background:var(--bg3); color:var(--text2); border:1px solid var(--border); }
+.btn-ghost:hover { background:var(--bg4); color:var(--text); }
+.btn-sm { height:27px; padding:0 10px; font-size:12px; border-radius:6px; }
+
+/* ── MODULE TABS ──────────────────────────────────────── */
+.module-tabs {
+  display:flex; align-items:center; gap:2px; padding:0 22px;
+  background:var(--bg2); border-bottom:1px solid var(--border);
+  height:42px; flex-shrink:0;
+}
+.module-tab {
+  padding:0 16px; height:42px; display:flex; align-items:center; gap:7px;
+  font-size:13px; font-weight:500; color:var(--text3); cursor:pointer;
+  border-bottom:2px solid transparent; transition:all .15s; user-select:none;
+}
+.module-tab:hover { color:var(--text2); }
+.module-tab.active { color:var(--blue); border-bottom-color:var(--blue); }
+.module-tab .tab-count {
+  font-size:10px; background:var(--bg4); color:var(--text3);
+  padding:1px 6px; border-radius:10px; font-weight:500;
+}
+.module-tab.active .tab-count { background:var(--blue-dim); color:var(--blue); }
+
+/* ── CONTENT AREA ─────────────────────────────────────── */
+.content { flex:1; overflow:auto; display:flex; flex-direction:column; }
+
+/* ── VIEW TOOLBAR ─────────────────────────────────────── */
+.view-toolbar {
+  padding:14px 22px; display:flex; align-items:center; gap:10px;
+  flex-shrink:0; flex-wrap:wrap;
+}
+.view-toggle { display:flex; background:var(--bg3); border-radius:8px; padding:3px; gap:2px; }
+.view-btn {
+  padding:4px 10px; border-radius:6px; font-size:12px; color:var(--text3);
+  cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:5px;
+  font-family:var(--font-body); border:none; background:none;
+}
+.view-btn.active { background:var(--bg4); color:var(--text); }
+.filter-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; flex:1; }
+.filter-select {
+  background:var(--bg3); border:1px solid var(--border); border-radius:8px;
+  color:var(--text2); padding:0 10px; height:30px; font-size:12px;
+  font-family:var(--font-body); cursor:pointer; outline:none;
+}
+.count-label { margin-left:auto; font-size:12px; color:var(--text3); white-space:nowrap; }
+
+/* ── TABLE VIEW ───────────────────────────────────────── */
+.table-wrap { padding:0 22px 22px; overflow-x:auto; }
+table { width:100%; border-collapse:collapse; }
+thead tr { border-bottom:1px solid var(--border); }
+th {
+  text-align:left; padding:8px 12px; font-size:11px; font-weight:600;
+  color:var(--text3); text-transform:uppercase; letter-spacing:.05em; white-space:nowrap;
+}
+th.sortable { cursor:pointer; user-select:none; }
+th.sortable:hover { color:var(--text2); }
+tbody tr {
+  border-bottom:1px solid var(--border); cursor:pointer; transition:background .12s;
+}
+tbody tr:hover { background:var(--bg3); }
+td { padding:10px 12px; font-size:13px; color:var(--text); vertical-align:middle; }
+.td-name { display:flex; align-items:center; gap:10px; font-weight:500; }
+.avatar {
+  width:28px; height:28px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:600; color:#fff;
+}
+.tag {
+  display:inline-flex; align-items:center; gap:4px; padding:2px 8px;
+  border-radius:20px; font-size:11px; font-weight:500; white-space:nowrap;
+}
+.tag-blue   { background:var(--blue-dim);   color:var(--blue); }
+.tag-green  { background:var(--green-dim);  color:var(--green); }
+.tag-amber  { background:var(--amber-dim);  color:var(--amber); }
+.tag-red    { background:var(--red-dim);    color:var(--red); }
+.tag-violet { background:var(--violet-dim); color:var(--violet); }
+.tag-cyan   { background:var(--cyan-dim);   color:var(--cyan); }
+
+.stage-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.td-muted { color:var(--text3); font-size:12px; }
+.td-actions { display:flex; gap:6px; opacity:0; transition:opacity .15s; }
+tbody tr:hover .td-actions { opacity:1; }
+.icon-btn {
+  width:26px; height:26px; border-radius:6px; background:var(--bg4);
+  border:none; color:var(--text2); cursor:pointer; display:flex;
+  align-items:center; justify-content:center; font-size:13px; transition:all .15s;
+}
+.icon-btn:hover { background:var(--blue); color:#fff; }
+
+/* ── KANBAN ───────────────────────────────────────────── */
+.kanban-wrap {
+  padding:0 22px 22px; display:flex; gap:14px; overflow-x:auto; flex:1;
+  align-items:flex-start;
+}
+.kanban-col { min-width:240px; width:240px; flex-shrink:0; }
+.kanban-col-header {
+  display:flex; align-items:center; gap:8px; padding:10px 12px;
+  margin-bottom:8px;
+}
+.col-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.col-title { font-size:12px; font-weight:600; color:var(--text2); text-transform:uppercase; letter-spacing:.05em; flex:1; }
+.col-count { font-size:11px; color:var(--text3); background:var(--bg3); padding:1px 7px; border-radius:10px; }
+.kanban-cards { display:flex; flex-direction:column; gap:8px; }
+.kcard {
+  background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius);
+  padding:12px 14px; cursor:pointer; transition:all .15s; position:relative;
+}
+.kcard:hover { border-color:var(--border2); box-shadow:var(--shadow); transform:translateY(-1px); }
+.kcard-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.kcard-name { font-size:13px; font-weight:500; color:var(--text); flex:1; }
+.kcard-body { font-size:12px; color:var(--text3); margin-bottom:10px; }
+.kcard-body span { display:block; margin-bottom:2px; }
+.kcard-footer { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.kcard-meta { display:flex; align-items:center; gap:4px; font-size:11px; color:var(--text3); margin-left:auto; }
+.progress-bar-wrap { height:3px; background:var(--bg4); border-radius:2px; margin-bottom:8px; }
+.progress-bar { height:3px; border-radius:2px; }
+
+/* ── PANEL LATERAL (DETALLE) ──────────────────────────── */
+.detail-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:100;
+  display:none; animation:fadeIn .15s;
+}
+.detail-overlay.open { display:block; }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+.detail-panel {
+  position:fixed; right:0; top:0; bottom:0; width:680px; max-width:100vw;
+  background:var(--bg2); border-left:1px solid var(--border2);
+  display:flex; flex-direction:column; z-index:101;
+  animation:slideIn .2s ease-out;
+}
+@keyframes slideIn { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
+
+.detail-topbar {
+  padding:16px 20px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:12px; flex-shrink:0;
+}
+.detail-title-block { flex:1; }
+.detail-name { font-family:var(--font-head); font-weight:600; font-size:18px; color:var(--text); }
+.detail-sub  { font-size:12px; color:var(--text3); margin-top:2px; }
+.close-btn {
+  width:30px; height:30px; border-radius:8px; background:var(--bg3);
+  border:1px solid var(--border); color:var(--text2); cursor:pointer;
+  display:flex; align-items:center; justify-content:center; font-size:16px;
+  transition:all .15s;
+}
+.close-btn:hover { background:var(--red-dim); color:var(--red); border-color:var(--red); }
+
+.detail-tabs {
+  display:flex; padding:0 20px; border-bottom:1px solid var(--border);
+  gap:4px; flex-shrink:0; overflow-x:auto;
+}
+.dtab {
+  padding:10px 14px; font-size:13px; color:var(--text3); cursor:pointer;
+  border-bottom:2px solid transparent; white-space:nowrap; transition:all .15s;
+  font-family:var(--font-body); border-top:none; border-left:none; border-right:none;
+  background:none;
+}
+.dtab:hover { color:var(--text2); }
+.dtab.active { color:var(--blue); border-bottom-color:var(--blue); }
+
+.detail-body { flex:1; overflow-y:auto; padding:20px; }
+
+/* Info grid */
+.info-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
+.info-field label { font-size:11px; color:var(--text3); font-weight:500; text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:4px; }
+.info-field .val { font-size:13px; color:var(--text); background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:7px 10px; }
+
+/* Custom fields */
+.custom-fields-section { margin-bottom:20px; }
+.section-head { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.section-head h4 { font-size:12px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.05em; flex:1; }
+
+/* Timeline */
+.timeline { display:flex; flex-direction:column; gap:0; }
+.tl-item { display:flex; gap:14px; position:relative; }
+.tl-item:not(:last-child)::before {
+  content:''; position:absolute; left:13px; top:28px; bottom:0;
+  width:1px; background:var(--border);
+}
+.tl-icon {
+  width:28px; height:28px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; font-size:13px; flex-shrink:0; margin-top:2px;
+  border:1px solid var(--border);
+}
+.tl-content { flex:1; padding-bottom:18px; }
+.tl-header { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.tl-type { font-size:12px; font-weight:500; color:var(--text); }
+.tl-time { font-size:11px; color:var(--text3); margin-left:auto; }
+.tl-body { font-size:12.5px; color:var(--text2); line-height:1.55; }
+.tl-bubble {
+  background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius);
+  padding:10px 12px; margin-top:6px; font-size:12.5px; color:var(--text2);
+}
+.tl-bubble.sent { background:var(--blue-dim); border-color:rgba(59,126,246,.25); border-radius:var(--radius) var(--radius) 4px var(--radius); }
+.tl-bubble.recv { background:var(--bg3); border-radius:var(--radius) var(--radius) var(--radius) 4px; }
+
+/* WA inbox mini */
+.wa-thread { display:flex; flex-direction:column; gap:8px; }
+.wa-msg { display:flex; }
+.wa-msg.out { justify-content:flex-end; }
+.wa-bubble {
+  max-width:75%; padding:8px 12px; font-size:12.5px; line-height:1.5; border-radius:12px;
+}
+.wa-msg.in  .wa-bubble { background:var(--bg3); border-radius:4px 12px 12px 12px; color:var(--text); }
+.wa-msg.out .wa-bubble { background:var(--blue-dim); border:1px solid rgba(59,126,246,.2); border-radius:12px 4px 12px 12px; color:var(--text); }
+.wa-ts { font-size:10px; color:var(--text3); margin-top:3px; }
+.wa-input-bar {
+  display:flex; align-items:center; gap:8px; padding:12px 0 0;
+  border-top:1px solid var(--border); margin-top:12px;
+}
+.wa-input {
+  flex:1; background:var(--bg3); border:1px solid var(--border); border-radius:20px;
+  padding:7px 14px; font-size:13px; color:var(--text); font-family:var(--font-body); outline:none;
+}
+
+/* Convert button */
+.convert-bar {
+  padding:14px 20px; border-top:1px solid var(--border); flex-shrink:0;
+  display:flex; align-items:center; gap:10px;
+}
+.btn-convert {
+  background:linear-gradient(135deg,var(--green) 0%,#16a066 100%);
+  color:#fff; border:none; border-radius:8px; padding:0 18px; height:36px;
+  font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:7px;
+  transition:all .2s; font-family:var(--font-body);
+}
+.btn-convert:hover { opacity:.88; transform:translateY(-1px); box-shadow:0 4px 16px rgba(34,201,122,.3); }
+.convert-note { font-size:12px; color:var(--text3); }
+
+/* ── MODAL ────────────────────────────────────────────── */
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:200;
+  display:none; align-items:center; justify-content:center;
+}
+.modal-overlay.open { display:flex; }
+.modal {
+  background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius-lg);
+  width:520px; max-width:90vw; max-height:85vh; display:flex; flex-direction:column;
+  box-shadow:0 24px 60px rgba(0,0,0,.5); animation:slideIn .2s ease-out;
+}
+.modal-head { padding:20px 24px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; }
+.modal-head h3 { font-family:var(--font-head); font-size:16px; font-weight:600; flex:1; }
+.modal-body { padding:20px 24px; overflow-y:auto; display:flex; flex-direction:column; gap:14px; }
+.modal-foot { padding:14px 24px; border-top:1px solid var(--border); display:flex; gap:8px; justify-content:flex-end; }
+
+.form-group { display:flex; flex-direction:column; gap:5px; }
+.form-group label { font-size:11px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.04em; }
+.form-group input, .form-group select, .form-group textarea {
+  background:var(--bg3); border:1px solid var(--border); border-radius:8px;
+  padding:8px 12px; font-size:13px; color:var(--text); font-family:var(--font-body); outline:none;
+  transition:border .15s;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  border-color:var(--blue);
+}
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.type-selector { display:flex; gap:8px; }
+.type-opt {
+  flex:1; padding:10px; border:1px solid var(--border); border-radius:var(--radius);
+  cursor:pointer; text-align:center; transition:all .15s; background:var(--bg3);
+}
+.type-opt.active.lead   { border-color:var(--blue);  background:var(--blue-dim);  }
+.type-opt.active.client { border-color:var(--green); background:var(--green-dim); }
+.type-opt .type-icon { font-size:20px; margin-bottom:4px; }
+.type-opt .type-label { font-size:12px; font-weight:600; color:var(--text2); }
+.type-opt.active.lead   .type-label { color:var(--blue); }
+.type-opt.active.client .type-label { color:var(--green); }
+
+/* ── SCROLL ───────────────────────────────────────────── */
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--bg4); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:var(--text3); }
+
+/* ── EMPTY STATE ──────────────────────────────────────── */
+.empty-state {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  flex:1; padding:60px; gap:12px; color:var(--text3);
+}
+.empty-state .empty-icon { font-size:40px; margin-bottom:8px; opacity:.4; }
+.empty-state h3 { font-size:15px; color:var(--text2); font-weight:500; }
+.empty-state p  { font-size:13px; text-align:center; max-length:300px; }
+
+/* ── CUSTOM FIELDS PAGE ───────────────────────────────── */
+.cf-list { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+.cf-row {
+  display:flex; align-items:center; gap:12px; padding:10px 14px;
+  background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius);
+}
+.cf-drag { color:var(--text3); cursor:grab; font-size:14px; }
+.cf-name { flex:1; font-size:13px; font-weight:500; }
+.cf-type { font-size:11px; color:var(--text3); }
+.cf-scope { display:flex; gap:4px; }
+
+/* ── TOAST ────────────────────────────────────────────── */
+.toast-container { position:fixed; bottom:24px; right:24px; z-index:300; display:flex; flex-direction:column; gap:8px; }
+.toast {
+  background:var(--bg2); border:1px solid var(--border2); border-radius:var(--radius);
+  padding:12px 16px; font-size:13px; display:flex; align-items:center; gap:10px;
+  box-shadow:var(--shadow); animation:toastIn .2s ease-out;
+  min-width:260px; max-width:340px;
+}
+@keyframes toastIn { from{transform:translateY(10px);opacity:0} to{transform:translateY(0);opacity:1} }
+.toast.success { border-left:3px solid var(--green); }
+.toast.info    { border-left:3px solid var(--blue); }
+
+/* ── STATS ROW ────────────────────────────────────────── */
+.stats-row { display:flex; gap:10px; padding:0 22px 14px; flex-wrap:wrap; }
+.stat-card {
+  background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius);
+  padding:12px 16px; flex:1; min-width:120px;
+}
+.stat-card .s-val { font-family:var(--font-head); font-size:22px; font-weight:600; color:var(--text); }
+.stat-card .s-lbl { font-size:11px; color:var(--text3); margin-top:2px; }
+.stat-card .s-delta { font-size:11px; color:var(--green); margin-top:4px; }
+
+/* ── SECTION VIEW TOGGLE ──────────────────────────────── */
+.view-section { display:none; flex:1; flex-direction:column; overflow:hidden; }
+.view-section.active { display:flex; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">SR</div>
+      <div>
+        <div class="logo-text">Supreg CRM</div>
+        <div class="logo-sub">Grupo ROI SA</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Principal</div>
+      <div class="nav-item active" onclick="showModule('crm')">
+        <span class="nav-icon">◈</span> CRM Contactos
+      </div>
+      <div class="nav-item" onclick="showModule('kanban')">
+        <span class="nav-icon">⊞</span> Pipeline Kanban
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">✉</span> WhatsApp Inbox
+        <span class="nav-badge">3</span>
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">◷</span> Tareas
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">◑</span> Campañas
+      </div>
+
+      <div class="nav-section">Configuración</div>
+      <div class="nav-item" onclick="showModule('campos')">
+        <span class="nav-icon">⊕</span> Campos personalizados
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">⚙</span> Automatizaciones
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">◧</span> Reportes
+      </div>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="avatar-sm">ML</div>
+      <div class="avatar-info">
+        <div class="name">Marcos López</div>
+        <div class="role">Supervisor</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- ══ MÓDULO CRM ════════════════════════════════════ -->
+    <div id="mod-crm" class="view-section active" style="flex-direction:column;">
+
+      <!-- Topbar -->
+      <div class="topbar">
+        <span class="topbar-title">Base de Contactos</span>
+        <div class="topbar-search">
+          <span class="icon">⌕</span>
+          <input type="text" placeholder="Buscar contacto, DNI, teléfono…">
+        </div>
+        <button class="btn btn-ghost btn-sm">⇣ Importar CSV</button>
+        <button class="btn btn-primary" onclick="openModal('modal-nuevo')">
+          + Nuevo contacto
+        </button>
+      </div>
+
+      <!-- Module Tabs: Contactos / Leads / Clientes -->
+      <div class="module-tabs">
+        <div class="module-tab active" id="tab-contactos" onclick="switchTab('contactos')">
+          Todos los contactos <span class="tab-count">148</span>
+        </div>
+        <div class="module-tab" id="tab-leads" onclick="switchTab('leads')">
+          ● Leads <span class="tab-count" style="background:var(--blue-dim);color:var(--blue)">94</span>
+        </div>
+        <div class="module-tab" id="tab-clientes" onclick="switchTab('clientes')">
+          ✓ Clientes <span class="tab-count" style="background:var(--green-dim);color:var(--green)">54</span>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-row" id="stats-bar">
+        <div class="stat-card">
+          <div class="s-val">94</div>
+          <div class="s-lbl">Leads activos</div>
+          <div class="s-delta">↑ +12 esta semana</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-val">54</div>
+          <div class="s-lbl">Clientes</div>
+          <div class="s-delta">↑ +3 este mes</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-val" style="color:var(--amber)">17</div>
+          <div class="s-lbl">Sin contactar hoy</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-val" style="color:var(--green)">36%</div>
+          <div class="s-lbl">Tasa conversión</div>
+        </div>
+      </div>
+
+      <!-- View toolbar -->
+      <div class="view-toolbar">
+        <div class="view-toggle">
+          <button class="view-btn active" id="vbtn-list" onclick="setView('list')">≡ Lista</button>
+          <button class="view-btn" id="vbtn-kanban" onclick="setView('kanban')">⊞ Kanban</button>
+        </div>
+        <div class="filter-bar">
+          <select class="filter-select">
+            <option>Todos los agentes</option>
+            <option>María García</option>
+            <option>Juan Pérez</option>
+            <option>Laura Díaz</option>
+          </select>
+          <select class="filter-select">
+            <option>Todas las etapas</option>
+            <option>Nuevo</option>
+            <option>Contactado</option>
+            <option>En negociación</option>
+            <option>Ganado</option>
+          </select>
+          <select class="filter-select">
+            <option>Todas las fuentes</option>
+            <option>WhatsApp</option>
+            <option>Formulario web</option>
+            <option>Derivado</option>
+          </select>
+          <select class="filter-select">
+            <option>Último mes</option>
+            <option>Última semana</option>
+            <option>Últimos 3 meses</option>
+          </select>
+        </div>
+        <span class="count-label" id="count-label">Mostrando 10 de 148</span>
+      </div>
+
+      <!-- LIST VIEW -->
+      <div id="view-list" class="view-section active">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:28px"><input type="checkbox" style="accent-color:var(--blue)"></th>
+                <th class="sortable">Contacto ↕</th>
+                <th>Tipo</th>
+                <th>Etapa</th>
+                <th>Teléfono</th>
+                <th>Fuente</th>
+                <th>Agente</th>
+                <th>Plan</th>
+                <th class="sortable">Último contacto ↕</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="contacts-tbody">
+              <!-- populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- KANBAN VIEW (dentro del módulo CRM) -->
+      <div id="view-kanban" class="view-section">
+        <div class="kanban-wrap" id="crm-kanban">
+          <!-- populated by JS -->
+        </div>
+      </div>
+    </div><!-- /mod-crm -->
+
+
+    <!-- ══ MÓDULO CAMPOS PERSONALIZADOS ══════════════════ -->
+    <div id="mod-campos" class="view-section" style="flex-direction:column;">
+      <div class="topbar">
+        <span class="topbar-title">Campos personalizados</span>
+        <button class="btn btn-primary" onclick="openModal('modal-campo')">+ Nuevo campo</button>
+      </div>
+      <div style="padding:20px 22px; flex:1; overflow-y:auto;">
+        <p style="font-size:13px; color:var(--text3); margin-bottom:16px;">
+          Los campos personalizados se pueden asignar a Leads, Clientes o ambos. Se muestran en la ficha del contacto y pueden usarse en filtros y automatizaciones.
+        </p>
+
+        <div style="margin-bottom:20px;">
+          <div style="font-size:12px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.05em; margin-bottom:10px;">Campos del sistema (no editables)</div>
+          <div class="cf-list" id="cf-system"></div>
+        </div>
+
+        <div>
+          <div style="font-size:12px; font-weight:600; color:var(--text3); text-transform:uppercase; letter-spacing:.05em; margin-bottom:10px;">Campos personalizados</div>
+          <div class="cf-list" id="cf-custom"></div>
+        </div>
+      </div>
+    </div><!-- /mod-campos -->
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ══ PANEL DETALLE CONTACTO ═══════════════════════════ -->
+<div class="detail-overlay" id="detail-overlay" onclick="closeDetail(event)">
+</div>
+<div class="detail-panel" id="detail-panel" style="display:none;">
+  <div class="detail-topbar">
+    <div class="avatar" id="dp-avatar" style="width:42px;height:42px;font-size:15px;"></div>
+    <div class="detail-title-block">
+      <div class="detail-name" id="dp-name"></div>
+      <div class="detail-sub" id="dp-sub"></div>
+    </div>
+    <span id="dp-type-badge"></span>
+    <button class="close-btn" onclick="closePanelAction()">✕</button>
+  </div>
+  <div class="detail-tabs">
+    <button class="dtab active" onclick="switchDTab(this,'dp-resumen')">Resumen</button>
+    <button class="dtab" onclick="switchDTab(this,'dp-historial')">Historial</button>
+    <button class="dtab" onclick="switchDTab(this,'dp-whatsapp')">WhatsApp</button>
+    <button class="dtab" onclick="switchDTab(this,'dp-tareas')">Tareas</button>
+    <button class="dtab" onclick="switchDTab(this,'dp-cotizaciones')">Cotizaciones</button>
+    <button class="dtab" onclick="switchDTab(this,'dp-campos')">Campos</button>
+  </div>
+  <div class="detail-body">
+
+    <!-- TAB: RESUMEN -->
+    <div id="dp-resumen">
+      <div class="info-grid">
+        <div class="info-field"><label>DNI</label><div class="val" id="dp-dni"></div></div>
+        <div class="info-field"><label>Teléfono</label><div class="val" id="dp-tel"></div></div>
+        <div class="info-field"><label>Email</label><div class="val" id="dp-email"></div></div>
+        <div class="info-field"><label>Fuente</label><div class="val" id="dp-fuente"></div></div>
+        <div class="info-field"><label>Plan de interés</label><div class="val" id="dp-plan"></div></div>
+        <div class="info-field"><label>Agente asignado</label><div class="val" id="dp-agente"></div></div>
+        <div class="info-field"><label>Fecha de ingreso</label><div class="val" id="dp-fecha"></div></div>
+        <div class="info-field"><label>Etapa</label><div class="val" id="dp-etapa"></div></div>
+      </div>
+      <div class="custom-fields-section">
+        <div class="section-head">
+          <h4>Campos adicionales</h4>
+        </div>
+        <div class="info-grid" id="dp-custom-fields"></div>
+      </div>
+      <div class="custom-fields-section">
+        <div class="section-head"><h4>Notas internas</h4></div>
+        <textarea style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:13px;font-family:var(--font-body);resize:vertical;min-height:80px;outline:none;" placeholder="Agregar nota…" id="dp-nota"></textarea>
+        <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+          <button class="btn btn-primary btn-sm" onclick="showToast('Nota guardada','success')">Guardar nota</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: HISTORIAL -->
+    <div id="dp-historial" style="display:none;">
+      <div class="timeline" id="dp-timeline"></div>
+    </div>
+
+    <!-- TAB: WHATSAPP -->
+    <div id="dp-whatsapp" style="display:none;">
+      <div class="wa-thread" id="dp-wa-thread"></div>
+      <div class="wa-input-bar">
+        <input class="wa-input" type="text" placeholder="Escribí un mensaje…" id="wa-input-text">
+        <button class="btn btn-primary btn-sm" onclick="sendWAMsg()">Enviar</button>
+        <button class="btn btn-ghost btn-sm">📎</button>
+      </div>
+    </div>
+
+    <!-- TAB: TAREAS -->
+    <div id="dp-tareas" style="display:none;">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+        <button class="btn btn-primary btn-sm" onclick="showToast('Función disponible en el módulo de tareas','info')">+ Nueva tarea</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;" id="dp-tasks-list"></div>
+    </div>
+
+    <!-- TAB: COTIZACIONES -->
+    <div id="dp-cotizaciones" style="display:none;">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+        <button class="btn btn-primary btn-sm" onclick="showToast('Abriendo generador de cotización…','info')">+ Nueva cotización</button>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:22px;">📄</span>
+          <div>
+            <div style="font-size:13px;font-weight:500;">COT-2026-031 — Plan Familiar</div>
+            <div style="font-size:12px;color:var(--text3);">Generada 15/05/2026 · $124.500/mes</div>
+          </div>
+          <span class="tag tag-green" style="margin-left:auto">Enviada</span>
+          <button class="btn btn-ghost btn-sm">⇣ PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: CAMPOS -->
+    <div id="dp-campos" style="display:none;">
+      <p style="font-size:13px;color:var(--text3);margin-bottom:14px;">Valores de campos personalizados para este contacto.</p>
+      <div class="info-grid" id="dp-campos-edit"></div>
+    </div>
+
+  </div><!-- /detail-body -->
+
+  <!-- Convert bar (solo para leads) -->
+  <div class="convert-bar" id="dp-convert-bar">
+    <button class="btn-convert" onclick="convertToCliente()">
+      ✓ Convertir a Cliente
+    </button>
+    <span class="convert-note">Mueve este lead a la base de Clientes y cierra la oportunidad.</span>
+  </div>
+</div>
+
+<!-- ══ MODAL NUEVO CONTACTO ═══════════════════════════════ -->
+<div class="modal-overlay" id="modal-nuevo">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Nuevo contacto</h3>
+      <button class="close-btn" onclick="closeModal('modal-nuevo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Tipo de contacto</label>
+        <div class="type-selector">
+          <div class="type-opt active lead" id="tipo-lead" onclick="selectTipo('lead')">
+            <div class="type-icon">●</div>
+            <div class="type-label">Lead</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px;">Prospecto sin venta</div>
+          </div>
+          <div class="type-opt client" id="tipo-client" onclick="selectTipo('client')">
+            <div class="type-icon">✓</div>
+            <div class="type-label">Cliente</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px;">Venta concretada</div>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Nombre *</label><input type="text" placeholder="Nombre completo"></div>
+        <div class="form-group"><label>DNI</label><input type="text" placeholder="12.345.678"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Teléfono *</label><input type="text" placeholder="+54 9 11 ..."></div>
+        <div class="form-group"><label>Email</label><input type="email" placeholder="correo@ejemplo.com"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Fuente</label>
+          <select>
+            <option>WhatsApp entrante</option>
+            <option>Formulario web</option>
+            <option>Referido</option>
+            <option>Llamada</option>
+            <option>Derivado</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Plan de interés</label>
+          <select>
+            <option>Individual</option>
+            <option>Familiar</option>
+            <option>Empresa PyME</option>
+            <option>Maternidad</option>
+            <option>Senior</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Agente asignado</label>
+        <select>
+          <option>María García</option>
+          <option>Juan Pérez</option>
+          <option>Laura Díaz</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-nuevo')">Cancelar</button>
+      <button class="btn btn-primary" onclick="createContact()">Crear contacto</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL CAMPO PERSONALIZADO ═════════════════════════ -->
+<div class="modal-overlay" id="modal-campo">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Nuevo campo personalizado</h3>
+      <button class="close-btn" onclick="closeModal('modal-campo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Nombre del campo *</label>
+        <input type="text" placeholder="Ej: Cobertura solicitada, Fecha de vencimiento…">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Tipo de dato</label>
+          <select>
+            <option>Texto</option>
+            <option>Número</option>
+            <option>Fecha</option>
+            <option>Sí / No</option>
+            <option>Lista de opciones</option>
+            <option>Múltiple selección</option>
+            <option>Archivo</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Visible en</label>
+          <select>
+            <option>Leads y Clientes</option>
+            <option>Solo Leads</option>
+            <option>Solo Clientes</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Disponible para</label>
+        <div style="display:flex;gap:10px;margin-top:4px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text2);cursor:pointer;">
+            <input type="checkbox" checked style="accent-color:var(--blue)"> Filtros y búsqueda
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text2);cursor:pointer;">
+            <input type="checkbox" checked style="accent-color:var(--blue)"> Automatizaciones
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text2);cursor:pointer;">
+            <input type="checkbox" style="accent-color:var(--blue)"> Requerido
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Descripción / ayuda (opcional)</label>
+        <input type="text" placeholder="Texto de ayuda que ve el agente">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-campo')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveField()">Guardar campo</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   DATOS DE MUESTRA
+═══════════════════════════════════════════════════════ */
+const STAGES = [
+  { id:'nuevo',        label:'Nuevo',         color:'#5A6478' },
+  { id:'contactado',   label:'Contactado',    color:'#3B7EF6' },
+  { id:'interesado',   label:'Interesado',    color:'#7C5CFC' },
+  { id:'negociacion',  label:'En negociación',color:'#F59E0B' },
+  { id:'ganado',       label:'Ganado',        color:'#22C97A' },
+  { id:'perdido',      label:'Perdido',       color:'#EF4444' },
+];
+
+const CONTACTS = [
+  { id:1,  name:'María Rodríguez',  dni:'28.441.302', tel:'+54 9 11 4523-8801', email:'mrodriguez@gmail.com', type:'lead',    stage:'interesado',   fuente:'WhatsApp',      agente:'Laura Díaz',    plan:'Familiar',    color:'#3B7EF6', initials:'MR', fecha:'2026-05-10', nota:'', customFields:{'Cobertura solicitada':'Alta','Cantidad de hijos':'2'} },
+  { id:2,  name:'Carlos Villalba',  dni:'31.882.005', tel:'+54 9 11 6671-4492', email:'cvillalba@yahoo.com',  type:'lead',    stage:'nuevo',         fuente:'Formulario web',agente:'Juan Pérez',    plan:'Individual',  color:'#7C5CFC', initials:'CV', fecha:'2026-05-14', nota:'', customFields:{} },
+  { id:3,  name:'Sofía Méndez',     dni:'25.007.881', tel:'+54 9 11 2234-7712', email:'smendez@outlook.com',  type:'cliente', stage:'ganado',        fuente:'Referido',      agente:'María García',  plan:'Familiar',    color:'#22C97A', initials:'SM', fecha:'2026-03-22', nota:'', customFields:{'Cobertura solicitada':'Media'} },
+  { id:4,  name:'Roberto Aguirre',  dni:'22.551.770', tel:'+54 9 11 3312-9900', email:'raguirre@gmail.com',   type:'lead',    stage:'negociacion',   fuente:'Llamada',       agente:'Laura Díaz',    plan:'Empresa PyME',color:'#F59E0B', initials:'RA', fecha:'2026-05-02', nota:'', customFields:{} },
+  { id:5,  name:'Valentina Torres', dni:'35.120.440', tel:'+54 9 11 8891-3344', email:'vtorres@gmail.com',    type:'cliente', stage:'ganado',        fuente:'WhatsApp',      agente:'Juan Pérez',    plan:'Maternidad',  color:'#06B6D4', initials:'VT', fecha:'2026-04-08', nota:'', customFields:{} },
+  { id:6,  name:'Hernán Palacio',   dni:'29.003.114', tel:'+54 9 11 5540-2271', email:'hpalacio@outlook.com', type:'lead',    stage:'contactado',    fuente:'WhatsApp',      agente:'María García',  plan:'Senior',      color:'#EF4444', initials:'HP', fecha:'2026-05-15', nota:'', customFields:{} },
+  { id:7,  name:'Luciana Fernández',dni:'30.774.221', tel:'+54 9 11 4401-8823', email:'lfernadez@gmail.com',  type:'lead',    stage:'interesado',    fuente:'Formulario web',agente:'Laura Díaz',    plan:'Familiar',    color:'#3B7EF6', initials:'LF', fecha:'2026-05-09', nota:'', customFields:{} },
+  { id:8,  name:'Diego Soria',      dni:'27.332.559', tel:'+54 9 11 7712-0044', email:'dsoria@gmail.com',     type:'cliente', stage:'ganado',        fuente:'Referido',      agente:'Juan Pérez',    plan:'Individual',  color:'#22C97A', initials:'DS', fecha:'2026-02-14', nota:'', customFields:{} },
+  { id:9,  name:'Natalia Ruiz',     dni:'33.445.881', tel:'+54 9 11 9923-5510', email:'nruiz@yahoo.com',      type:'lead',    stage:'nuevo',         fuente:'WhatsApp',      agente:'María García',  plan:'Individual',  color:'#7C5CFC', initials:'NR', fecha:'2026-05-16', nota:'', customFields:{} },
+  { id:10, name:'Andrés Castillo',  dni:'24.118.003', tel:'+54 9 11 1100-4498', email:'acastillo@gmail.com',  type:'lead',    stage:'negociacion',   fuente:'Llamada',       agente:'Laura Díaz',    plan:'Empresa PyME',color:'#F59E0B', initials:'AC', fecha:'2026-05-01', nota:'', customFields:{} },
+];
+
+const CUSTOM_FIELDS_DEF = [
+  { name:'Cobertura solicitada', type:'Lista de opciones', scope:'Leads y Clientes', system:false },
+  { name:'Cantidad de hijos',    type:'Número',            scope:'Solo Leads',       system:false },
+  { name:'Fecha de vencimiento', type:'Fecha',             scope:'Solo Clientes',    system:false },
+];
+
+const SYSTEM_FIELDS = [
+  { name:'Nombre completo',   type:'Texto',  scope:'Leads y Clientes' },
+  { name:'DNI',               type:'Texto',  scope:'Leads y Clientes' },
+  { name:'Teléfono',          type:'Texto',  scope:'Leads y Clientes' },
+  { name:'Email',             type:'Texto',  scope:'Leads y Clientes' },
+  { name:'Fuente',            type:'Lista',  scope:'Leads y Clientes' },
+  { name:'Agente asignado',   type:'Texto',  scope:'Leads y Clientes' },
+  { name:'Etapa',             type:'Lista',  scope:'Solo Leads' },
+  { name:'Plan de interés',   type:'Lista',  scope:'Leads y Clientes' },
+];
+
+const WA_MSGS = [
+  { dir:'in',  text:'Hola, buenos días! Vi que ofrecen planes de obra social. Quería info.', time:'10:23' },
+  { dir:'out', text:'¡Hola! Claro que sí 😊 ¿Para cuántas personas sería la cobertura?', time:'10:25' },
+  { dir:'in',  text:'Para mí y mi señora, y tenemos 2 nenes de 4 y 7 años.', time:'10:27' },
+  { dir:'out', text:'Perfecto, le armaría el Plan Familiar. ¿Me pasás el DNI para preparar la cotización?', time:'10:28' },
+  { dir:'in',  text:'28441302', time:'10:31' },
+];
+
+const TIMELINE = [
+  { icon:'📥', color:'var(--blue-dim)', type:'Lead ingresado', time:'10/05 09:45', body:'Ingresó vía WhatsApp. Agente asignada: Laura Díaz.' },
+  { icon:'✉',  color:'var(--violet-dim)', type:'Plantilla enviada', time:'10/05 10:25', body:'Se envió plantilla "Bienvenida_Familiar". Estado: Leída ✓✓' },
+  { icon:'💬', color:'var(--cyan-dim)', type:'Mensaje recibido', time:'10/05 10:27', body:'El cliente respondió con información familiar.', bubble:{type:'recv', text:'"Para mí y mi señora, y tenemos 2 nenes de 4 y 7 años."'} },
+  { icon:'📄', color:'var(--amber-dim)', type:'Cotización generada', time:'10/05 11:15', body:'Plan Familiar · $124.500/mes. PDF enviado por WhatsApp.' },
+  { icon:'📝', color:'var(--bg4)', type:'Nota interna', time:'11/05 14:00', body:'Muy interesado, pide hablar con el marido primero. Seguimiento el jueves.' },
+];
+
+const TASKS_SAMPLE = [
+  { done:false, label:'Llamar para hacer seguimiento', due:'Hoy, 15:00', agent:'Laura Díaz' },
+  { done:true,  label:'Enviar cotización Plan Familiar', due:'10/05/2026', agent:'Laura Díaz' },
+];
+
+/* ═══════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════ */
+let currentTab  = 'contactos';
+let currentView = 'list';
+let currentContact = null;
+let currentModule  = 'crm';
+let selectedTipo   = 'lead';
+
+/* ═══════════════════════════════════════════════════════
+   MÓDULO NAV
+═══════════════════════════════════════════════════════ */
+function showModule(mod) {
+  document.querySelectorAll('.view-section[id^="mod-"]').forEach(el => el.classList.remove('active'));
+  document.getElementById('mod-' + mod).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  currentModule = mod;
+  if (mod === 'campos') renderCustomFields();
+}
+
+/* ═══════════════════════════════════════════════════════
+   TAB / VIEW SWITCHING
+═══════════════════════════════════════════════════════ */
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.module-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  renderContacts();
+}
+
+function setView(v) {
+  currentView = v;
+  document.getElementById('view-list').classList.toggle('active', v === 'list');
+  document.getElementById('view-kanban').classList.toggle('active', v === 'kanban');
+  document.getElementById('vbtn-list').classList.toggle('active', v === 'list');
+  document.getElementById('vbtn-kanban').classList.toggle('active', v === 'kanban');
+  if (v === 'kanban') renderKanban();
+  else renderContacts();
+}
+
+/* ═══════════════════════════════════════════════════════
+   RENDER: LIST
+═══════════════════════════════════════════════════════ */
+function filteredContacts() {
+  if (currentTab === 'leads')    return CONTACTS.filter(c => c.type === 'lead');
+  if (currentTab === 'clientes') return CONTACTS.filter(c => c.type === 'cliente');
+  return CONTACTS;
+}
+
+function stageInfo(id) { return STAGES.find(s => s.id === id) || { label: id, color:'#888' }; }
+
+function renderContacts() {
+  const list = filteredContacts();
+  document.getElementById('count-label').textContent = `Mostrando ${list.length} de ${CONTACTS.length}`;
+  const tbody = document.getElementById('contacts-tbody');
+  tbody.innerHTML = list.map(c => {
+    const st = stageInfo(c.stage);
+    const typeTag = c.type === 'lead'
+      ? `<span class="tag tag-blue">● Lead</span>`
+      : `<span class="tag tag-green">✓ Cliente</span>`;
+    return `<tr onclick="openDetail(${c.id})">
+      <td><input type="checkbox" onclick="event.stopPropagation()" style="accent-color:var(--blue)"></td>
+      <td><div class="td-name">
+        <div class="avatar" style="background:${c.color}">${c.initials}</div>
+        ${c.name}
+      </div></td>
+      <td>${typeTag}</td>
+      <td><span class="tag" style="background:${st.color}22;color:${st.color}">
+        <span class="stage-dot" style="background:${st.color}"></span>${st.label}
+      </span></td>
+      <td class="td-muted">${c.tel}</td>
+      <td class="td-muted">${c.fuente}</td>
+      <td class="td-muted">${c.agente}</td>
+      <td class="td-muted">${c.plan}</td>
+      <td class="td-muted">${c.fecha}</td>
+      <td><div class="td-actions">
+        <button class="icon-btn" title="WhatsApp" onclick="event.stopPropagation();openDetail(${c.id})">💬</button>
+        <button class="icon-btn" title="Editar" onclick="event.stopPropagation()">✎</button>
+        <button class="icon-btn" title="Más acciones" onclick="event.stopPropagation()">⋯</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════
+   RENDER: KANBAN
+═══════════════════════════════════════════════════════ */
+function renderKanban() {
+  const list = filteredContacts();
+  const wrap = document.getElementById('crm-kanban');
+  const stagesToShow = currentTab === 'clientes'
+    ? [STAGES[4]] // solo "Ganado"
+    : STAGES.filter(s => s.id !== 'ganado' || currentTab === 'contactos');
+
+  wrap.innerHTML = stagesToShow.map(st => {
+    const cards = list.filter(c => c.stage === st.id);
+    return `<div class="kanban-col">
+      <div class="kanban-col-header">
+        <div class="col-dot" style="background:${st.color}"></div>
+        <div class="col-title">${st.label}</div>
+        <div class="col-count">${cards.length}</div>
+      </div>
+      <div class="kanban-cards">
+        ${cards.map(c => `
+          <div class="kcard" onclick="openDetail(${c.id})">
+            <div class="kcard-header">
+              <div class="avatar" style="background:${c.color};width:24px;height:24px;font-size:10px">${c.initials}</div>
+              <div class="kcard-name">${c.name}</div>
+              ${c.type==='lead'?'<span class="tag tag-blue" style="font-size:10px;padding:1px 6px">Lead</span>':'<span class="tag tag-green" style="font-size:10px;padding:1px 6px">Cliente</span>'}
+            </div>
+            <div class="kcard-body">
+              <span>📋 ${c.plan}</span>
+              <span>👤 ${c.agente}</span>
+            </div>
+            <div class="kcard-footer">
+              <span class="tag" style="background:${c.color}22;color:${c.color};font-size:10px">${c.fuente}</span>
+              <span class="kcard-meta">📅 ${c.fecha}</span>
+            </div>
+          </div>`).join('')}
+        <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:4px;border-style:dashed;color:var(--text3)" onclick="openModal('modal-nuevo')">
+          + Agregar
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════
+   DETAIL PANEL
+═══════════════════════════════════════════════════════ */
+function openDetail(id) {
+  currentContact = CONTACTS.find(c => c.id === id);
+  if (!currentContact) return;
+  const c = currentContact;
+  const st = stageInfo(c.stage);
+
+  document.getElementById('dp-avatar').style.background = c.color;
+  document.getElementById('dp-avatar').textContent = c.initials;
+  document.getElementById('dp-name').textContent = c.name;
+  document.getElementById('dp-sub').textContent = `${c.plan} · ${c.fuente} · ${c.fecha}`;
+  document.getElementById('dp-dni').textContent   = c.dni;
+  document.getElementById('dp-tel').textContent   = c.tel;
+  document.getElementById('dp-email').textContent = c.email;
+  document.getElementById('dp-fuente').textContent= c.fuente;
+  document.getElementById('dp-plan').textContent  = c.plan;
+  document.getElementById('dp-agente').textContent= c.agente;
+  document.getElementById('dp-fecha').textContent = c.fecha;
+  document.getElementById('dp-etapa').textContent = st.label;
+
+  // type badge
+  const badge = document.getElementById('dp-type-badge');
+  if (c.type === 'lead') {
+    badge.className = 'tag tag-blue';
+    badge.textContent = '● Lead';
+  } else {
+    badge.className = 'tag tag-green';
+    badge.textContent = '✓ Cliente';
+  }
+
+  // convert bar
+  document.getElementById('dp-convert-bar').style.display = c.type === 'lead' ? 'flex' : 'none';
+
+  // custom fields resumen
+  const cfDiv = document.getElementById('dp-custom-fields');
+  const cfEntries = Object.entries(c.customFields || {});
+  cfDiv.innerHTML = cfEntries.length
+    ? cfEntries.map(([k,v]) => `<div class="info-field"><label>${k}</label><div class="val">${v}</div></div>`).join('')
+    : '<div style="color:var(--text3);font-size:13px;grid-column:span 2;">Sin campos adicionales. Agregá campos personalizados desde Configuración.</div>';
+
+  // campos tab
+  document.getElementById('dp-campos-edit').innerHTML = CUSTOM_FIELDS_DEF.map(f =>
+    `<div class="info-field"><label>${f.name}</label><input type="text" value="${c.customFields[f.name]||''}" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-size:13px;font-family:var(--font-body);outline:none;width:100%;" placeholder="${f.type}"></div>`
+  ).join('');
+
+  // timeline
+  document.getElementById('dp-timeline').innerHTML = TIMELINE.map(t => `
+    <div class="tl-item">
+      <div class="tl-icon" style="background:${t.color}">${t.icon}</div>
+      <div class="tl-content">
+        <div class="tl-header">
+          <span class="tl-type">${t.type}</span>
+          <span class="tl-time">${t.time}</span>
+        </div>
+        <div class="tl-body">${t.body}</div>
+        ${t.bubble ? `<div class="tl-bubble ${t.bubble.type}">${t.bubble.text}</div>` : ''}
+      </div>
+    </div>`).join('');
+
+  // whatsapp
+  document.getElementById('dp-wa-thread').innerHTML = WA_MSGS.map(m => `
+    <div class="wa-msg ${m.dir==='out'?'out':'in'}">
+      <div>
+        <div class="wa-bubble">${m.text}</div>
+        <div class="wa-ts">${m.time} ${m.dir==='out'?'✓✓':''}</div>
+      </div>
+    </div>`).join('');
+
+  // tasks
+  document.getElementById('dp-tasks-list').innerHTML = TASKS_SAMPLE.map(t => `
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;display:flex;align-items:center;gap:10px;">
+      <input type="checkbox" ${t.done?'checked':''} style="accent-color:var(--blue)">
+      <div style="flex:1">
+        <div style="font-size:13px;color:var(--text);${t.done?'text-decoration:line-through;color:var(--text3)':''}">${t.label}</div>
+        <div style="font-size:11px;color:var(--text3)">${t.due} · ${t.agent}</div>
+      </div>
+    </div>`).join('');
+
+  // reset to first tab
+  document.querySelectorAll('.dtab').forEach((t,i) => t.classList.toggle('active', i===0));
+  ['dp-resumen','dp-historial','dp-whatsapp','dp-tareas','dp-cotizaciones','dp-campos'].forEach((id,i) => {
+    document.getElementById(id).style.display = i===0 ? 'block' : 'none';
+  });
+
+  document.getElementById('detail-overlay').classList.add('open');
+  document.getElementById('detail-panel').style.display = 'flex';
+}
+
+function closePanelAction() {
+  document.getElementById('detail-overlay').classList.remove('open');
+  document.getElementById('detail-panel').style.display = 'none';
+}
+
+function closeDetail(e) {
+  if (e.target === document.getElementById('detail-overlay')) closePanelAction();
+}
+
+function switchDTab(el, panelId) {
+  document.querySelectorAll('.dtab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  ['dp-resumen','dp-historial','dp-whatsapp','dp-tareas','dp-cotizaciones','dp-campos'].forEach(id => {
+    document.getElementById(id).style.display = id === panelId ? 'block' : 'none';
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   CONVERT LEAD → CLIENTE
+═══════════════════════════════════════════════════════ */
+function convertToCliente() {
+  if (!currentContact) return;
+  currentContact.type = 'cliente';
+  currentContact.stage = 'ganado';
+  closePanelAction();
+  renderContacts();
+  showToast(`${currentContact.name} convertido a Cliente ✓`, 'success');
+}
+
+/* ═══════════════════════════════════════════════════════
+   MODAL
+═══════════════════════════════════════════════════════ */
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function selectTipo(tipo) {
+  selectedTipo = tipo;
+  document.getElementById('tipo-lead').classList.toggle('active', tipo==='lead');
+  document.getElementById('tipo-lead').classList.toggle('lead', tipo==='lead');
+  document.getElementById('tipo-client').classList.toggle('active', tipo==='client');
+  document.getElementById('tipo-client').classList.toggle('client', tipo==='client');
+}
+
+function createContact() {
+  closeModal('modal-nuevo');
+  showToast('Contacto creado como ' + (selectedTipo==='lead'?'Lead':'Cliente'), 'success');
+}
+
+/* ═══════════════════════════════════════════════════════
+   WHATSAPP
+═══════════════════════════════════════════════════════ */
+function sendWAMsg() {
+  const input = document.getElementById('wa-input-text');
+  const text = input.value.trim();
+  if (!text) return;
+  const thread = document.getElementById('dp-wa-thread');
+  const el = document.createElement('div');
+  el.className = 'wa-msg out';
+  el.innerHTML = `<div><div class="wa-bubble">${text}</div><div class="wa-ts">Ahora ✓</div></div>`;
+  thread.appendChild(el);
+  input.value = '';
+  thread.scrollTop = thread.scrollHeight;
+}
+
+/* ═══════════════════════════════════════════════════════
+   CAMPOS PERSONALIZADOS
+═══════════════════════════════════════════════════════ */
+function renderCustomFields() {
+  const scopeTag = s => {
+    if (s.includes('Leads y')) return `<span class="tag tag-blue" style="font-size:10px">Leads</span><span class="tag tag-green" style="font-size:10px">Clientes</span>`;
+    if (s.includes('Leads'))   return `<span class="tag tag-blue" style="font-size:10px">Solo Leads</span>`;
+    return `<span class="tag tag-green" style="font-size:10px">Solo Clientes</span>`;
+  };
+
+  document.getElementById('cf-system').innerHTML = SYSTEM_FIELDS.map(f => `
+    <div class="cf-row">
+      <span style="font-size:14px;color:var(--text3)">⊘</span>
+      <span class="cf-name">${f.name}</span>
+      <span class="cf-type">${f.type}</span>
+      <div class="cf-scope">${scopeTag(f.scope)}</div>
+      <span style="font-size:11px;color:var(--text3);margin-left:auto">Sistema</span>
+    </div>`).join('');
+
+  document.getElementById('cf-custom').innerHTML = CUSTOM_FIELDS_DEF.map(f => `
+    <div class="cf-row">
+      <span class="cf-drag">⠿</span>
+      <span class="cf-name">${f.name}</span>
+      <span class="cf-type">${f.type}</span>
+      <div class="cf-scope">${scopeTag(f.scope)}</div>
+      <div style="margin-left:auto;display:flex;gap:6px;">
+        <button class="icon-btn" title="Editar">✎</button>
+        <button class="icon-btn" title="Eliminar" style="color:var(--red)" onclick="showToast('Campo eliminado','info')">✕</button>
+      </div>
+    </div>`).join('') + `
+    <button class="btn btn-ghost" style="border-style:dashed;color:var(--text3);width:100%;margin-top:4px" onclick="openModal('modal-campo')">
+      + Agregar campo personalizado
+    </button>`;
+}
+
+function saveField() {
+  closeModal('modal-campo');
+  showToast('Campo guardado correctamente', 'success');
+  if (currentModule === 'campos') renderCustomFields();
+}
+
+/* ═══════════════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════════════ */
+function showToast(msg, type='info') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${type==='success'?'✓':'ℹ'}</span><span>${msg}</span>`;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+/* ═══════════════════════════════════════════════════════
+   CLOSE MODALS ON BACKDROP
+═══════════════════════════════════════════════════════ */
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+/* ═══════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════ */
+renderContacts();
+</script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{% if form.instance.pk %}Editar lead{% else %}Nuevo lead{% endif %}{% endblock %}
+{% block nav_leads %}active{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  {% if from_contacts == "contacts" %}
+  <a href="{% url 'leads:contact_list' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Contactos</a>
+  {% else %}
+  <a href="{% url 'leads:list' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Leads</a>
+  {% endif %}
+  <h4 class="mt-1 fw-bold">{% if form.instance.pk %}Editar: {{ form.instance.nombre_completo }}{% else %}Nuevo contacto{% endif %}</h4>
+</div>
+
+<div class="card border-0 shadow-sm" style="max-width:720px;">
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="from" value="{{ from_contacts }}">
+      <div class="row g-3">
+        {% for field in form %}
+        <div class="col-12 {% if field.name in 'notas' %}{% else %}col-md-6{% endif %}">
+          <label class="form-label small fw-semibold">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+          {{ field }}
+          {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+          {% if field.errors %}<div class="invalid-feedback d-block">{{ field.errors.0 }}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar</button>
+        <a href="{% if form.instance.pk %}{% url 'leads:detail' form.instance.pk %}{% elif from_contacts == 'contacts' %}{% url 'leads:contact_list' %}{% else %}{% url 'leads:list' %}{% endif %}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

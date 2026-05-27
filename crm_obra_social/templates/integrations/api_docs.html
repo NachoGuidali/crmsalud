@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Documentación API{% endblock %}
+{% block content %}
+<div class="mb-3">
+  <a href="{% url 'integrations:list' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Integraciones</a>
+  <h4 class="mt-1 fw-bold"><i class="bi bi-book"></i> Documentación de la API</h4>
+</div>
+
+<div class="row g-4">
+  <div class="col-12 col-lg-8">
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-transparent fw-semibold">Autenticación</div>
+      <div class="card-body">
+        <p>Todas las solicitudes deben incluir el header <code>X-API-Key</code> con la clave generada en esta sección.</p>
+        <pre class="bg-dark text-light p-3 rounded small">X-API-Key: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</pre>
+        <p class="text-muted small mb-0">También se acepta como parámetro GET: <code>?api_key=...</code></p>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-transparent fw-semibold">
+        <span class="badge bg-success me-2">POST</span>
+        <code>{{ base_url }}/api/v1/leads/</code>
+        — Crear lead
+      </div>
+      <div class="card-body">
+        <p class="small">Crea un lead nuevo. Si el teléfono ya existe, actualiza los datos vacíos del lead existente.</p>
+        <h6 class="fw-semibold">Request (JSON)</h6>
+        <pre class="bg-dark text-light p-3 rounded small">{
+  "nombre_completo": "Juan Pérez",        <span class="text-warning">// requerido</span>
+  "telefono": "1123456789",               <span class="text-warning">// requerido</span>
+  "codigo_pais": "54",                    <span class="text-muted">// opcional, default: 54</span>
+  "email": "juan@example.com",
+  "dni": "35123456",
+  "localidad": "Buenos Aires",
+  "provincia": "Buenos Aires",
+  "plan": "Individual",                   <span class="text-muted">// nombre exacto del plan</span>
+  "notas": "Interesado por Google Ads",
+  "origen": "web",                        <span class="text-muted">// web|campaña|referido|llamada|whatsapp</span>
+  "datos_extra": {                        <span class="text-muted">// cualquier campo adicional</span>
+    "utm_source": "google",
+    "utm_campaign": "marca_2026",
+    "formulario": "home_page"
+  }
+}</pre>
+        <h6 class="fw-semibold mt-3">Respuestas</h6>
+        <table class="table table-sm small">
+          <tr><td><span class="badge bg-success">201</span></td><td><code>{"status":"created","lead_id":42,"telefono":"+541123456789"}</code></td></tr>
+          <tr><td><span class="badge bg-info">200</span></td><td><code>{"status":"updated","lead_id":42,"telefono":"+541123456789"}</code></td></tr>
+          <tr><td><span class="badge bg-warning text-dark">422</span></td><td><code>{"error":"Teléfono inválido: ...","code":"validation_error"}</code></td></tr>
+          <tr><td><span class="badge bg-danger">401</span></td><td><code>{"error":"API key inválida o ausente","code":"unauthorized"}</code></td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-transparent fw-semibold">
+        <span class="badge bg-primary me-2">GET</span>
+        <code>{{ base_url }}/api/v1/leads/{id}/</code>
+        — Estado del lead
+      </div>
+      <div class="card-body">
+        <pre class="bg-dark text-light p-3 rounded small">{
+  "lead_id": 42,
+  "nombre_completo": "Juan Pérez",
+  "telefono": "+541123456789",
+  "estado": "interesado",
+  "estado_display": "Interesado",
+  "prioridad": "alta",
+  "agente": "María González",
+  "created_at": "2026-05-19T10:30:00-03:00",
+  "updated_at": "2026-05-19T14:22:00-03:00"
+}</pre>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-transparent fw-semibold">
+        <span class="badge bg-success me-2">POST</span>
+        <code>{{ base_url }}/api/v1/webhook/{source}/</code>
+        — Webhook genérico
+      </div>
+      <div class="card-body">
+        <p class="small">Igual que <code>POST /leads/</code> pero el campo <code>origen</code> se toma del parámetro <code>{source}</code> de la URL si no viene en el body.</p>
+        <pre class="bg-dark text-light p-3 rounded small">POST {{ base_url }}/api/v1/webhook/landing-google/
+<span class="text-muted"># El lead se creará con origen=landing-google (guardado en notas/datos_extra)</span></pre>
+        <p class="small mt-2">Útil para conectar herramientas como <strong>Zapier</strong>, <strong>Make</strong>, <strong>n8n</strong>, formularios de <strong>WordPress</strong>, <strong>Webflow</strong>, etc.</p>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-transparent fw-semibold">Ejemplo con curl</div>
+      <div class="card-body">
+        <pre class="bg-dark text-light p-3 rounded small">curl -X POST {{ base_url }}/api/v1/leads/ \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: TU-API-KEY-AQUI" \
+  -d '{
+    "nombre_completo": "María García",
+    "telefono": "1145678901",
+    "email": "maria@gmail.com",
+    "origen": "web",
+    "datos_extra": {"formulario": "landing_v2"}
+  }'</pre>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">Ejemplo con JavaScript (fetch)</div>
+      <div class="card-body">
+        <pre class="bg-dark text-light p-3 rounded small">fetch('{{ base_url }}/api/v1/leads/', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'TU-API-KEY-AQUI'
+  },
+  body: JSON.stringify({
+    nombre_completo: document.getElementById('nombre').value,
+    telefono: document.getElementById('telefono').value,
+    email: document.getElementById('email').value,
+    origen: 'web',
+    datos_extra: { formulario: 'contacto_home' }
+  })
+})
+.then(r => r.json())
+.then(data => console.log('Lead creado:', data.lead_id));</pre>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

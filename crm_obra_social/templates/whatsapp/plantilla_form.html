@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}{% if form.instance.pk %}Editar plantilla{% else %}Nueva plantilla{% endif %}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{% url 'whatsapp:plantilla_list' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Plantillas</a>
+  <h4 class="mt-1 fw-bold">{% if form.instance.pk %}Editar plantilla{% else %}Nueva plantilla de mensaje{% endif %}</h4>
+</div>
+
+<div class="row g-4">
+  <div class="col-12 col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+
+          <h6 class="fw-semibold text-muted mb-3">Datos básicos</h6>
+          <div class="row g-3 mb-3">
+            <div class="col-md-8">
+              <label class="form-label fw-semibold">Nombre *</label>
+              <input name="nombre" class="form-control" value="{{ form.instance.nombre|default:'' }}" required placeholder="ej: bienvenida_obra_social">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Idioma</label>
+              <input name="idioma" class="form-control" value="{{ form.instance.idioma|default:'es_AR' }}" placeholder="es_AR">
+            </div>
+          </div>
+
+          <h6 class="fw-semibold text-muted mt-4 mb-3">Header (opcional)</h6>
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Tipo de header</label>
+              <select name="header_tipo" class="form-select" id="headerTipo">
+                {% for val, label in form.instance.HEADER_CHOICES %}
+                <option value="{{ val }}" {% if form.instance.header_tipo == val %}selected{% endif %}>{{ label }}</option>
+                {% empty %}
+                <option value="none">Sin header</option>
+                <option value="text">Texto</option>
+                <option value="image">Imagen</option>
+                <option value="document">Documento</option>
+                <option value="video">Video</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-8" id="headerContenidoWrap">
+              <label class="form-label fw-semibold">Contenido del header</label>
+              <input name="header_contenido" class="form-control" value="{{ form.instance.header_contenido|default:'' }}"
+                     id="headerContenido" placeholder="Texto o URL del medio">
+              <div class="form-text">Texto si tipo=Texto · URL si tipo=Imagen/Video/Documento</div>
+            </div>
+          </div>
+
+          <h6 class="fw-semibold text-muted mt-4 mb-3">Cuerpo *</h6>
+          <div class="mb-3">
+            <textarea name="cuerpo" class="form-control" rows="5" id="cuerpoField"
+                      placeholder="Hola {{1}}, te contactamos de {{2}} para informarte..." required>{{ form.instance.cuerpo|default:'' }}</textarea>
+            <div class="form-text">Usá <code>{{1}}</code>, <code>{{2}}</code>... para variables personalizables.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Nombres de variables (en orden)</label>
+            <input name="variables" class="form-control" id="variablesField"
+                   value="{{ form.instance.variables|default:'[]' }}"
+                   placeholder='["nombre", "plan"]'>
+            <div class="form-text">JSON array con el nombre de cada variable: <code>["nombre del lead", "plan elegido"]</code></div>
+          </div>
+
+          <h6 class="fw-semibold text-muted mt-4 mb-3">Footer (opcional)</h6>
+          <div class="mb-3">
+            <input name="footer" class="form-control" maxlength="60"
+                   value="{{ form.instance.footer|default:'' }}"
+                   placeholder="ej: Respondé STOP para cancelar">
+            <div class="form-text">Máximo 60 caracteres.</div>
+          </div>
+
+          <h6 class="fw-semibold text-muted mt-4 mb-3">Botones (opcional, máximo 3)</h6>
+          <div class="mb-3">
+            <textarea name="botones" class="form-control font-monospace" rows="4" id="botonesField"
+                      placeholder='[{"tipo":"reply","texto":"Sí, me interesa"},{"tipo":"url","texto":"Ver planes","valor":"https://..."}]'>{{ form.instance.botones|default:'[]' }}</textarea>
+            <div class="form-text">
+              JSON array. Tipos: <code>reply</code> (respuesta rápida),
+              <code>url</code> (abrir URL, campo <code>"valor"</code>),
+              <code>phone</code> (llamar, campo <code>"valor"</code>).
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Estado</label>
+            <div class="form-check mt-1">
+              <input type="checkbox" name="activa" class="form-check-input" id="activaCheck"
+                     {% if form.instance.activa or not form.instance.pk %}checked{% endif %}>
+              <label class="form-check-label" for="activaCheck">Activa para uso en campañas y automatizaciones</label>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar</button>
+            <a href="{% url 'whatsapp:plantilla_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview panel -->
+  <div class="col-12 col-lg-5">
+    <div class="card border-0 shadow-sm sticky-top" style="top: 70px;">
+      <div class="card-header bg-transparent fw-semibold"><i class="bi bi-phone"></i> Preview</div>
+      <div class="card-body" style="background:#e5ddd5; border-radius: 0 0 8px 8px;">
+        <div class="bg-white rounded-3 p-3 shadow-sm" style="max-width:300px; font-size:.9rem;">
+          <div id="previewHeader" class="fw-semibold text-muted small mb-1" style="display:none"></div>
+          <div id="previewBody" style="white-space:pre-wrap;">{{ form.instance.cuerpo|default:'' }}</div>
+          <div id="previewFooter" class="text-muted small mt-1" style="display:none"></div>
+          <div id="previewBtns" class="mt-2"></div>
+          <div class="text-muted" style="font-size:.65rem; margin-top:4px;">{{ "now"|date:"H:i" }} ✓✓</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updatePreview() {
+  const body = document.getElementById('cuerpoField').value;
+  const footer = document.querySelector('[name="footer"]').value;
+  const headerTipo = document.getElementById('headerTipo').value;
+  const headerContenido = document.getElementById('headerContenido').value;
+
+  document.getElementById('previewBody').textContent = body;
+
+  const footerEl = document.getElementById('previewFooter');
+  if (footer) { footerEl.textContent = footer; footerEl.style.display = ''; }
+  else footerEl.style.display = 'none';
+
+  const headerEl = document.getElementById('previewHeader');
+  if (headerTipo !== 'none' && headerContenido) {
+    headerEl.textContent = headerTipo === 'text' ? headerContenido : '[' + headerTipo.toUpperCase() + ']';
+    headerEl.style.display = '';
+  } else headerEl.style.display = 'none';
+
+  const btnsEl = document.getElementById('previewBtns');
+  try {
+    const btns = JSON.parse(document.getElementById('botonesField').value || '[]');
+    btnsEl.innerHTML = btns.slice(0,3).map(b =>
+      '<div class="text-primary text-center border-top pt-1 mt-1 small">' +
+      (b.tipo === 'url' ? '<i class="bi bi-box-arrow-up-right"></i> ' : b.tipo === 'phone' ? '<i class="bi bi-telephone"></i> ' : '') +
+      (b.texto || '') + '</div>'
+    ).join('');
+  } catch(e) { btnsEl.innerHTML = ''; }
+}
+
+document.getElementById('cuerpoField').addEventListener('input', updatePreview);
+document.querySelector('[name="footer"]').addEventListener('input', updatePreview);
+document.getElementById('headerTipo').addEventListener('change', updatePreview);
+document.getElementById('headerContenido').addEventListener('input', updatePreview);
+document.getElementById('botonesField').addEventListener('input', updatePreview);
+
+updatePreview();
+</script>
+{% endblock %}
