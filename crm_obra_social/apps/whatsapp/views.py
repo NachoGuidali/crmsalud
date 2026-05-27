@@ -613,6 +613,31 @@ class IniciarConversacionView(LoginRequiredMixin, View):
         return redirect('whatsapp:conversacion', pk=conv.pk)
 
 
+class NuevaConversacionView(LoginRequiredMixin, View):
+    """POST: create or find a Conversacion with any phone number."""
+
+    def post(self, request):
+        telefono = request.POST.get('telefono', '').strip()
+        nombre = request.POST.get('nombre', '').strip()
+
+        if not telefono:
+            messages.error(request, 'Ingresá un número de teléfono.')
+            return redirect('whatsapp:inbox')
+
+        if not telefono.startswith('+'):
+            telefono = '+' + telefono
+
+        conv, created = Conversacion.objects.get_or_create(
+            telefono=telefono,
+            defaults={'nombre_contacto': nombre or telefono},
+        )
+        if not created and nombre and not conv.nombre_contacto:
+            conv.nombre_contacto = nombre
+            conv.save(update_fields=['nombre_contacto'])
+
+        return redirect('whatsapp:conversacion', pk=conv.pk)
+
+
 class WhatsAppConfigView(LoginRequiredMixin, View):
     """Supervisor/Superadmin view to configure Evolution API credentials."""
     template_name = 'whatsapp/config.html'
@@ -649,7 +674,12 @@ class WhatsAppConfigView(LoginRequiredMixin, View):
         config.evolution_instance_name = request.POST.get('evolution_instance_name', '').strip() or 'crm-supreg'
         config.webhook_token = request.POST.get('webhook_token', '').strip()
         config.save()
-        messages.success(request, 'Configuración de WhatsApp guardada correctamente.')
+        # Auto-configure webhook URL on Evolution API instance
+        from .sender import setup_instance_webhook
+        from django.urls import reverse
+        webhook_url = request.build_absolute_uri(reverse('whatsapp:webhook'))
+        setup_instance_webhook(webhook_url)
+        messages.success(request, 'Configuración guardada. Webhook registrado en Evolution API.')
         return redirect('whatsapp:config')
 
 

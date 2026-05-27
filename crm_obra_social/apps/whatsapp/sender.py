@@ -184,6 +184,25 @@ def get_qr_code() -> str | None:
         return None
 
 
+def setup_instance_webhook(webhook_url: str) -> bool:
+    """Configure the webhook URL on the Evolution API instance."""
+    url = _evo_url(f'/webhook/set/{_instance()}')
+    payload = {
+        'url': webhook_url,
+        'webhook_by_events': False,
+        'webhook_base64': False,
+        'events': ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE'],
+    }
+    try:
+        response = requests.post(url, json=payload, headers=_evo_headers(), timeout=10)
+        response.raise_for_status()
+        logger.info('Webhook configured: %s', webhook_url)
+        return True
+    except Exception as e:
+        logger.error('Error configuring webhook: %s', e)
+        return False
+
+
 def ensure_instance_exists():
     """
     Create the Evolution API instance if it doesn't exist yet.
