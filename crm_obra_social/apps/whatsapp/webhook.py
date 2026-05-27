@@ -41,6 +41,7 @@ def parse_incoming_webhook(payload: dict) -> list:
     logger.debug('Webhook event received: %s', raw_event)
 
     if event == 'messages.upsert':
+        logger.info('UPSERT payload keys: %s | data type: %s', list(payload.keys()), type(payload.get('data')).__name__)
         return _parse_message_upsert(payload)
 
     if event == 'messages.update':
@@ -92,7 +93,8 @@ def _parse_message_upsert(payload: dict) -> list:
             'contact_name': contact_name,
         })
     except Exception as e:
-        logger.exception('Error parsing webhook upsert payload: %s', e)
+        logger.error('Error parsing webhook upsert payload: %s | payload data: %s', e, str(payload.get('data', ''))[:300])
+    logger.info('UPSERT parsed %d messages', len(messages_data))
     return messages_data
 
 
