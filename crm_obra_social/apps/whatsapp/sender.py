@@ -143,6 +143,18 @@ def send_interactive_message(to: str, body_text: str, buttons: list, header_text
         _log_request(url, 'POST', payload, response, int((time.monotonic() - start) * 1000))
 
 
+def logout_instance():
+    """Logout (disconnect) the Evolution API WhatsApp instance."""
+    url = _evo_url(f'/instance/logout/{_instance()}')
+    try:
+        response = requests.delete(url, headers=_evo_headers(), timeout=10)
+        response.raise_for_status()
+        logger.info('Instance logged out')
+    except Exception as e:
+        logger.error('Error logging out instance: %s', e)
+        raise
+
+
 def get_connection_state() -> str:
     """
     Check Evolution API instance connection state.
@@ -188,10 +200,13 @@ def setup_instance_webhook(webhook_url: str) -> bool:
     """Configure the webhook URL on the Evolution API instance."""
     url = _evo_url(f'/webhook/set/{_instance()}')
     payload = {
-        'url': webhook_url,
-        'webhook_by_events': False,
-        'webhook_base64': False,
-        'events': ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE'],
+        'webhook': {
+            'enabled': True,
+            'url': webhook_url,
+            'webhook_by_events': False,
+            'webhook_base64': False,
+            'events': ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE'],
+        }
     }
     try:
         response = requests.post(url, json=payload, headers=_evo_headers(), timeout=10)

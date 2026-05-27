@@ -714,3 +714,20 @@ class ConnectionStatusView(LoginRequiredMixin, View):
             return JsonResponse({'state': state, 'connected': state == 'open'})
         except Exception as e:
             return JsonResponse({'state': 'error', 'connected': False, 'detail': str(e)})
+
+
+class LogoutInstanceView(LoginRequiredMixin, View):
+    """AJAX POST: logout Evolution API WhatsApp instance."""
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated or not request.user.can_see_all_leads:
+            return JsonResponse({'error': 'Sin permisos'}, status=403)
+        return super().dispatch(request, *args, **kwargs)
+
+    def post(self, request):
+        from .sender import logout_instance
+        try:
+            logout_instance()
+            return JsonResponse({'ok': True})
+        except Exception as e:
+            return JsonResponse({'ok': False, 'error': str(e)}, status=500)

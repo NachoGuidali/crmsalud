@@ -33,9 +33,16 @@
             {% if connection_state == 'open' %}La instancia está activa y puede enviar y recibir mensajes.{% else %}Escaneá el QR con el celular para conectar WhatsApp.{% endif %}
           </small>
         </div>
-        <button class="btn btn-outline-secondary btn-sm ms-auto" onclick="checkStatus()">
-          <i class="bi bi-arrow-clockwise"></i> Actualizar estado
-        </button>
+        <div class="ms-auto d-flex gap-2">
+          <button class="btn btn-outline-secondary btn-sm" onclick="checkStatus()">
+            <i class="bi bi-arrow-clockwise"></i> Actualizar
+          </button>
+          <button class="btn btn-outline-danger btn-sm" id="disconnectBtn"
+                  onclick="disconnectInstance()"
+                  {% if connection_state != 'open' %}style="display:none"{% endif %}>
+            <i class="bi bi-plug"></i> Desconectar
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -182,16 +189,19 @@ function checkStatus() {
       const text = document.getElementById('statusText');
       const detail = document.getElementById('statusDetail');
       const qrSection = document.getElementById('qrSection');
+      const disconnectBtn = document.getElementById('disconnectBtn');
       if (data.connected) {
         icon.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i>';
         text.textContent = 'WhatsApp conectado';
         detail.textContent = 'La instancia está activa y puede enviar y recibir mensajes.';
         qrSection.style.display = 'none';
+        if (disconnectBtn) disconnectBtn.style.display = '';
       } else {
         icon.innerHTML = '<i class="bi bi-x-circle-fill text-danger"></i>';
         text.textContent = 'Sin conexión';
         detail.textContent = 'Escaneá el QR con el celular para conectar WhatsApp.';
         qrSection.style.display = '';
+        if (disconnectBtn) disconnectBtn.style.display = 'none';
       }
     })
     .catch(() => {
@@ -237,6 +247,17 @@ function loadQR() {
       errDiv.style.display = '';
       container.style.display = '';
     });
+}
+
+function disconnectInstance() {
+  if (!confirm('¿Desconectar WhatsApp? Deberás escanear el QR nuevamente.')) return;
+  fetch('{% url "whatsapp:logout_instance" %}', {
+    method: 'POST',
+    headers: {'X-CSRFToken': '{{ csrf_token }}'},
+  })
+  .then(r => r.json())
+  .then(() => { checkStatus(); })
+  .catch(() => alert('Error al desconectar'));
 }
 
 let statusPollInterval = null;

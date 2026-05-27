@@ -28,6 +28,7 @@ urlpatterns = [
     path('configuracion/', views.WhatsAppConfigView.as_view(), name='config'),
     path('configuracion/qr/', views.QRCodeView.as_view(), name='qr_code'),
     path('configuracion/estado/', views.ConnectionStatusView.as_view(), name='connection_status'),
+    path('configuracion/logout/', views.LogoutInstanceView.as_view(), name='logout_instance'),
 
     # Templates
     path('plantillas/', views.PlantillaListView.as_view(), name='plantilla_list'),
