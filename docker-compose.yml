@@ -97,7 +97,9 @@ services:
       DATABASE_ENABLED: "true"
       DATABASE_PROVIDER: postgresql
       DATABASE_CONNECTION_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/evolution_api
-      REDIS_ENABLED: "false"
+      REDIS_ENABLED: "true"
+      REDIS_URI: redis://redis:6379
+      REDIS_PREFIX_KEY: evo
     volumes:
       - evolution_instances:/evolution/instances
     depends_on:
