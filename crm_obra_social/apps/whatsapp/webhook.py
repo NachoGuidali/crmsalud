@@ -32,8 +32,12 @@ def parse_incoming_webhook(payload: dict) -> list:
     Parse Evolution API webhook payload and return list of message dicts.
     Each dict: from_phone, message_id, type, content, media_url, timestamp, contact_name.
     Returns [] for non-message events (e.g. connection.update).
+    Handles both 'messages.upsert' and 'MESSAGES_UPSERT' event name formats.
     """
-    event = payload.get('event', '')
+    raw_event = payload.get('event', '')
+    # Normalize: MESSAGES_UPSERT → messages.upsert
+    event = raw_event.lower().replace('_', '.')
+    logger.debug('Webhook event received: %s', raw_event)
 
     if event == 'messages.upsert':
         return _parse_message_upsert(payload)
@@ -42,6 +46,7 @@ def parse_incoming_webhook(payload: dict) -> list:
         _process_status_updates(payload.get('data', []))
         return []
 
+    logger.debug('Unhandled webhook event: %s', raw_event)
     return []
 
 

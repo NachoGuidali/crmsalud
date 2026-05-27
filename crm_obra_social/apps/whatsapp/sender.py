@@ -143,6 +143,26 @@ def send_interactive_message(to: str, body_text: str, buttons: list, header_text
         _log_request(url, 'POST', payload, response, int((time.monotonic() - start) * 1000))
 
 
+def reset_instance():
+    """Force a clean reconnection by logging out and restarting the instance."""
+    import time
+    instance = _instance()
+    # Step 1: logout (clears saved session from DB)
+    try:
+        requests.delete(_evo_url(f'/instance/logout/{instance}'), headers=_evo_headers(), timeout=10)
+        logger.info('Instance logged out for reset')
+    except Exception:
+        pass
+    time.sleep(1)
+    # Step 2: restart (reloads instance in clean state, will show QR since session was cleared)
+    try:
+        requests.post(_evo_url(f'/instance/restart/{instance}'), headers=_evo_headers(), timeout=10)
+        logger.info('Instance restarted for reset')
+    except Exception:
+        pass
+    time.sleep(2)
+
+
 def logout_instance():
     """Logout (disconnect) the Evolution API WhatsApp instance. Falls back to restart if already closed."""
     instance = _instance()

@@ -37,8 +37,8 @@
           <button class="btn btn-outline-secondary btn-sm" onclick="checkStatus()">
             <i class="bi bi-arrow-clockwise"></i> Actualizar
           </button>
-          <button class="btn btn-outline-warning btn-sm" onclick="loadQR(true)" title="Forzar nuevo QR aunque muestre conectado">
-            <i class="bi bi-qr-code-scan"></i> Forzar QR
+          <button class="btn btn-outline-warning btn-sm" onclick="resetInstance()" title="Borrar sesión y generar QR nuevo">
+            <i class="bi bi-arrow-counterclockwise"></i> Resetear
           </button>
           <button class="btn btn-outline-danger btn-sm" id="disconnectBtn"
                   onclick="disconnectInstance()"
@@ -257,13 +257,28 @@ function loadQR(force) {
 
 function disconnectInstance() {
   if (!confirm('¿Desconectar WhatsApp? Deberás escanear el QR nuevamente.')) return;
+  const body = new FormData(); body.append('action', 'logout');
   fetch('{% url "whatsapp:logout_instance" %}', {
     method: 'POST',
     headers: {'X-CSRFToken': '{{ csrf_token }}'},
+    body: body,
   })
   .then(r => r.json())
-  .then(() => { checkStatus(); })
+  .then(() => { setTimeout(checkStatus, 2000); loadQR(true); })
   .catch(() => alert('Error al desconectar'));
+}
+
+function resetInstance() {
+  if (!confirm('¿Resetear instancia? Esto borra la sesión y genera un QR nuevo.')) return;
+  const body = new FormData(); body.append('action', 'reset');
+  fetch('{% url "whatsapp:logout_instance" %}', {
+    method: 'POST',
+    headers: {'X-CSRFToken': '{{ csrf_token }}'},
+    body: body,
+  })
+  .then(r => r.json())
+  .then(() => { setTimeout(() => loadQR(true), 1500); })
+  .catch(() => alert('Error al resetear'));
 }
 
 let statusPollInterval = null;

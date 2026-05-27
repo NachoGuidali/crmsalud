@@ -46,11 +46,11 @@ class WebhookView(View):
         token = request.headers.get('apikey', '')
         configured_token = ConfiguracionWhatsApp.get_setting('webhook_token')
         if not verify_webhook_token(token, configured_token):
-            logger.warning('Invalid webhook token — request rejected')
+            logger.warning('Invalid webhook token received: "%s" — request rejected', token[:20])
             return HttpResponse('Forbidden', status=403)
         try:
             payload = json.loads(request.body)
-            logger.debug('Webhook received: %s', json.dumps(payload)[:500])
+            logger.info('Webhook received event: %s', payload.get('event', 'unknown'))
             messages_data = parse_incoming_webhook(payload)
             for msg_data in messages_data:
                 process_incoming_message.delay(msg_data)
@@ -728,9 +728,13 @@ class LogoutInstanceView(LoginRequiredMixin, View):
         return super().dispatch(request, *args, **kwargs)
 
     def post(self, request):
-        from .sender import logout_instance
+        action = request.POST.get('action', 'logout')
+        from .sender import logout_instance, reset_instance
         try:
-            logout_instance()
+            if action == 'reset':
+                reset_instance()
+            else:
+                logout_instance()
             return JsonResponse({'ok': True})
         except Exception as e:
             return JsonResponse({'ok': False, 'error': str(e)}, status=500)
