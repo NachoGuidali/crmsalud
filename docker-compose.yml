@@ -102,6 +102,11 @@ services:
       CACHE_REDIS_PREFIX_KEY: evolution
       CACHE_REDIS_SAVE_INSTANCES: "false"
       LOG_BAILEYS: debug
+      PROXY_HOST: ${PROXY_HOST:-}
+      PROXY_PORT: ${PROXY_PORT:-}
+      PROXY_PROTOCOL: ${PROXY_PROTOCOL:-http}
+      PROXY_USERNAME: ${PROXY_USERNAME:-}
+      PROXY_PASSWORD: ${PROXY_PASSWORD:-}
     volumes:
       - evolution_instances:/evolution/instances
     depends_on:
