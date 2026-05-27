@@ -174,9 +174,9 @@ def get_qr_code() -> str | None:
         response.raise_for_status()
         data = response.json()
         logger.info('QR response keys: %s', list(data.keys()))
-        qr = (data.get('code') or
+        qr = (data.get('base64') or
               data.get('qrcode', {}).get('base64') or
-              data.get('base64') or
+              data.get('code') or
               data.get('qr') or '')
         return qr or None
     except Exception as e:
