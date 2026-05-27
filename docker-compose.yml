@@ -95,6 +95,7 @@ services:
       AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
       WEBHOOK_GLOBAL_ENABLED: "false"
       DATABASE_ENABLED: "false"
+      DATABASE_PROVIDER: postgresql
       REDIS_ENABLED: "true"
       REDIS_URI: redis://redis:6379/1
     volumes:
