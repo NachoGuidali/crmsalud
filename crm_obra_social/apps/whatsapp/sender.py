@@ -173,8 +173,11 @@ def get_qr_code() -> str | None:
         response = requests.get(url, headers=_evo_headers(), timeout=15)
         response.raise_for_status()
         data = response.json()
-        # Evolution API returns the QR as base64 string under 'code' or 'qrcode.base64'
-        qr = data.get('code') or data.get('qrcode', {}).get('base64', '')
+        logger.info('QR response keys: %s', list(data.keys()))
+        qr = (data.get('code') or
+              data.get('qrcode', {}).get('base64') or
+              data.get('base64') or
+              data.get('qr') or '')
         return qr or None
     except Exception as e:
         logger.error('Error getting QR code: %s', e)
@@ -187,12 +190,20 @@ def ensure_instance_exists():
     Safe to call multiple times — does nothing if instance already exists.
     """
     instance = _instance()
-    url = _evo_url(f'/instance/fetchInstances')
+
+    # Check if instance already exists
     try:
+        url = _evo_url(f'/instance/fetchInstances')
         response = requests.get(url, headers=_evo_headers(), timeout=10)
         if response.ok:
             instances = response.json()
-            existing = [i.get('instance', {}).get('instanceName', '') for i in (instances if isinstance(instances, list) else [])]
+            if isinstance(instances, list):
+                existing = [
+                    i.get('instance', {}).get('instanceName', '') or i.get('instanceName', '')
+                    for i in instances
+                ]
+            else:
+                existing = []
             if instance in existing:
                 return
     except Exception:
@@ -205,7 +216,14 @@ def ensure_instance_exists():
     }
     try:
         response = requests.post(create_url, json=payload, headers=_evo_headers(), timeout=15)
+        if response.status_code == 403:
+            # Instance already exists
+            return
         response.raise_for_status()
         logger.info('Evolution API instance "%s" created', instance)
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code == 403:
+            return
+        logger.error('Error creating Evolution API instance: %s', e)
     except Exception as e:
         logger.error('Error creating Evolution API instance: %s', e)
