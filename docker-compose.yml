@@ -40,7 +40,7 @@ services:
       - media_data:/app/media
       - ./crm_obra_social/staticfiles:/app/staticfiles
     ports:
-      - "8001:8000"
+      - "8002:8000"
     depends_on:
       db:
         condition: service_healthy
