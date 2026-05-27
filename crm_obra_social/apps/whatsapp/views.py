@@ -674,6 +674,8 @@ class WhatsAppConfigView(LoginRequiredMixin, View):
         config.evolution_instance_name = request.POST.get('evolution_instance_name', '').strip() or 'crm-supreg'
         config.webhook_token = request.POST.get('webhook_token', '').strip()
         config.save()
+        from django.core.cache import cache
+        cache.delete('whatsapp_config')
         # Auto-configure webhook URL on Evolution API instance
         from .sender import setup_instance_webhook
         from django.urls import reverse

@@ -41,15 +41,20 @@ class ConfiguracionWhatsApp(models.Model):
 
     @classmethod
     def get_setting(cls, key):
-        """Read a setting from DB first, fall back to Django settings."""
-        db_val = cls.get_config().get(key)
-        if db_val:
-            return db_val
+        """Read a setting from DB first, fall back to Django settings.
+        webhook_token never falls back to env — empty means 'no token required'."""
+        config = cls.get_config()
+        if key in config:
+            db_val = config[key]
+            # webhook_token: always use DB value (empty = accept all webhooks)
+            if key == 'webhook_token':
+                return db_val
+            if db_val:
+                return db_val
         settings_map = {
             'evolution_api_url': 'EVOLUTION_API_URL',
             'evolution_api_key': 'EVOLUTION_API_KEY',
             'evolution_instance_name': 'EVOLUTION_INSTANCE_NAME',
-            'webhook_token': 'EVOLUTION_WEBHOOK_TOKEN',
         }
         return getattr(settings, settings_map.get(key, ''), '')
 
