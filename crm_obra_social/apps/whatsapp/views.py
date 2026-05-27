@@ -36,7 +36,7 @@ def _auto_contactado(conv):
 
 
 def _forward_to_n8n(payload: dict):
-    """Forward raw Evolution API webhook payload to n8n (called in background thread)."""
+    """Forward Evolution API webhook payload to n8n with convenience fields added."""
     import threading
     import requests as req
     from django.conf import settings as dj_settings
@@ -45,10 +45,28 @@ def _forward_to_n8n(payload: dict):
     if not url:
         return
 
+    # Extract phone and message content for easy use in n8n
+    data = payload.get('data', {}) if isinstance(payload.get('data'), dict) else {}
+    jid = data.get('key', {}).get('remoteJid', '')
+    phone = ('+' + jid.split('@')[0]) if jid and '@' in jid else ''
+    msg = data.get('message', {})
+    content = (
+        msg.get('conversation', '')
+        or msg.get('extendedTextMessage', {}).get('text', '')
+        or data.get('messageType', '')
+    )
+
+    enriched = {
+        **payload,
+        'phone': phone,
+        'message': content,
+        'contact_name': data.get('pushName', ''),
+    }
+
     def _send():
         try:
-            req.post(url, json=payload, timeout=10)
-            logger.info('n8n webhook forwarded: event=%s', payload.get('event', ''))
+            req.post(url, json=enriched, timeout=10)
+            logger.info('n8n webhook forwarded: event=%s phone=%s', payload.get('event', ''), phone)
         except Exception as e:
             logger.warning('n8n forward failed: %s', e)
 
