@@ -5,6 +5,7 @@ app_name = 'whatsapp'
 
 urlpatterns = [
     path('webhook/', views.WebhookView.as_view(), name='webhook'),
+    path('api/enviar/', views.APIEnviarMensajeView.as_view(), name='api_enviar'),
 
     # Inbox
     path('inbox/', views.InboxView.as_view(), name='inbox'),

@@ -740,3 +740,92 @@ class LogoutInstanceView(LoginRequiredMixin, View):
             return JsonResponse({'ok': True})
         except Exception as e:
             return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class APIEnviarMensajeView(View):
+    """
+    External API for n8n/bots to send WhatsApp messages through the CRM.
+
+    POST /whatsapp/api/enviar/
+    Header: X-Api-Key: <CRM_API_KEY>
+    Body (JSON):
+      {"phone": "+549...", "message": "texto"}
+      {"phone": "+549...", "message": "caption", "media_url": "https://...", "media_type": "image"}
+
+    Returns: {"ok": true, "message_id": "...", "conversacion_id": 12, "lead_id": 8}
+    """
+
+    def post(self, request):
+        from django.conf import settings as django_settings
+        from .sender import send_text_message, send_media_message
+
+        api_key = getattr(django_settings, 'CRM_API_KEY', '')
+        if not api_key:
+            return JsonResponse({'ok': False, 'error': 'API not enabled. Set CRM_API_KEY.'}, status=403)
+
+        token = request.headers.get('X-Api-Key', '')
+        if token != api_key:
+            return JsonResponse({'ok': False, 'error': 'Unauthorized'}, status=401)
+
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'ok': False, 'error': 'Invalid JSON'}, status=400)
+
+        phone = data.get('phone', '').strip()
+        message = data.get('message', '').strip()
+        media_url = data.get('media_url', '').strip()
+        media_type = data.get('media_type', 'image').strip()
+
+        if not phone:
+            return JsonResponse({'ok': False, 'error': '"phone" is required'}, status=400)
+        if not message and not media_url:
+            return JsonResponse({'ok': False, 'error': '"message" or "media_url" is required'}, status=400)
+
+        if not phone.startswith('+'):
+            phone = '+' + phone
+
+        try:
+            if media_url:
+                result = send_media_message(phone, media_url, media_type, caption=message)
+                msg_tipo = Mensaje.TIPO_IMAGEN if media_type == 'image' else (
+                    Mensaje.TIPO_DOCUMENTO if media_type == 'document' else (
+                        Mensaje.TIPO_AUDIO if media_type == 'audio' else Mensaje.TIPO_VIDEO
+                    )
+                )
+            else:
+                result = send_text_message(phone, message)
+                msg_tipo = Mensaje.TIPO_TEXTO
+
+            wam_id = result.get('id', '')
+
+            conv, _ = Conversacion.objects.get_or_create(
+                telefono=phone,
+                defaults={'nombre_contacto': phone},
+            )
+            msg = Mensaje.objects.create(
+                conversacion=conv,
+                lead=conv.lead,
+                direccion=Mensaje.DIR_SALIENTE,
+                tipo=msg_tipo,
+                contenido=message,
+                media_url=media_url,
+                whatsapp_message_id=wam_id,
+                status=Mensaje.STATUS_ENVIADO,
+                timestamp=timezone.now(),
+            )
+            conv.ultimo_mensaje_at = timezone.now()
+            conv.save(update_fields=['ultimo_mensaje_at'])
+
+            return JsonResponse({
+                'ok': True,
+                'message_id': wam_id,
+                'mensaje_id': msg.pk,
+                'conversacion_id': conv.pk,
+                'lead_id': conv.lead_id,
+            })
+
+        except Exception as e:
+            logger.error('API send error to %s: %s', phone, e)
+            return JsonResponse({'ok': False, 'error': str(e)}, status=500)
