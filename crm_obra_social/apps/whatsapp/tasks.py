@@ -6,6 +6,16 @@ from django.utils import timezone
 logger = logging.getLogger('apps.whatsapp')
 
 
+def _ar_phone_variants(phone: str) -> list:
+    """Return Argentine mobile phone number variants (+549X ↔ +54X) for fuzzy matching."""
+    variants = [phone]
+    if phone.startswith('+549'):
+        variants.append('+54' + phone[4:])
+    elif phone.startswith('+54') and len(phone) > 3:
+        variants.append('+549' + phone[3:])
+    return variants
+
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
 def process_incoming_message(self, message_data: dict):
     """Process a single incoming WhatsApp message asynchronously."""
@@ -20,16 +30,24 @@ def process_incoming_message(self, message_data: dict):
         phone = '+' + phone
 
     try:
-        conv, created = Conversacion.objects.get_or_create(
-            telefono=phone,
-            defaults={'nombre_contacto': message_data.get('contact_name', '')},
-        )
-        if not created and message_data.get('contact_name') and not conv.nombre_contacto:
+        # Try to find existing conversation — check both +549X and +54X variants
+        conv = None
+        for variant in _ar_phone_variants(phone):
+            conv = Conversacion.objects.filter(telefono=variant).first()
+            if conv:
+                break
+
+        if conv is None:
+            conv = Conversacion.objects.create(
+                telefono=phone,
+                nombre_contacto=message_data.get('contact_name', ''),
+            )
+        elif message_data.get('contact_name') and not conv.nombre_contacto:
             conv.nombre_contacto = message_data['contact_name']
             conv.save(update_fields=['nombre_contacto'])
 
         if not conv.lead:
-            lead = Lead.objects.filter(telefono=phone).first()
+            lead = Lead.objects.filter(telefono__in=_ar_phone_variants(phone)).first()
             if not lead:
                 lead = Lead.objects.create(
                     nombre_completo=message_data.get('contact_name') or f'WhatsApp {phone}',

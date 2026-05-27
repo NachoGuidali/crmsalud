@@ -27,6 +27,9 @@ class ClienteForm(forms.ModelForm):
         self.fields['plan'].queryset = Plan.objects.filter(activo=True)
         if user and not user.can_see_all_leads:
             self.fields.pop('agente', None)
+        self.fields['telefono'].widget.attrs['placeholder'] = '+549XXXXXXXXXX'
+        if not self.instance.pk:
+            self.fields['telefono'].initial = '+549'
 
     def clean_dni(self):
         dni = self.cleaned_data.get('dni', '').strip()

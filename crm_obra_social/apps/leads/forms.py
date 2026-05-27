@@ -34,6 +34,9 @@ class LeadForm(forms.ModelForm):
             self.fields.pop('estado', None) if 'estado' in self.fields else None
 
         self.fields['plan_interes'].queryset = Plan.objects.filter(activo=True)
+        self.fields['telefono'].widget.attrs['placeholder'] = '+549XXXXXXXXXX'
+        if not self.instance.pk:
+            self.fields['telefono'].initial = '+549'
 
     def clean_dni(self):
         dni = self.cleaned_data.get('dni', '').strip()
