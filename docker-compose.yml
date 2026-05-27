@@ -101,6 +101,7 @@ services:
       CACHE_REDIS_URI: redis://redis:6379/6
       CACHE_REDIS_PREFIX_KEY: evolution
       CACHE_REDIS_SAVE_INSTANCES: "false"
+      LOG_BAILEYS: debug
     volumes:
       - evolution_instances:/evolution/instances
     depends_on:
