@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone as dt_tz
 
 from django.utils import timezone
 
@@ -77,7 +78,7 @@ def _parse_message_upsert(payload: dict) -> list:
         contact_name = data.get('pushName', '')
 
         if isinstance(timestamp_val, (int, float)):
-            ts = timezone.datetime.fromtimestamp(int(timestamp_val), tz=timezone.utc)
+            ts = datetime.fromtimestamp(int(timestamp_val), tz=dt_tz.utc)
         else:
             ts = timezone.now()
 
@@ -172,7 +173,11 @@ def _extract_media_url_evo(message: dict, msg_type_raw: str) -> str:
 def _process_status_updates(update_list: list):
     """Update Mensaje status based on Evolution API messages.update events."""
     from .models import Mensaje
+    if not isinstance(update_list, list):
+        return
     for item in update_list:
+        if not isinstance(item, dict):
+            continue
         msg_id = item.get('key', {}).get('id', '')
         raw_status = item.get('update', {}).get('status', '')
         mapped = _STATUS_MAP.get(raw_status.upper() if raw_status else '', '')
