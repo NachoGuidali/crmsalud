@@ -32,13 +32,4 @@ class Migration(migrations.Migration):
                 'ordering': ['orden', 'nombre'],
             },
         ),
-        migrations.AddField(
-            model_name='lead',
-            name='motivo_perdida',
-            field=models.TextField(
-                blank=True,
-                verbose_name='Motivo de pérdida',
-                help_text='Completar cuando el lead se marca como "Perdido / No interesado".',
-            ),
-        ),
     ]
