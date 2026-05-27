@@ -35,6 +35,26 @@ def _auto_contactado(conv):
         )
 
 
+def _forward_to_n8n(payload: dict):
+    """Forward raw Evolution API webhook payload to n8n (called in background thread)."""
+    import threading
+    import requests as req
+    from django.conf import settings as dj_settings
+
+    url = getattr(dj_settings, 'N8N_WEBHOOK_URL', '')
+    if not url:
+        return
+
+    def _send():
+        try:
+            req.post(url, json=payload, timeout=10)
+            logger.info('n8n webhook forwarded: event=%s', payload.get('event', ''))
+        except Exception as e:
+            logger.warning('n8n forward failed: %s', e)
+
+    threading.Thread(target=_send, daemon=True).start()
+
+
 @method_decorator(csrf_exempt, name='dispatch')
 class WebhookView(View):
     def get(self, request):
@@ -51,6 +71,10 @@ class WebhookView(View):
         try:
             payload = json.loads(request.body)
             logger.info('Webhook received event: %s', payload.get('event', 'unknown'))
+
+            # Forward raw payload to n8n immediately (non-blocking)
+            _forward_to_n8n(payload)
+
             messages_data = parse_incoming_webhook(payload)
             for msg_data in messages_data:
                 process_incoming_message.delay(msg_data)
