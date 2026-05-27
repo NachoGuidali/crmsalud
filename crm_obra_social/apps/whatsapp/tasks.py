@@ -1,9 +1,36 @@
 import logging
 
+import requests
 from celery import shared_task
+from django.conf import settings
 from django.utils import timezone
 
 logger = logging.getLogger('apps.whatsapp')
+
+
+def _notify_n8n(conv, mensaje):
+    """Forward an incoming message to the configured n8n webhook (fire-and-forget)."""
+    url = getattr(settings, 'N8N_WEBHOOK_URL', '')
+    if not url:
+        return
+    try:
+        lead = conv.lead
+        payload = {
+            'phone': conv.telefono,
+            'contact_name': conv.nombre_contacto,
+            'message_id': mensaje.whatsapp_message_id,
+            'type': mensaje.tipo,
+            'content': mensaje.contenido,
+            'media_url': mensaje.media_url,
+            'timestamp': mensaje.timestamp.isoformat(),
+            'conversacion_id': conv.pk,
+            'mensaje_id': mensaje.pk,
+            'lead_id': lead.pk if lead else None,
+            'lead_nombre': lead.nombre_completo if lead else None,
+        }
+        requests.post(url, json=payload, timeout=5)
+    except Exception as e:
+        logger.warning('n8n webhook notification failed: %s', e)
 
 
 def _ar_phone_variants(phone: str) -> list:
@@ -94,6 +121,9 @@ def process_incoming_message(self, message_data: dict):
             status=Mensaje.STATUS_ENTREGADO,
             timestamp=message_data['timestamp'],
         )
+
+        # Forward to n8n if configured
+        _notify_n8n(conv, mensaje)
 
         # Trigger bot auto-response rules
         _apply_bot_rules(conv, msg_type, message_data.get('content', ''))

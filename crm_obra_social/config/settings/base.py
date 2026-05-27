@@ -134,6 +134,9 @@ EVOLUTION_API_KEY = os.environ.get('EVOLUTION_API_KEY', '')
 EVOLUTION_INSTANCE_NAME = os.environ.get('EVOLUTION_INSTANCE_NAME', 'crm-supreg')
 EVOLUTION_WEBHOOK_TOKEN = os.environ.get('EVOLUTION_WEBHOOK_TOKEN', '')
 
+# n8n integration — forward incoming WhatsApp messages to this webhook (empty = disabled)
+N8N_WEBHOOK_URL = os.environ.get('N8N_WEBHOOK_URL', '')
+
 # Pagination
 LEADS_PER_PAGE = 25
 MESSAGES_PER_PAGE = 50
