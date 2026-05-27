@@ -94,14 +94,17 @@ services:
       AUTHENTICATION_TYPE: apikey
       AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
       WEBHOOK_GLOBAL_ENABLED: "false"
-      DATABASE_ENABLED: "false"
+      DATABASE_ENABLED: "true"
       DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/evolution_api
       REDIS_ENABLED: "true"
       REDIS_URI: redis://redis:6379/1
     volumes:
       - evolution_instances:/evolution/instances
     depends_on:
       redis:
+        condition: service_healthy
+      db:
         condition: service_healthy
 
 volumes:
