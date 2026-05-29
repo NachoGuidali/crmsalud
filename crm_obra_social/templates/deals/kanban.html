@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Negociaciones — Kanban{% endblock %}
+{% block nav_deals %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+.kanban-wrapper { overflow-x: auto; }
+.kanban-board { display: flex; gap: 14px; min-width: max-content; padding-bottom: 16px; }
+.kanban-col { width: 260px; flex-shrink: 0; }
+.kanban-col-header { font-size:.8rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; padding:7px 10px; border-radius:6px 6px 0 0; }
+.kanban-cards { min-height: 220px; background: #f8f9fa; border-radius: 0 0 6px 6px; padding: 6px; }
+.kanban-card { background:#fff; border-radius:6px; padding:10px; margin-bottom:6px; cursor:grab; box-shadow:0 1px 3px rgba(0,0,0,.1); border-left:4px solid transparent; font-size:.84rem; }
+.kanban-card:active { cursor: grabbing; }
+.kanban-card.dragging { opacity:.45; }
+.kanban-cards.drag-over { background:#e2e8f0; outline:2px dashed #0d6efd; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div class="d-flex align-items-center gap-3">
+    <h4 class="mb-0 fw-bold"><i class="bi bi-briefcase text-primary"></i> Negociaciones</h4>
+    {% if pipelines %}
+    <select class="form-select form-select-sm" style="width:auto" onchange="location.href='?pipeline='+this.value">
+      {% for p in pipelines %}
+      <option value="{{ p.pk }}" {% if p.pk == pipeline.pk %}selected{% endif %}>{{ p.nombre }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{% url 'deals:list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-list"></i> Lista</a>
+    {% if request.user.can_see_all_leads %}
+    <a href="{% url 'deals:pipeline_list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-sliders"></i> Pipelines</a>
+    {% endif %}
+    <a href="{% url 'deals:create' %}{% if pipeline %}?pipeline={{ pipeline.pk }}{% endif %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nueva negociación</a>
+  </div>
+</div>
+
+{% if no_pipelines %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body text-center py-5 text-muted">
+    <i class="bi bi-briefcase" style="font-size:2.5rem"></i>
+    <p class="mt-3">No hay pipelines configurados todavía.</p>
+    {% if request.user.can_see_all_leads %}
+    <a href="{% url 'deals:pipeline_create' %}" class="btn btn-primary">Crear primer pipeline</a>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div class="kanban-wrapper">
+  <div class="kanban-board" id="kanbanBoard">
+    {% for col in columns %}
+    <div class="kanban-col">
+      <div class="kanban-col-header bg-{{ col.stage.color }} text-white">
+        {{ col.stage.nombre }}
+        <span class="badge bg-white text-dark ms-1 float-end">{{ col.deals|length }}</span>
+      </div>
+      <div class="kanban-cards" data-stage="{{ col.stage.pk }}" id="col-{{ col.stage.pk }}">
+        {% for deal in col.deals %}
+        <div class="kanban-card" draggable="true" data-id="{{ deal.pk }}" data-stage="{{ deal.stage_id }}"
+             style="border-left-color: var(--bs-{{ col.stage.color }})">
+          <div class="fw-semibold">
+            <a href="{% url 'deals:detail' deal.pk %}" class="text-decoration-none text-dark">{{ deal.titulo }}</a>
+          </div>
+          {% if deal.contacto_display != '—' %}
+          <div class="text-muted" style="font-size:.78rem;"><i class="bi bi-person"></i> {{ deal.contacto_display }}</div>
+          {% endif %}
+          {% if deal.valor %}
+          <div class="text-success fw-semibold" style="font-size:.82rem;">${{ deal.valor|floatformat:0 }}</div>
+          {% endif %}
+          <div class="d-flex justify-content-between align-items-center mt-1">
+            {% if deal.agente %}
+            <span class="text-muted" style="font-size:.72rem;">{{ deal.agente.get_full_name }}</span>
+            {% else %}<span></span>{% endif %}
+            <a href="{% url 'deals:update' deal.pk %}" class="text-muted" style="font-size:.75rem;"><i class="bi bi-pencil"></i></a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CSRF = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+let dragged = null;
+
+document.querySelectorAll('.kanban-card').forEach(card => {
+  card.addEventListener('dragstart', () => { dragged = card; card.classList.add('dragging'); });
+  card.addEventListener('dragend',   () => card.classList.remove('dragging'));
+});
+
+document.querySelectorAll('.kanban-cards').forEach(col => {
+  col.addEventListener('dragover',  e => { e.preventDefault(); col.classList.add('drag-over'); });
+  col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
+  col.addEventListener('drop', async e => {
+    e.preventDefault();
+    col.classList.remove('drag-over');
+    if (!dragged) return;
+    const newStage = col.dataset.stage;
+    const dealId   = dragged.dataset.id;
+    if (dragged.dataset.stage === newStage) return;
+
+    const res = await fetch(`/negociaciones/${dealId}/mover/`, {
+      method: 'POST',
+      headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/x-www-form-urlencoded'},
+      body: `stage_id=${newStage}`,
+    });
+    if (res.ok) {
+      dragged.dataset.stage = newStage;
+      col.appendChild(dragged);
+      // update count badges
+      document.querySelectorAll('.kanban-cards').forEach(c => {
+        const badge = c.closest('.kanban-col').querySelector('.badge');
+        if (badge) badge.textContent = c.querySelectorAll('.kanban-card').length;
+      });
+    }
+  });
+});
+</script>
+{% endblock %}

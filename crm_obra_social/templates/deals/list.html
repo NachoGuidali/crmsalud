@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Negociaciones — Lista{% endblock %}
+{% block nav_deals %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h4 class="mb-0 fw-bold"><i class="bi bi-briefcase text-primary"></i> Negociaciones</h4>
+  <div class="d-flex gap-2">
+    <a href="{% url 'deals:kanban' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-kanban"></i> Kanban</a>
+    <a href="{% url 'deals:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nueva</a>
+  </div>
+</div>
+
+<form method="get" class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-md-3">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="Buscar título o contacto…" value="{{ filtros.q }}">
+      </div>
+      <div class="col-6 col-md-2">
+        <select name="pipeline" class="form-select form-select-sm">
+          <option value="">Todos los pipelines</option>
+          {% for p in pipelines %}
+          <option value="{{ p.pk }}" {% if filtros.pipeline == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <select name="agente" class="form-select form-select-sm">
+          <option value="">Todos los agentes</option>
+          {% for u in agentes %}
+          <option value="{{ u.pk }}" {% if filtros.agente == u.pk|stringformat:"s" %}selected{% endif %}>{{ u.get_full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+        <a href="{% url 'deals:list' %}" class="btn btn-outline-secondary btn-sm">Limpiar</a>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-transparent d-flex justify-content-between align-items-center small fw-semibold">
+    <span>{{ deals|length }} negociación{% if deals|length != 1 %}es{% endif %}</span>
+    {% if total_valor %}<span class="text-success">Total: ${{ total_valor|floatformat:0 }}</span>{% endif %}
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 small">
+      <thead class="table-light">
+        <tr>
+          <th>Título</th>
+          <th>Pipeline / Etapa</th>
+          <th>Contacto</th>
+          <th>Valor</th>
+          <th>Agente</th>
+          <th>Cierre est.</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for deal in deals %}
+        <tr>
+          <td><a href="{% url 'deals:detail' deal.pk %}" class="fw-semibold text-decoration-none">{{ deal.titulo }}</a></td>
+          <td>
+            <span class="text-muted">{{ deal.pipeline.nombre }}</span>
+            <span class="badge bg-{{ deal.stage.color }} ms-1">{{ deal.stage.nombre }}</span>
+          </td>
+          <td>{{ deal.contacto_display }}</td>
+          <td>{% if deal.valor %}<span class="text-success">${{ deal.valor|floatformat:0 }}</span>{% else %}—{% endif %}</td>
+          <td>{{ deal.agente.get_full_name|default:"—" }}</td>
+          <td>{{ deal.fecha_cierre_estimada|date:"d/m/Y"|default:"—" }}</td>
+          <td class="text-end">
+            <a href="{% url 'deals:update' deal.pk %}" class="btn btn-sm btn-outline-secondary py-0"><i class="bi bi-pencil"></i></a>
+            <form method="post" action="{% url 'deals:delete' deal.pk %}" class="d-inline"
+                  onsubmit="return confirm('¿Eliminar esta negociación?')">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-danger py-0"><i class="bi bi-trash"></i></button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-muted py-4">Sin negociaciones.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

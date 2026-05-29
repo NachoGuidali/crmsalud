@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'apps.automations',
     'apps.integrations',
     'apps.chatbot',
+    'apps.deals',
 ]
 
 MIDDLEWARE = [

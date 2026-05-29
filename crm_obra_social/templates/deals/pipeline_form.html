@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}{% if pipeline %}Editar pipeline{% else %}Nuevo pipeline{% endif %}{% endblock %}
+{% block nav_deals %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+.stage-row { background: #f8f9fa; border-radius: 6px; padding: 10px; margin-bottom: 6px; }
+.stage-row.deleted { opacity: .4; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{% url 'deals:pipeline_list' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Pipelines</a>
+  <h4 class="mt-1 fw-bold">{% if pipeline %}Editar pipeline{% else %}Nuevo pipeline{% endif %}</h4>
+</div>
+
+<form method="post" id="pipelineForm">
+  {% csrf_token %}
+  <div class="row g-4">
+    <div class="col-12 col-lg-7">
+
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent fw-semibold">Datos del pipeline</div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Nombre *</label>
+            <input name="nombre" class="form-control" required value="{{ pipeline.nombre|default:'' }}" placeholder="ej: Ventas Obra Social">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Descripción</label>
+            <textarea name="descripcion" class="form-control" rows="2">{{ pipeline.descripcion|default:'' }}</textarea>
+          </div>
+          <div class="form-check">
+            <input type="checkbox" name="activa" class="form-check-input" id="activoCheck"
+              {% if not pipeline or pipeline.activo %}checked{% endif %}>
+            <label class="form-check-label" for="activoCheck">Pipeline activo</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent fw-semibold d-flex justify-content-between align-items-center">
+          Etapas
+          <button type="button" class="btn btn-sm btn-outline-primary" id="addStageBtn">
+            <i class="bi bi-plus"></i> Agregar etapa
+          </button>
+        </div>
+        <div class="card-body">
+          <div id="stagesContainer">
+            {% if stages %}
+              {% for s in stages %}
+              <div class="stage-row" id="stage-row-{{ s.pk }}">
+                <input type="hidden" name="stage_id" value="{{ s.pk }}">
+                <input type="hidden" name="stage_delete" value="" class="delete-flag">
+                <div class="row g-2 align-items-center">
+                  <div class="col-5">
+                    <input type="text" name="stage_nombre" class="form-control form-control-sm" value="{{ s.nombre }}" placeholder="Nombre etapa" required>
+                  </div>
+                  <div class="col-3">
+                    <select name="stage_color" class="form-select form-select-sm">
+                      {% for val, label in s.COLOR_CHOICES %}
+                      <option value="{{ val }}" {% if s.color == val %}selected{% endif %}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-2">
+                    <input type="number" name="stage_orden" class="form-control form-control-sm" value="{{ s.orden }}" min="0" placeholder="Orden">
+                  </div>
+                  <div class="col-2 text-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 delete-stage-btn" data-id="{{ s.pk }}">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            {% else %}
+              <!-- Default stages for new pipeline -->
+              {% for nombre, color in default_stages %}
+              <div class="stage-row">
+                <input type="hidden" name="stage_id" value="">
+                <input type="hidden" name="stage_delete" value="">
+                <div class="row g-2 align-items-center">
+                  <div class="col-5">
+                    <input type="text" name="stage_nombre" class="form-control form-control-sm" value="{{ nombre }}" placeholder="Nombre etapa">
+                  </div>
+                  <div class="col-3">
+                    <select name="stage_color" class="form-select form-select-sm">
+                      <option value="primary" {% if color == 'primary' %}selected{% endif %}>Azul</option>
+                      <option value="success" {% if color == 'success' %}selected{% endif %}>Verde</option>
+                      <option value="warning" {% if color == 'warning' %}selected{% endif %}>Amarillo</option>
+                      <option value="danger"  {% if color == 'danger'  %}selected{% endif %}>Rojo</option>
+                      <option value="info"    {% if color == 'info'    %}selected{% endif %}>Celeste</option>
+                      <option value="secondary">Gris</option>
+                    </select>
+                  </div>
+                  <div class="col-2">
+                    <input type="number" name="stage_orden" class="form-control form-control-sm" value="{{ forloop.counter0 }}" min="0">
+                  </div>
+                  <div class="col-2 text-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 delete-new-stage">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            {% endif %}
+          </div>
+          <p class="text-muted small mt-2 mb-0"><i class="bi bi-info-circle"></i> Las etapas con negociaciones no se pueden eliminar.</p>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar</button>
+        <a href="{% url 'deals:pipeline_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const COLOR_OPTIONS = `
+  <option value="primary">Azul</option>
+  <option value="success">Verde</option>
+  <option value="warning">Amarillo</option>
+  <option value="danger">Rojo</option>
+  <option value="info">Celeste</option>
+  <option value="secondary">Gris</option>
+  <option value="dark">Oscuro</option>
+`;
+
+let rowIndex = 1000;
+document.getElementById('addStageBtn').addEventListener('click', () => {
+  const row = document.createElement('div');
+  row.className = 'stage-row';
+  row.innerHTML = `
+    <input type="hidden" name="stage_id" value="">
+    <input type="hidden" name="stage_delete" value="">
+    <div class="row g-2 align-items-center">
+      <div class="col-5"><input type="text" name="stage_nombre" class="form-control form-control-sm" placeholder="Nombre etapa" required></div>
+      <div class="col-3"><select name="stage_color" class="form-select form-select-sm">${COLOR_OPTIONS}</select></div>
+      <div class="col-2"><input type="number" name="stage_orden" class="form-control form-control-sm" value="${rowIndex++}" min="0"></div>
+      <div class="col-2 text-end"><button type="button" class="btn btn-sm btn-outline-danger py-0 delete-new-stage"><i class="bi bi-trash"></i></button></div>
+    </div>`;
+  document.getElementById('stagesContainer').appendChild(row);
+  row.querySelector('.delete-new-stage').addEventListener('click', () => row.remove());
+});
+
+// Remove new stage rows
+document.querySelectorAll('.delete-new-stage').forEach(btn => {
+  btn.addEventListener('click', () => btn.closest('.stage-row').remove());
+});
+
+// Mark existing stages for deletion
+document.querySelectorAll('.delete-stage-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const row = btn.closest('.stage-row');
+    const flag = row.querySelector('.delete-flag');
+    const id = btn.dataset.id;
+    flag.name = 'stage_delete';
+    flag.value = id;
+    row.classList.add('deleted');
+    row.querySelectorAll('input, select').forEach(el => el.disabled = true);
+    btn.disabled = true;
+  });
+});
+</script>
+{% endblock %}

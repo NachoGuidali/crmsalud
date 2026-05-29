@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ deal.titulo }}{% endblock %}
+{% block nav_deals %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <a href="{% url 'deals:kanban' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Negociaciones</a>
+    <h4 class="mb-0 fw-bold mt-1">{{ deal.titulo }}</h4>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'deals:update' deal.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-pencil"></i> Editar</a>
+    <form method="post" action="{% url 'deals:delete' deal.pk %}" class="d-inline"
+          onsubmit="return confirm('¿Eliminar esta negociación?')">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i></button>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-4">
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-transparent fw-semibold">Datos</div>
+      <div class="card-body">
+        <dl class="row mb-0 small">
+          <dt class="col-5">Pipeline</dt><dd class="col-7">{{ deal.pipeline.nombre }}</dd>
+          <dt class="col-5">Etapa</dt>
+          <dd class="col-7"><span class="badge bg-{{ deal.stage.color }}">{{ deal.stage.nombre }}</span></dd>
+          <dt class="col-5">Valor</dt><dd class="col-7">{% if deal.valor %}<strong class="text-success">${{ deal.valor|floatformat:0 }}</strong>{% else %}—{% endif %}</dd>
+          <dt class="col-5">Contacto</dt><dd class="col-7">
+            {% if deal.lead %}<a href="{% url 'leads:detail' deal.lead_id %}">{{ deal.lead.nombre_completo }}</a>
+            {% else %}{{ deal.nombre_contacto|default:"—" }}{% endif %}
+          </dd>
+          <dt class="col-5">Agente</dt><dd class="col-7">{{ deal.agente.get_full_name|default:"Sin asignar" }}</dd>
+          <dt class="col-5">Cierre est.</dt><dd class="col-7">{{ deal.fecha_cierre_estimada|date:"d/m/Y"|default:"—" }}</dd>
+          <dt class="col-5">Creado</dt><dd class="col-7">{{ deal.created_at|date:"d/m/Y H:i" }}</dd>
+        </dl>
+      </div>
+    </div>
+    {% if deal.descripcion %}
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">Notas</div>
+      <div class="card-body small">{{ deal.descripcion|linebreaksbr }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-12 col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">Historial de etapas</div>
+      <div class="card-body p-0">
+        <ul class="list-group list-group-flush">
+          {% for h in historial %}
+          <li class="list-group-item small">
+            <span class="text-muted">{{ h.created_at|date:"d/m/Y H:i" }}</span>
+            {% if h.cambiado_por %}<strong class="ms-2">{{ h.cambiado_por.get_full_name }}</strong>{% endif %}
+            movió de
+            <span class="badge bg-secondary">{{ h.stage_anterior.nombre|default:"—" }}</span>
+            a
+            <span class="badge bg-{{ h.stage_nuevo.color|default:'primary' }}">{{ h.stage_nuevo.nombre|default:"—" }}</span>
+          </li>
+          {% empty %}
+          <li class="list-group-item small text-muted">Sin movimientos registrados.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

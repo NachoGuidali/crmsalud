@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Pipelines{% endblock %}
+{% block nav_deals %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <a href="{% url 'deals:kanban' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Negociaciones</a>
+    <h4 class="mt-1 fw-bold"><i class="bi bi-sliders"></i> Pipelines</h4>
+  </div>
+  <a href="{% url 'deals:pipeline_create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nuevo pipeline</a>
+</div>
+
+{% if pipelines %}
+<div class="row g-3">
+  {% for p in pipelines %}
+  <div class="col-12">
+    <div class="card border-0 shadow-sm {% if not p.activo %}opacity-50{% endif %}">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <span class="badge bg-{% if p.activo %}success{% else %}secondary{% endif %}">{% if p.activo %}Activo{% else %}Inactivo{% endif %}</span>
+              <h6 class="mb-0 fw-semibold">{{ p.nombre }}</h6>
+              <span class="text-muted small">{{ p.deal_count }} negociación{% if p.deal_count != 1 %}es{% endif %}</span>
+            </div>
+            <div class="d-flex flex-wrap gap-1">
+              {% for stage in p.stages.all %}
+              <span class="badge bg-{{ stage.color }}">{{ stage.nombre }}</span>
+              {% empty %}
+              <span class="text-muted small">Sin etapas</span>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="d-flex gap-1">
+            <a href="{% url 'deals:kanban' %}?pipeline={{ p.pk }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-kanban"></i></a>
+            <a href="{% url 'deals:pipeline_update' p.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+            <form method="post" action="{% url 'deals:pipeline_delete' p.pk %}" class="d-inline"
+                  onsubmit="return confirm('¿Eliminar este pipeline?')">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body text-center py-5 text-muted">
+    <p>No hay pipelines todavía.</p>
+    <a href="{% url 'deals:pipeline_create' %}" class="btn btn-primary btn-sm">Crear el primero</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

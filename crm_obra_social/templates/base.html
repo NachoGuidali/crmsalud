@@ -48,6 +48,11 @@
           </a>
         </li>
         <li class="nav-item">
+          <a class="nav-link {% block nav_deals %}{% endblock %}" href="{% url 'deals:kanban' %}">
+            <i class="bi bi-briefcase"></i> Negocios
+          </a>
+        </li>
+        <li class="nav-item">
           <a class="nav-link {% block nav_whatsapp %}{% endblock %}" href="{% url 'whatsapp:inbox' %}">
             <i class="bi bi-whatsapp"></i> Inbox
             {% if unread_messages_count > 0 %}
