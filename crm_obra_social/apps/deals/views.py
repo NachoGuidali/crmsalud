@@ -363,7 +363,7 @@ def _save_stages(data, pipeline):
     colores  = data.getlist('stage_color')
     ordenes  = data.getlist('stage_orden')
     ids      = data.getlist('stage_id')
-    deletes  = set(data.getlist('stage_delete'))
+    deletes  = {d for d in data.getlist('stage_delete') if d}
 
     kept_ids = set()
     for i, nombre in enumerate(nombres):
