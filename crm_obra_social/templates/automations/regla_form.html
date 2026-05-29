@@ -17,7 +17,7 @@
         <div class="card-body">
           <div class="mb-3">
             <label class="form-label fw-semibold">Nombre *</label>
-            <input name="nombre" class="form-control" value="{{ instance.nombre|default:'' }}" required placeholder="ej: Recordatorio día 3">
+            <input name="nombre" class="form-control" value="{{ instance.nombre|default:'' }}" required placeholder="ej: Bienvenida al cambiar a interesado">
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold">Descripción</label>
@@ -30,8 +30,9 @@
             </div>
             <div class="col-auto d-flex align-items-end pb-1">
               <div class="form-check">
-                <input type="checkbox" name="activa" class="form-check-input" {% if instance.pk and instance.activa or not instance.pk %}checked{% endif %}>
-                <label class="form-check-label">Activa</label>
+                <input type="checkbox" name="activa" class="form-check-input" id="activaCheck"
+                  {% if instance.pk and instance.activa or not instance.pk %}checked{% endif %}>
+                <label class="form-check-label" for="activaCheck">Activa</label>
               </div>
             </div>
           </div>
@@ -39,20 +40,61 @@
       </div>
 
       <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-transparent fw-semibold"><i class="bi bi-clock"></i> Disparador</div>
+        <div class="card-header bg-transparent fw-semibold"><i class="bi bi-lightning-charge"></i> Disparador</div>
         <div class="card-body">
-          <div class="row g-3">
-            <div class="col-md-7">
-              <label class="form-label fw-semibold">Cuándo disparar</label>
-              <select name="trigger_tipo" class="form-select">
-                {% for val, label in trigger_choices %}
-                <option value="{{ val }}" {% if instance.trigger_tipo == val %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Cuándo disparar</label>
+            <select name="trigger_tipo" class="form-select" id="triggerTipo">
+              {% for val, label in trigger_choices %}
+              <option value="{{ val }}" {% if instance.trigger_tipo == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Time-based fields -->
+          <div id="trigger-time-panel">
+            <label class="form-label fw-semibold">Cantidad de días</label>
+            <input type="number" name="trigger_dias" class="form-control" min="0"
+              value="{{ instance.trigger_dias|default:'3' }}" style="width:140px">
+          </div>
+
+          <!-- Event-based fields -->
+          <div id="trigger-event-panel" style="display:none">
+            <div class="alert alert-info py-2 small mb-3">
+              <i class="bi bi-info-circle"></i> Esta regla se dispara <strong>al instante</strong> cuando el campo indicado cambia de valor.
             </div>
-            <div class="col-md-5">
-              <label class="form-label fw-semibold">Cantidad de días</label>
-              <input type="number" name="trigger_dias" class="form-control" min="0" value="{{ instance.trigger_dias|default:'3' }}" required>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Campo que cambia</label>
+                <select name="trigger_campo" class="form-select">
+                  <option value="estado" {% if instance.trigger_campo == 'estado' or not instance.trigger_campo %}selected{% endif %}>Estado</option>
+                  <option value="prioridad" {% if instance.trigger_campo == 'prioridad' %}selected{% endif %}>Prioridad</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Valor anterior</label>
+                <select name="trigger_valor_anterior" class="form-select trigger-estado-select trigger-prioridad-select">
+                  <option value="">Cualquiera</option>
+                  {% for val, label in estado_choices %}
+                  <option value="{{ val }}" data-tipo="estado" {% if instance.trigger_valor_anterior == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                  {% for val, label in prioridad_choices %}
+                  <option value="{{ val }}" data-tipo="prioridad" {% if instance.trigger_valor_anterior == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Nuevo valor <span class="text-danger">*</span></label>
+                <select name="trigger_valor_nuevo" class="form-select trigger-estado-select trigger-prioridad-select">
+                  <option value="">— Seleccioná —</option>
+                  {% for val, label in estado_choices %}
+                  <option value="{{ val }}" data-tipo="estado" {% if instance.trigger_valor_nuevo == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                  {% for val, label in prioridad_choices %}
+                  <option value="{{ val }}" data-tipo="prioridad" {% if instance.trigger_valor_nuevo == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -61,7 +103,7 @@
       <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-transparent fw-semibold"><i class="bi bi-filter"></i> Condiciones (opcionales)</div>
         <div class="card-body">
-          <p class="text-muted small">Si dejás todos vacíos, la regla aplica a todos los leads (excepto Afiliado y Perdido).</p>
+          <p class="text-muted small mb-2">Si dejás todos vacíos, la regla aplica a todos los leads.</p>
           <div class="row g-3">
             <div class="col-md-4">
               <label class="form-label small">Solo si estado es</label>
@@ -127,7 +169,7 @@
           </div>
 
           <div id="accion-plantilla" class="accion-panel">
-            <label class="form-label fw-semibold">Plantilla HSM a enviar</label>
+            <label class="form-label fw-semibold">Plantilla a enviar</label>
             <select name="accion_plantilla" class="form-select">
               <option value="">— Seleccioná una plantilla —</option>
               {% for p in plantillas %}
@@ -140,11 +182,40 @@
             <div class="mb-2">
               <label class="form-label fw-semibold">Descripción de la tarea</label>
               <input name="accion_tarea_descripcion" class="form-control" value="{{ instance.accion_tarea_descripcion|default:'' }}" placeholder="ej: Llamar a {lead} para seguimiento">
-              <div class="form-text">Podés usar <code>{lead}</code> para incluir el nombre del lead.</div>
+              <div class="form-text">Usá <code>{lead}</code> para incluir el nombre del lead.</div>
             </div>
             <div>
               <label class="form-label fw-semibold">Días de plazo</label>
               <input type="number" name="accion_tarea_dias_plazo" class="form-control" style="width:100px" min="1" value="{{ instance.accion_tarea_dias_plazo|default:'1' }}">
+            </div>
+          </div>
+
+          <div id="accion-mensaje-wa" class="accion-panel">
+            <label class="form-label fw-semibold">Texto del mensaje</label>
+            <textarea name="accion_mensaje_texto" class="form-control" rows="3" placeholder="Hola {lead}, te contactamos porque...">{{ instance.accion_mensaje_texto|default:'' }}</textarea>
+            <div class="form-text">Variables: <code>{lead}</code> nombre, <code>{estado}</code> estado, <code>{telefono}</code> teléfono.</div>
+          </div>
+
+          <div id="accion-agente" class="accion-panel">
+            <label class="form-label fw-semibold">Agente a asignar</label>
+            <select name="accion_agente" class="form-select">
+              <option value="">— Seleccioná un agente —</option>
+              {% for u in agentes %}
+              <option value="{{ u.pk }}" {% if instance.accion_agente_id == u.pk %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div id="accion-webhook" class="accion-panel">
+            <label class="form-label fw-semibold">URL del webhook</label>
+            <input type="url" name="accion_webhook_url" class="form-control" value="{{ instance.accion_webhook_url|default:'' }}" placeholder="https://n8n.example.com/webhook/...">
+            <div class="form-text">Se enviará un POST JSON con los datos del lead.</div>
+          </div>
+
+          <div id="accion-convertir-cliente" class="accion-panel">
+            <div class="alert alert-warning py-2 small mb-0">
+              <i class="bi bi-exclamation-triangle"></i>
+              <strong>Esta acción es irreversible.</strong> Al dispararse, creará un registro en Clientes con los datos del lead y <strong>eliminará el lead</strong>. Si ya existe un cliente con el mismo DNI, se omite la conversión.
             </div>
           </div>
         </div>
@@ -161,21 +232,49 @@
 
 {% block extra_js %}
 <script>
-const panels = {
-  'cambiar_estado': 'accion-cambiar-estado',
-  'cambiar_prioridad': 'accion-cambiar-prioridad',
-  'enviar_plantilla_wa': 'accion-plantilla',
-  'crear_tarea': 'accion-tarea',
+const TRIGGER_EVENT = "{{ trigger_event }}";
+
+const accionPanels = {
+  'cambiar_estado':     'accion-cambiar-estado',
+  'cambiar_prioridad':  'accion-cambiar-prioridad',
+  'enviar_plantilla_wa':'accion-plantilla',
+  'crear_tarea':        'accion-tarea',
+  'enviar_mensaje_wa':  'accion-mensaje-wa',
+  'asignar_agente':     'accion-agente',
+  'llamar_webhook':     'accion-webhook',
+  'convertir_cliente':  'accion-convertir-cliente',
 };
 
-function updatePanels() {
+function updateTriggerPanels() {
+  const isEvent = document.getElementById('triggerTipo').value === TRIGGER_EVENT;
+  document.getElementById('trigger-time-panel').style.display = isEvent ? 'none' : '';
+  document.getElementById('trigger-event-panel').style.display = isEvent ? '' : 'none';
+  if (isEvent) updateTriggerFieldOptions();
+}
+
+function updateTriggerFieldOptions() {
+  const campo = document.querySelector('[name=trigger_campo]').value;
+  ['trigger_valor_anterior','trigger_valor_nuevo'].forEach(name => {
+    const sel = document.querySelector(`[name=${name}]`);
+    Array.from(sel.options).forEach(opt => {
+      if (!opt.value) return; // keep "Cualquiera"
+      opt.hidden = opt.dataset.tipo && opt.dataset.tipo !== campo;
+    });
+  });
+}
+
+function updateAccionPanels() {
   const val = document.getElementById('accionTipo').value;
   document.querySelectorAll('.accion-panel').forEach(p => p.style.display = 'none');
-  const target = panels[val];
+  const target = accionPanels[val];
   if (target) document.getElementById(target).style.display = '';
 }
 
-document.getElementById('accionTipo').addEventListener('change', updatePanels);
-updatePanels();
+document.getElementById('triggerTipo').addEventListener('change', updateTriggerPanels);
+document.getElementById('accionTipo').addEventListener('change', updateAccionPanels);
+document.querySelector('[name=trigger_campo]')?.addEventListener('change', updateTriggerFieldOptions);
+
+updateTriggerPanels();
+updateAccionPanels();
 </script>
 {% endblock %}

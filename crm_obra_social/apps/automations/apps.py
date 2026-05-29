@@ -7,6 +7,7 @@ class AutomationsConfig(AppConfig):
     verbose_name = 'Automatizaciones'
 
     def ready(self):
+        import apps.automations.signals  # noqa: F401 — registers signal handlers
         from django.db.models.signals import post_migrate
         post_migrate.connect(_setup_periodic_tasks, sender=self)
 

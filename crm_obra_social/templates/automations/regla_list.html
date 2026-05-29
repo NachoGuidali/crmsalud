@@ -11,8 +11,8 @@
 </div>
 
 <div class="alert alert-info small py-2 mb-3">
-  <strong>Las reglas se evalúan automáticamente cada hora.</strong>
-  Cada regla se aplica una sola vez por lead (no se repite). Podés ejecutar cualquier regla manualmente con el botón ▶.
+  <strong>Reglas por tiempo:</strong> se evalúan cada hora — se aplican una sola vez por lead. Podés ejecutarlas manualmente con ▶.<br>
+  <strong>Reglas por evento:</strong> se disparan al instante cuando el campo configurado cambia de valor.
 </div>
 
 {% if reglas %}
@@ -30,9 +30,15 @@
           </div>
           {% if r.descripcion %}<p class="text-muted small mb-1">{{ r.descripcion }}</p>{% endif %}
           <div class="d-flex flex-wrap gap-2 small">
+            {% if r.es_event_based %}
+            <span class="badge bg-light text-dark border">
+              <i class="bi bi-lightning-charge text-warning"></i> {{ r.get_trigger_tipo_display }}: {{ r.trigger_campo }}{% if r.trigger_valor_nuevo %} → {{ r.trigger_valor_nuevo }}{% endif %}
+            </span>
+            {% else %}
             <span class="badge bg-light text-dark border">
               <i class="bi bi-clock"></i> {{ r.get_trigger_tipo_display }} — {{ r.trigger_dias }} día{% if r.trigger_dias != 1 %}s{% endif %}
             </span>
+            {% endif %}
             {% if r.condicion_estado %}
             <span class="badge bg-light text-dark border"><i class="bi bi-filter"></i> Solo si: {{ r.condicion_estado }}</span>
             {% endif %}

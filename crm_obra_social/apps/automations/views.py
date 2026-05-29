@@ -77,9 +77,12 @@ class ReglaDeleteView(LoginRequiredMixin, SupervisorMixin, DeleteView):
 
 
 class ReglaEjecutarView(LoginRequiredMixin, SupervisorMixin, View):
-    """Manually trigger a single rule immediately (for testing)."""
+    """Manually trigger a single time-based rule immediately (for testing)."""
     def post(self, request, pk):
         regla = get_object_or_404(ReglaAutomatizacion, pk=pk)
+        if regla.es_event_based:
+            messages.warning(request, 'Las reglas por evento se disparan automáticamente al cambiar el campo; no se pueden ejecutar manualmente.')
+            return redirect('automations:list')
         from .tasks import _ejecutar_regla
         from django.utils import timezone
         try:
@@ -104,6 +107,7 @@ class LogListView(LoginRequiredMixin, SupervisorMixin, View):
 
 def _form_ctx(data=None, instance=None):
     from apps.leads.models import Lead
+    from apps.users.models import User
     ctx = {
         'instance': instance,
         'data': data or {},
@@ -113,24 +117,36 @@ def _form_ctx(data=None, instance=None):
         'prioridad_choices': Lead.PRIORIDAD_CHOICES,
         'origen_choices': Lead.ORIGEN_CHOICES,
         'plantillas': PlantillaHSM.objects.filter(activa=True),
+        'agentes': User.objects.filter(is_active=True).order_by('first_name', 'last_name'),
+        'trigger_event': ReglaAutomatizacion.TRIGGER_ESTADO_CAMBIO,
     }
     return ctx
 
 
 def _save_regla(data, instance):
     """Validate and save a ReglaAutomatizacion. Returns error string or None."""
+    from apps.users.models import User
+
     nombre = data.get('nombre', '').strip()
     if not nombre:
         return 'El nombre es requerido.'
+
     trigger_tipo = data.get('trigger_tipo', '')
     if trigger_tipo not in dict(ReglaAutomatizacion.TRIGGER_CHOICES):
         return 'Disparador inválido.'
-    try:
-        trigger_dias = int(data.get('trigger_dias', 0))
-        if trigger_dias < 0:
-            raise ValueError
-    except (ValueError, TypeError):
-        return 'Los días del disparador deben ser un número positivo.'
+
+    is_event = (trigger_tipo == ReglaAutomatizacion.TRIGGER_ESTADO_CAMBIO)
+
+    if not is_event:
+        try:
+            trigger_dias = int(data.get('trigger_dias', 0))
+            if trigger_dias < 0:
+                raise ValueError
+        except (ValueError, TypeError):
+            return 'Los días del disparador deben ser un número positivo.'
+    else:
+        trigger_dias = None
+
     accion_tipo = data.get('accion_tipo', '')
     if accion_tipo not in dict(ReglaAutomatizacion.ACCION_CHOICES):
         return 'Acción inválida.'
@@ -138,29 +154,37 @@ def _save_regla(data, instance):
     if instance is None:
         instance = ReglaAutomatizacion()
 
-    instance.nombre = nombre
-    instance.descripcion = data.get('descripcion', '').strip()
-    instance.activa = data.get('activa') == 'on'
-    instance.orden = int(data.get('orden', 0) or 0)
-    instance.trigger_tipo = trigger_tipo
-    instance.trigger_dias = trigger_dias
-    instance.condicion_estado = data.get('condicion_estado', '')
+    instance.nombre              = nombre
+    instance.descripcion         = data.get('descripcion', '').strip()
+    instance.activa              = data.get('activa') == 'on'
+    instance.orden               = int(data.get('orden', 0) or 0)
+    instance.trigger_tipo        = trigger_tipo
+    instance.trigger_dias        = trigger_dias
+    instance.trigger_campo       = data.get('trigger_campo', 'estado').strip() or 'estado'
+    instance.trigger_valor_anterior = data.get('trigger_valor_anterior', '').strip()
+    instance.trigger_valor_nuevo    = data.get('trigger_valor_nuevo', '').strip()
+    instance.condicion_estado    = data.get('condicion_estado', '')
     instance.condicion_prioridad = data.get('condicion_prioridad', '')
-    instance.condicion_origen = data.get('condicion_origen', '')
-    instance.accion_tipo = accion_tipo
-    instance.accion_estado_destino = data.get('accion_estado_destino', '')
-    instance.accion_prioridad_destino = data.get('accion_prioridad_destino', '')
-    instance.accion_tarea_descripcion = data.get('accion_tarea_descripcion', '').strip()
-    instance.accion_tarea_dias_plazo = int(data.get('accion_tarea_dias_plazo', 1) or 1)
+    instance.condicion_origen    = data.get('condicion_origen', '')
+    instance.accion_tipo         = accion_tipo
+    instance.accion_estado_destino      = data.get('accion_estado_destino', '')
+    instance.accion_prioridad_destino   = data.get('accion_prioridad_destino', '')
+    instance.accion_tarea_descripcion   = data.get('accion_tarea_descripcion', '').strip()
+    instance.accion_tarea_dias_plazo    = int(data.get('accion_tarea_dias_plazo', 1) or 1)
+    instance.accion_mensaje_texto       = data.get('accion_mensaje_texto', '').strip()
+    instance.accion_webhook_url         = data.get('accion_webhook_url', '').strip()
 
     plantilla_id = data.get('accion_plantilla')
-    if plantilla_id:
+    instance.accion_plantilla = PlantillaHSM.objects.get(pk=plantilla_id) if plantilla_id else None
+
+    agente_id = data.get('accion_agente')
+    if agente_id:
         try:
-            instance.accion_plantilla = PlantillaHSM.objects.get(pk=plantilla_id)
-        except PlantillaHSM.DoesNotExist:
-            instance.accion_plantilla = None
+            instance.accion_agente = User.objects.get(pk=agente_id)
+        except User.DoesNotExist:
+            instance.accion_agente = None
     else:
-        instance.accion_plantilla = None
+        instance.accion_agente = None
 
     instance.save()
     return None
