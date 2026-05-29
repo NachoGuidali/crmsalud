@@ -58,6 +58,50 @@ class CampoPersonalizado(models.Model):
         super().save(*args, **kwargs)
 
 
+class CampoRegla(models.Model):
+    """Conditional display/validation rules for CampoPersonalizado."""
+
+    CONDICION_SIEMPRE = 'siempre'
+    CONDICION_ESTADO  = 'estado'
+    CONDICION_CHOICES = [
+        ('siempre', 'Siempre'),
+        ('estado',  'Cuando el estado del lead es'),
+    ]
+
+    ACCION_OBLIGATORIO  = 'obligatorio'
+    ACCION_VISIBLE      = 'visible'
+    ACCION_OCULTO       = 'oculto'
+    ACCION_SOLO_LECTURA = 'solo_lectura'
+    ACCION_CHOICES = [
+        ('obligatorio',  'Obligatorio'),
+        ('visible',      'Visible'),
+        ('oculto',       'Oculto'),
+        ('solo_lectura', 'Solo lectura'),
+    ]
+
+    campo           = models.ForeignKey(CampoPersonalizado, on_delete=models.CASCADE, related_name='reglas')
+    condicion_tipo  = models.CharField(max_length=20, choices=CONDICION_CHOICES, default=CONDICION_SIEMPRE)
+    condicion_valor = models.CharField(max_length=50, blank=True, help_text='Valor del estado (ej: interesado)')
+    accion          = models.CharField(max_length=20, choices=ACCION_CHOICES)
+
+    class Meta:
+        verbose_name = 'Regla de campo'
+        verbose_name_plural = 'Reglas de campo'
+        ordering = ['campo', 'condicion_tipo']
+
+    def __str__(self):
+        cond = f'cuando estado={self.condicion_valor}' if self.condicion_tipo == self.CONDICION_ESTADO else 'siempre'
+        return f'{self.campo.nombre}: {self.accion} ({cond})'
+
+    def evaluar(self, lead) -> bool:
+        """Return True if the condition matches the given lead."""
+        if self.condicion_tipo == self.CONDICION_SIEMPRE:
+            return True
+        if self.condicion_tipo == self.CONDICION_ESTADO:
+            return lead.estado == self.condicion_valor
+        return False
+
+
 class Plan(models.Model):
     nombre = models.CharField(max_length=100)
     descripcion = models.TextField(blank=True)

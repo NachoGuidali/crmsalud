@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 import re
 
 from django.contrib import messages
@@ -356,10 +357,27 @@ class LeadDetailView(LoginRequiredMixin, LeadQuerysetMixin, DetailView):
         ctx['tareas'] = lead.tareas.select_related('agente').order_by('-fecha_programada')[:10]
         ctx['cotizaciones'] = lead.cotizaciones.order_by('-created_at')[:5]
         ctx['mensajes'] = lead.mensajes_whatsapp.order_by('-timestamp')[:20]
-        ctx['campos'] = CampoPersonalizado.objects.filter(
+        campos = list(CampoPersonalizado.objects.prefetch_related('reglas').filter(
             activo=True,
             alcance__in=[CampoPersonalizado.ALCANCE_LEADS, CampoPersonalizado.ALCANCE_AMBOS]
-        )
+        ))
+        ctx['campos'] = campos
+        # Pre-evaluate rules against current lead state for template rendering
+        ctx['campos_config'] = {
+            c.slug: {
+                'obligatorio': c.requerido or any(
+                    r.accion == 'obligatorio' and r.evaluar(lead) for r in c.reglas.all()
+                ),
+                'oculto': any(r.accion == 'oculto' and r.evaluar(lead) for r in c.reglas.all()),
+                'solo_lectura': any(r.accion == 'solo_lectura' and r.evaluar(lead) for r in c.reglas.all()),
+                'reglas': [
+                    {'condicion_tipo': r.condicion_tipo, 'condicion_valor': r.condicion_valor, 'accion': r.accion}
+                    for r in c.reglas.all()
+                ],
+            }
+            for c in campos
+        }
+        ctx['campos_config_json'] = json.dumps(ctx['campos_config'])
         ctx['documentos'] = lead.documentos.select_related('subido_por').all()
         ctx['documento_tipos'] = Documento.TIPO_CHOICES
         return ctx
@@ -407,20 +425,38 @@ class LeadUpdateCamposView(LoginRequiredMixin, LeadQuerysetMixin, View):
 
     def post(self, request, pk):
         lead = get_object_or_404(self.get_base_queryset(), pk=pk)
-        campos = CampoPersonalizado.objects.filter(
+        campos = list(CampoPersonalizado.objects.prefetch_related('reglas').filter(
             activo=True,
             alcance__in=[CampoPersonalizado.ALCANCE_LEADS, CampoPersonalizado.ALCANCE_AMBOS]
-        )
+        ))
         extra = dict(lead.datos_extra or {})
+        errors = []
+
         for campo in campos:
+            # Skip hidden fields
+            oculto = any(r.accion == 'oculto' and r.evaluar(lead) for r in campo.reglas.all())
+            if oculto:
+                continue
+
             if campo.tipo == CampoPersonalizado.TIPO_BOOLEANO:
                 extra[campo.slug] = bool(request.POST.get(f'campo_{campo.slug}'))
             else:
                 val = request.POST.get(f'campo_{campo.slug}', '').strip()
+                obligatorio = campo.requerido or any(
+                    r.accion == 'obligatorio' and r.evaluar(lead) for r in campo.reglas.all()
+                )
+                if obligatorio and not val:
+                    errors.append(f'"{campo.nombre}" es obligatorio.')
                 if val:
                     extra[campo.slug] = val
                 else:
                     extra.pop(campo.slug, None)
+
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+            return redirect('leads:detail', pk=pk)
+
         lead.datos_extra = extra
         lead.save(update_fields=['datos_extra'])
         messages.success(request, 'Campos guardados.')

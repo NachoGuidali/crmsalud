@@ -51,6 +51,10 @@
           <dt class="col-5">Prioridad</dt><dd class="col-7"><span class="badge bg-{{ lead.get_prioridad_badge_class }}">{{ lead.get_prioridad_display }}</span></dd>
           <dt class="col-5">Agente</dt><dd class="col-7">{{ lead.agente.get_full_name|default:"Sin asignar" }}</dd>
           <dt class="col-5">Creado</dt><dd class="col-7">{{ lead.created_at|date:"d/m/Y H:i" }}</dd>
+          {% for campo in campos %}{% with cfg=campos_config|dict_key:campo.slug val=lead.datos_extra|dict_key:campo.slug %}{% if val and not cfg.oculto %}
+          <dt class="col-5">{{ campo.nombre }}</dt>
+          <dd class="col-7">{% if campo.tipo == 'booleano' %}{% if val %}Sí{% else %}No{% endif %}{% else %}{{ val }}{% endif %}</dd>
+          {% endif %}{% endwith %}{% endfor %}
         </dl>
       </div>
     </div>
@@ -223,14 +227,14 @@
       <!-- Campos personalizados -->
       {% if campos %}
       <div class="tab-pane fade" id="tabCampos">
-        <form method="post" action="{% url 'leads:update_campos' lead.pk %}">
+        <form method="post" action="{% url 'leads:update_campos' lead.pk %}" id="formCampos">
           {% csrf_token %}
-          <div class="row g-3">
+          <div class="row g-3" id="camposContainer">
             {% for campo in campos %}
-            <div class="col-12 col-md-6">
-              <label class="form-label small fw-semibold">
+            <div class="col-12 col-md-6 campo-wrapper" data-slug="{{ campo.slug }}">
+              <label class="form-label small fw-semibold campo-label">
                 {{ campo.nombre }}
-                {% if campo.requerido %}<span class="text-danger">*</span>{% endif %}
+                {% if campo.requerido %}<span class="text-danger campo-asterisk">*</span>{% endif %}
                 <span class="text-muted fw-normal">({{ campo.get_tipo_display }})</span>
               </label>
               {% if campo.tipo == 'lista' %}
@@ -265,6 +269,50 @@
         </form>
       </div>
       {% endif %}
+
+<script>
+(function () {
+  const ESTADO_ACTUAL = "{{ lead.estado }}";
+  const CAMPOS_CONFIG = {{ campos_config_json|safe }};
+
+  function evalReglas(slug) {
+    const cfg = CAMPOS_CONFIG[slug] || {};
+    const reglas = cfg.reglas || [];
+    let visible = true, required = cfg.obligatorio || false, readonly = cfg.solo_lectura || false;
+    for (const r of reglas) {
+      const matches = r.condicion_tipo === 'siempre' ||
+        (r.condicion_tipo === 'estado' && r.condicion_valor === ESTADO_ACTUAL);
+      if (!matches) continue;
+      if (r.accion === 'oculto')       visible = false;
+      if (r.accion === 'visible')      visible = true;
+      if (r.accion === 'obligatorio')  { required = true; visible = true; }
+      if (r.accion === 'solo_lectura') readonly = true;
+    }
+    return { visible, required, readonly };
+  }
+
+  function applyRules() {
+    document.querySelectorAll('.campo-wrapper').forEach(wrapper => {
+      const slug = wrapper.dataset.slug;
+      if (!slug) return;
+      const { visible, required, readonly } = evalReglas(slug);
+
+      wrapper.style.display = visible ? '' : 'none';
+      wrapper.querySelectorAll('input, select, textarea').forEach(inp => {
+        inp.required = visible && required;
+        inp.readOnly = readonly;
+        inp.disabled = !visible;
+        if (readonly) inp.classList.add('bg-light');
+        else inp.classList.remove('bg-light');
+      });
+      const asterisk = wrapper.querySelector('.campo-asterisk');
+      if (asterisk) asterisk.style.display = (visible && required) ? '' : 'none';
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', applyRules);
+})();
+</script>
 
     </div>
   </div>
