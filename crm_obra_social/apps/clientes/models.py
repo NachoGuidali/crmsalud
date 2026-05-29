@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 
+from utils.phone import normalize_ar_phone
+
 
 class Cliente(models.Model):
     nombre_completo  = models.CharField(max_length=200, verbose_name='Nombre completo')
@@ -32,6 +34,11 @@ class Cliente(models.Model):
         ordering = ['-created_at']
         verbose_name = 'Cliente'
         verbose_name_plural = 'Clientes'
+
+    def save(self, *args, **kwargs):
+        if self.telefono:
+            self.telefono = normalize_ar_phone(self.telefono)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.nombre_completo

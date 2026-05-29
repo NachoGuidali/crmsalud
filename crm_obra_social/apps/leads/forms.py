@@ -55,7 +55,8 @@ class LeadForm(forms.ModelForm):
         return dni
 
     def clean_telefono(self):
-        telefono = self.cleaned_data.get('telefono', '').strip()
+        from utils.phone import normalize_ar_phone
+        telefono = normalize_ar_phone(self.cleaned_data.get('telefono', '').strip())
         if not telefono:
             return telefono
         qs = Lead.objects.filter(telefono=telefono)

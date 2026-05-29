@@ -3,17 +3,9 @@ import logging
 from celery import shared_task
 from django.utils import timezone
 
+from utils.phone import normalize_ar_phone, ar_phone_variants
+
 logger = logging.getLogger('apps.whatsapp')
-
-
-def _ar_phone_variants(phone: str) -> list:
-    """Return Argentine mobile phone number variants (+549X ↔ +54X) for fuzzy matching."""
-    variants = [phone]
-    if phone.startswith('+549'):
-        variants.append('+54' + phone[4:])
-    elif phone.startswith('+54') and len(phone) > 3:
-        variants.append('+549' + phone[3:])
-    return variants
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
@@ -26,13 +18,12 @@ def process_incoming_message(self, message_data: dict):
     if not phone:
         return
 
-    if not phone.startswith('+'):
-        phone = '+' + phone
+    phone = normalize_ar_phone(phone)
 
     try:
         # Try to find existing conversation — check both +549X and +54X variants
         conv = None
-        for variant in _ar_phone_variants(phone):
+        for variant in ar_phone_variants(phone):
             conv = Conversacion.objects.filter(telefono=variant).first()
             if conv:
                 break
@@ -47,7 +38,7 @@ def process_incoming_message(self, message_data: dict):
             conv.save(update_fields=['nombre_contacto'])
 
         if not conv.lead:
-            lead = Lead.objects.filter(telefono__in=_ar_phone_variants(phone)).first()
+            lead = Lead.objects.filter(telefono__in=ar_phone_variants(phone)).first()
             if not lead:
                 lead = Lead.objects.create(
                     nombre_completo=message_data.get('contact_name') or f'WhatsApp {phone}',

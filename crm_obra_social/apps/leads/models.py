@@ -4,6 +4,8 @@ from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
 
+from utils.phone import normalize_ar_phone
+
 
 class CampoPersonalizado(models.Model):
     TIPO_TEXTO    = 'texto'
@@ -170,6 +172,11 @@ class Lead(models.Model):
         verbose_name = 'Lead'
         verbose_name_plural = 'Leads'
         ordering = ['-created_at']
+
+    def save(self, *args, **kwargs):
+        if self.telefono:
+            self.telefono = normalize_ar_phone(self.telefono)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.nombre_completo} ({self.dni})'
