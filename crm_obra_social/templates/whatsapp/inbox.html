@@ -167,6 +167,19 @@ audio { max-width: 220px; }
           <i class="bi bi-person"></i>
         </a>
         {% endif %}
+        <!-- Bot toggles -->
+        <button id="inboxToggleCrm"
+                class="btn btn-sm {% if selected_conv.bot_crm_activo %}btn-success{% else %}btn-outline-secondary{% endif %} py-1 px-2"
+                onclick="toggleBot('crm', {% if selected_conv.bot_crm_activo %}true{% else %}false{% endif %})"
+                title="Bot CRM">
+          <i class="bi bi-robot"></i>
+        </button>
+        <button id="inboxToggleN8n"
+                class="btn btn-sm {% if selected_conv.bot_n8n_activo %}btn-success{% else %}btn-outline-secondary{% endif %} py-1 px-2"
+                onclick="toggleBot('n8n', {% if selected_conv.bot_n8n_activo %}true{% else %}false{% endif %})"
+                title="Bot n8n">
+          <i class="bi bi-cpu"></i>
+        </button>
         {% if request.user.can_see_all_leads and agents %}
         <form method="post">
           {% csrf_token %}
@@ -447,6 +460,36 @@ if (plantillaSelect) {
 
 const textInput = document.getElementById('textInput');
 if (textInput) textInput.focus();
+
+function toggleBot(botType, currentlyActive) {
+  const newState = !currentlyActive;
+  const btnId = botType === 'crm' ? 'inboxToggleCrm' : 'inboxToggleN8n';
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = true;
+
+  const convPk = {{ selected_conv.pk|default:'0' }};
+  if (!convPk) return;
+
+  const fd = new FormData();
+  fd.append('bot_type', botType);
+  fd.append('activo', newState ? 'true' : 'false');
+
+  fetch(`/whatsapp/conversacion/${convPk}/bot-toggle/`, {
+    method: 'POST',
+    headers: {'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''},
+    body: fd,
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      btn.className = btn.className.replace(/btn-(success|outline-secondary)/, newState ? 'btn-success' : 'btn-outline-secondary');
+      btn.onclick = () => toggleBot(botType, newState);
+    }
+  })
+  .catch(() => {})
+  .finally(() => { btn.disabled = false; });
+}
 </script>
 
 <!-- Modal: nueva conversación -->
