@@ -64,7 +64,7 @@
             <label class="form-label fw-semibold">Lead asociado (opcional)</label>
             <input type="text" id="leadSearch" class="form-control" placeholder="Buscar lead por nombre o DNI…"
               value="{% if lead %}{{ lead.nombre_completo }}{% elif deal.lead %}{{ deal.lead.nombre_completo }}{% endif %}">
-            <input type="hidden" name="lead" id="leadId" value="{{ lead.pk|default:deal.lead_id|default:'' }}">
+            <input type="hidden" name="lead" id="leadId" value="{% if lead %}{{ lead.pk }}{% elif deal %}{{ deal.lead_id }}{% endif %}">
             <div id="leadResults" class="list-group mt-1" style="display:none;position:absolute;z-index:10;width:100%;max-height:200px;overflow-y:auto"></div>
           </div>
           <div class="mb-3">
