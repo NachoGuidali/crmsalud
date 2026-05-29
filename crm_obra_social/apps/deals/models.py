@@ -57,6 +57,7 @@ class Deal(models.Model):
     stage                 = models.ForeignKey(PipelineStage, on_delete=models.PROTECT, related_name='deals', verbose_name='Etapa')
     valor                 = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name='Valor estimado ($)')
     lead                  = models.ForeignKey('leads.Lead', null=True, blank=True, on_delete=models.SET_NULL, related_name='deals', verbose_name='Lead asociado')
+    cliente               = models.ForeignKey('clientes.Cliente', null=True, blank=True, on_delete=models.SET_NULL, related_name='deals', verbose_name='Cliente asociado')
     nombre_contacto       = models.CharField(max_length=200, blank=True, verbose_name='Nombre del contacto')
     agente                = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='deals', verbose_name='Agente responsable')
     descripcion           = models.TextField(blank=True, verbose_name='Descripción / notas')
@@ -76,6 +77,8 @@ class Deal(models.Model):
     def contacto_display(self):
         if self.lead_id:
             return self.lead.nombre_completo
+        if self.cliente_id:
+            return self.cliente.nombre_completo
         return self.nombre_contacto or '—'
 
     @property

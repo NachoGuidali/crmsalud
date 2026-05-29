@@ -29,7 +29,12 @@
           <dd class="col-7"><span class="badge bg-{{ deal.stage.color }}">{{ deal.stage.nombre }}</span></dd>
           <dt class="col-5">Valor</dt><dd class="col-7">{% if deal.valor %}<strong class="text-success">${{ deal.valor|floatformat:0 }}</strong>{% else %}—{% endif %}</dd>
           <dt class="col-5">Contacto</dt><dd class="col-7">
-            {% if deal.lead %}<a href="{% url 'leads:detail' deal.lead_id %}">{{ deal.lead.nombre_completo }}</a>
+            {% if deal.lead %}
+              <span class="badge bg-info text-dark me-1">Lead</span>
+              <a href="{% url 'leads:detail' deal.lead_id %}">{{ deal.lead.nombre_completo }}</a>
+            {% elif deal.cliente %}
+              <span class="badge bg-success me-1">Cliente</span>
+              <a href="{% url 'clientes:detail' deal.cliente_id %}">{{ deal.cliente.nombre_completo }}</a>
             {% else %}{{ deal.nombre_contacto|default:"—" }}{% endif %}
           </dd>
           <dt class="col-5">Agente</dt><dd class="col-7">{{ deal.agente.get_full_name|default:"Sin asignar" }}</dd>

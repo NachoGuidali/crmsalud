@@ -8,6 +8,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
+from apps.clientes.models import Cliente
 from apps.leads.models import Lead
 from apps.users.models import User
 from .models import Pipeline, PipelineStage, Deal, DealHistory
@@ -26,7 +27,7 @@ class DealKanbanView(LoginRequiredMixin, View):
     template_name = 'deals/kanban.html'
 
     def get(self, request):
-        pipelines = Pipeline.objects.filter(activo=True).prefetch_related('stages')
+        pipelines = Pipeline.objects.prefetch_related('stages').order_by('-activo', 'nombre')
         if not pipelines.exists():
             return render(request, self.template_name, {'no_pipelines': True, 'pipelines': []})
 
@@ -39,7 +40,7 @@ class DealKanbanView(LoginRequiredMixin, View):
 
         stages = pipeline.stages.all()
         deals_qs = Deal.objects.filter(pipeline=pipeline).select_related(
-            'lead', 'agente', 'stage'
+            'lead', 'cliente', 'agente', 'stage'
         )
 
         columns = {}
@@ -65,8 +66,8 @@ class DealListView(LoginRequiredMixin, View):
     template_name = 'deals/list.html'
 
     def get(self, request):
-        pipelines = Pipeline.objects.filter(activo=True)
-        qs = Deal.objects.select_related('pipeline', 'stage', 'lead', 'agente')
+        pipelines = Pipeline.objects.all().order_by('-activo', 'nombre')
+        qs = Deal.objects.select_related('pipeline', 'stage', 'lead', 'cliente', 'agente')
 
         pipeline_id = request.GET.get('pipeline')
         stage_id    = request.GET.get('stage')
@@ -83,7 +84,8 @@ class DealListView(LoginRequiredMixin, View):
             qs = qs.filter(
                 Q(titulo__icontains=q) |
                 Q(nombre_contacto__icontains=q) |
-                Q(lead__nombre_completo__icontains=q)
+                Q(lead__nombre_completo__icontains=q) |
+                Q(cliente__nombre_completo__icontains=q)
             )
 
         total_valor = qs.aggregate(t=Sum('valor'))['t'] or 0
@@ -110,15 +112,19 @@ class DealCreateView(LoginRequiredMixin, View):
     def get(self, request):
         pipeline_id = request.GET.get('pipeline')
         lead_id     = request.GET.get('lead')
+        cliente_id  = request.GET.get('cliente')
         pipeline    = None
         lead        = None
+        cliente     = None
         if pipeline_id:
-            pipeline = Pipeline.objects.filter(pk=pipeline_id, activo=True).first()
+            pipeline = Pipeline.objects.filter(pk=pipeline_id).first()
         if not pipeline:
-            pipeline = Pipeline.objects.filter(activo=True).first()
+            pipeline = Pipeline.objects.order_by('-activo', 'nombre').first()
         if lead_id:
             lead = Lead.objects.filter(pk=lead_id).first()
-        return render(request, self.template_name, _deal_form_ctx(request, None, pipeline, lead))
+        if cliente_id:
+            cliente = Cliente.objects.filter(pk=cliente_id).first()
+        return render(request, self.template_name, _deal_form_ctx(request, None, pipeline, lead, cliente))
 
     def post(self, request):
         err, deal = _save_deal(request.POST, None, request.user)
@@ -136,7 +142,10 @@ class DealUpdateView(LoginRequiredMixin, View):
 
     def get(self, request, pk):
         deal = get_object_or_404(Deal, pk=pk)
-        return render(request, self.template_name, _deal_form_ctx(request, deal, deal.pipeline, deal.lead))
+        return render(request, self.template_name, _deal_form_ctx(
+            request, deal, deal.pipeline, deal.lead,
+            deal.cliente if deal.cliente_id else None,
+        ))
 
     def post(self, request, pk):
         deal = get_object_or_404(Deal, pk=pk)
@@ -161,7 +170,7 @@ class DealDetailView(LoginRequiredMixin, View):
 
     def get(self, request, pk):
         deal = get_object_or_404(
-            Deal.objects.select_related('pipeline', 'stage', 'lead', 'agente'),
+            Deal.objects.select_related('pipeline', 'stage', 'lead', 'cliente', 'agente'),
             pk=pk,
         )
         historial = deal.history.select_related('stage_anterior', 'stage_nuevo', 'cambiado_por')
@@ -183,6 +192,36 @@ class DealMoveView(LoginRequiredMixin, View):
         deal.stage = stage
         deal.save(update_fields=['stage', 'updated_at'])
         return JsonResponse({'ok': True, 'stage_id': stage.pk, 'stage_nombre': stage.nombre})
+
+
+# ─── Contact search API (Lead + Cliente) ───────────────────────────────────
+
+class ContactoSearchAPIView(LoginRequiredMixin, View):
+    def get(self, request):
+        q = request.GET.get('q', '').strip()
+        if len(q) < 2:
+            return JsonResponse({'results': []})
+
+        results = []
+        leads = Lead.objects.filter(
+            Q(nombre_completo__icontains=q) | Q(telefono__icontains=q) | Q(dni__icontains=q)
+        ).values('pk', 'nombre_completo', 'telefono')[:10]
+        for l in leads:
+            results.append({
+                'id': l['pk'], 'tipo': 'lead',
+                'nombre': l['nombre_completo'], 'telefono': l['telefono'] or '',
+            })
+
+        clientes = Cliente.objects.filter(
+            Q(nombre_completo__icontains=q) | Q(telefono__icontains=q) | Q(dni__icontains=q)
+        ).values('pk', 'nombre_completo', 'telefono')[:10]
+        for c in clientes:
+            results.append({
+                'id': c['pk'], 'tipo': 'cliente',
+                'nombre': c['nombre_completo'], 'telefono': c['telefono'] or '',
+            })
+
+        return JsonResponse({'results': results})
 
 
 # ─── Pipeline management ────────────────────────────────────────────────────
@@ -275,18 +314,19 @@ class StageDeleteView(LoginRequiredMixin, SupervisorMixin, View):
 
 class StagesAPIView(LoginRequiredMixin, View):
     def get(self, request, pipeline_pk):
-        stages = PipelineStage.objects.filter(pipeline_id=pipeline_pk).values('id', 'nombre', 'color')
+        stages = PipelineStage.objects.filter(pipeline_id=pipeline_pk).order_by('orden', 'nombre').values('id', 'nombre', 'color')
         return JsonResponse({'stages': list(stages)})
 
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
-def _deal_form_ctx(request, deal, pipeline, lead):
-    pipelines = Pipeline.objects.filter(activo=True).prefetch_related('stages')
+def _deal_form_ctx(request, deal, pipeline, lead, cliente=None):
+    pipelines = Pipeline.objects.all().prefetch_related('stages').order_by('-activo', 'nombre')
     return {
         'deal':      deal,
         'pipeline':  pipeline,
         'lead':      lead,
+        'cliente':   cliente,
         'pipelines': pipelines,
         'agentes':   User.objects.filter(is_active=True).order_by('first_name', 'last_name'),
         'data':      request.POST if request.method == 'POST' else {},
@@ -325,13 +365,19 @@ def _save_deal(data, instance, user):
     instance.nombre_contacto       = data.get('nombre_contacto', '').strip()
     instance.fecha_cierre_estimada = data.get('fecha_cierre_estimada') or None
 
-    lead_id = data.get('lead')
+    # Contact: lead or cliente (mutually exclusive)
+    lead_id    = data.get('lead_id', '').strip()
+    cliente_id = data.get('cliente_id', '').strip()
+    instance.lead    = None
+    instance.cliente = None
     if lead_id:
         instance.lead = Lead.objects.filter(pk=lead_id).first()
         if instance.lead and not instance.nombre_contacto:
             instance.nombre_contacto = instance.lead.nombre_completo
-    else:
-        instance.lead = None
+    elif cliente_id:
+        instance.cliente = Cliente.objects.filter(pk=cliente_id).first()
+        if instance.cliente and not instance.nombre_contacto:
+            instance.nombre_contacto = instance.cliente.nombre_completo
 
     agente_id = data.get('agente')
     if agente_id:
@@ -352,7 +398,7 @@ def _save_pipeline(data, instance):
         instance = Pipeline()
     instance.nombre      = nombre
     instance.descripcion = data.get('descripcion', '').strip()
-    instance.activo      = data.get('activo') == 'on'
+    instance.activo      = data.get('activa') == 'on'
     instance.save()
     return None, instance
 

@@ -8,16 +8,19 @@
   <h4 class="mt-1 fw-bold">{% if deal.pk %}Editar negociación{% else %}Nueva negociación{% endif %}</h4>
 </div>
 
-<form method="post">
+<form method="post" id="dealForm">
   {% csrf_token %}
   <div class="row g-4">
     <div class="col-12 col-lg-7">
+
       <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-transparent fw-semibold">Datos principales</div>
         <div class="card-body">
           <div class="mb-3">
             <label class="form-label fw-semibold">Título *</label>
-            <input name="titulo" class="form-control" required value="{{ deal.titulo|default:'' }}" placeholder="ej: Contrato Plan Familiar ACME">
+            <input name="titulo" class="form-control" required
+              value="{{ deal.titulo|default:data.titulo|default:'' }}"
+              placeholder="ej: Contrato Plan Familiar ACME">
           </div>
           <div class="row g-3">
             <div class="col-md-6">
@@ -25,7 +28,13 @@
               <select name="pipeline" class="form-select" id="pipelineSelect" required>
                 <option value="">— Seleccioná —</option>
                 {% for p in pipelines %}
-                <option value="{{ p.pk }}" {% if pipeline and pipeline.pk == p.pk %}selected{% elif deal.pipeline_id == p.pk %}selected{% endif %}>{{ p.nombre }}</option>
+                <option value="{{ p.pk }}"
+                  {% if pipeline and pipeline.pk == p.pk %}selected
+                  {% elif deal.pipeline_id == p.pk %}selected
+                  {% elif data.pipeline == p.pk|stringformat:"s" %}selected
+                  {% endif %}>
+                  {{ p.nombre }}{% if not p.activo %} (inactivo){% endif %}
+                </option>
                 {% endfor %}
               </select>
             </div>
@@ -33,12 +42,6 @@
               <label class="form-label fw-semibold">Etapa *</label>
               <select name="stage" class="form-select" id="stageSelect" required>
                 <option value="">— Primero elegí pipeline —</option>
-                {% for p in pipelines %}
-                  {% for s in p.stages.all %}
-                  <option value="{{ s.pk }}" data-pipeline="{{ p.pk }}"
-                    {% if deal.stage_id == s.pk %}selected{% endif %}>{{ s.nombre }}</option>
-                  {% endfor %}
-                {% endfor %}
               </select>
             </div>
           </div>
@@ -46,7 +49,7 @@
             <div class="col-md-6">
               <label class="form-label fw-semibold">Valor estimado ($)</label>
               <input type="number" name="valor" class="form-control" step="0.01" min="0"
-                value="{{ deal.valor|default:'' }}" placeholder="0.00">
+                value="{{ deal.valor|default:data.valor|default:'' }}" placeholder="0.00">
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold">Fecha de cierre estimada</label>
@@ -60,17 +63,21 @@
       <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-transparent fw-semibold">Contacto</div>
         <div class="card-body">
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Lead asociado (opcional)</label>
-            <input type="text" id="leadSearch" class="form-control" placeholder="Buscar lead por nombre o DNI…"
-              value="{% if lead %}{{ lead.nombre_completo }}{% elif deal.lead %}{{ deal.lead.nombre_completo }}{% endif %}">
-            <input type="hidden" name="lead" id="leadId" value="{% if lead %}{{ lead.pk }}{% elif deal %}{{ deal.lead_id }}{% endif %}">
-            <div id="leadResults" class="list-group mt-1" style="display:none;position:absolute;z-index:10;width:100%;max-height:200px;overflow-y:auto"></div>
+          <div class="mb-3 position-relative">
+            <label class="form-label fw-semibold">Buscar lead o cliente</label>
+            <input type="text" id="contactSearch" class="form-control" autocomplete="off"
+              placeholder="Escribí nombre, teléfono o DNI…"
+              value="{% if lead %}{{ lead.nombre_completo }}{% elif cliente %}{{ cliente.nombre_completo }}{% elif deal.lead %}{{ deal.lead.nombre_completo }}{% elif deal.cliente %}{{ deal.cliente.nombre_completo }}{% endif %}">
+            <input type="hidden" name="lead_id"    id="leadId"    value="{% if lead %}{{ lead.pk }}{% elif deal.lead_id %}{{ deal.lead_id }}{% endif %}">
+            <input type="hidden" name="cliente_id" id="clienteId" value="{% if cliente %}{{ cliente.pk }}{% elif deal.cliente_id %}{{ deal.cliente_id }}{% endif %}">
+            <div id="contactResults" class="list-group shadow-sm"
+                 style="display:none;position:absolute;z-index:99;width:100%;max-height:220px;overflow-y:auto;top:100%"></div>
           </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Nombre del contacto (libre)</label>
-            <input name="nombre_contacto" class="form-control" value="{{ deal.nombre_contacto|default:'' }}"
-              placeholder="Completar si no hay lead asociado">
+          <div>
+            <label class="form-label fw-semibold">Nombre libre (si no hay contacto vinculado)</label>
+            <input name="nombre_contacto" class="form-control"
+              value="{{ deal.nombre_contacto|default:data.nombre_contacto|default:'' }}"
+              placeholder="Completar si no hay lead o cliente asociado">
           </div>
         </div>
       </div>
@@ -78,9 +85,11 @@
       <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-transparent fw-semibold">Notas</div>
         <div class="card-body">
-          <textarea name="descripcion" class="form-control" rows="4" placeholder="Detalles de la negociación…">{{ deal.descripcion|default:'' }}</textarea>
+          <textarea name="descripcion" class="form-control" rows="4"
+            placeholder="Detalles de la negociación…">{{ deal.descripcion|default:data.descripcion|default:'' }}</textarea>
         </div>
       </div>
+
     </div>
 
     <div class="col-12 col-lg-5">
@@ -90,7 +99,10 @@
           <select name="agente" class="form-select">
             <option value="">Sin asignar</option>
             {% for u in agentes %}
-            <option value="{{ u.pk }}" {% if deal.agente_id == u.pk %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>
+            <option value="{{ u.pk }}"
+              {% if deal.agente_id == u.pk %}selected
+              {% elif data.agente == u.pk|stringformat:"s" %}selected
+              {% endif %}>{{ u.get_full_name|default:u.username }}</option>
             {% endfor %}
           </select>
         </div>
@@ -98,7 +110,7 @@
     </div>
   </div>
 
-  <div class="d-flex gap-2">
+  <div class="d-flex gap-2 mb-4">
     <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar</button>
     <a href="{% url 'deals:kanban' %}" class="btn btn-outline-secondary">Cancelar</a>
   </div>
@@ -107,51 +119,94 @@
 
 {% block extra_js %}
 <script>
-// Pipeline → Stage filter
-const pipelineSel = document.getElementById('pipelineSelect');
-const stageSel    = document.getElementById('stageSelect');
-const allStages   = Array.from(stageSel.options);
+// ── Stage select via AJAX ──────────────────────────────────────────────
+const pipelineSel  = document.getElementById('pipelineSelect');
+const stageSel     = document.getElementById('stageSelect');
+const CURRENT_STAGE = "{{ deal.stage_id|default:'' }}";
 
-function filterStages() {
-  const pid = pipelineSel.value;
-  stageSel.innerHTML = '<option value="">— Seleccioná etapa —</option>';
-  allStages.filter(o => o.dataset.pipeline === pid).forEach(o => stageSel.add(o.cloneNode(true)));
+async function loadStages(pipelineId) {
+  stageSel.innerHTML = '<option value="">Cargando…</option>';
+  if (!pipelineId) {
+    stageSel.innerHTML = '<option value="">— Primero elegí pipeline —</option>';
+    return;
+  }
+  try {
+    const res  = await fetch(`/negociaciones/api/stages/${pipelineId}/`);
+    const data = await res.json();
+    stageSel.innerHTML = '<option value="">— Seleccioná etapa —</option>';
+    data.stages.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.nombre;
+      if (String(s.id) === String(CURRENT_STAGE)) opt.selected = true;
+      stageSel.appendChild(opt);
+    });
+    if (!data.stages.length) {
+      stageSel.innerHTML = '<option value="">Sin etapas — editá el pipeline primero</option>';
+    }
+  } catch(e) {
+    stageSel.innerHTML = '<option value="">Error al cargar etapas</option>';
+  }
 }
-pipelineSel.addEventListener('change', filterStages);
-if (pipelineSel.value) filterStages();
 
-// Lead search
-const CSRF = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+pipelineSel.addEventListener('change', () => loadStages(pipelineSel.value));
+if (pipelineSel.value) loadStages(pipelineSel.value);
+
+// ── Contact search (Lead + Cliente) ───────────────────────────────────
 let searchTimer;
-document.getElementById('leadSearch').addEventListener('input', function() {
+const contactInput   = document.getElementById('contactSearch');
+const leadIdInput    = document.getElementById('leadId');
+const clienteIdInput = document.getElementById('clienteId');
+const resultsBox     = document.getElementById('contactResults');
+
+contactInput.addEventListener('input', function() {
   clearTimeout(searchTimer);
   const q = this.value.trim();
-  if (q.length < 2) { document.getElementById('leadResults').style.display = 'none'; return; }
+  if (q.length < 2) { resultsBox.style.display = 'none'; return; }
   searchTimer = setTimeout(async () => {
-    const res = await fetch(`/leads/contactos/buscar/?q=${encodeURIComponent(q)}`);
-    const data = await res.json();
-    const box = document.getElementById('leadResults');
-    box.innerHTML = '';
-    (data.results || []).forEach(item => {
-      const a = document.createElement('a');
-      a.className = 'list-group-item list-group-item-action small';
-      a.href = '#';
-      a.textContent = `${item.nombre} — ${item.telefono}`;
-      a.addEventListener('click', e => {
-        e.preventDefault();
-        document.getElementById('leadSearch').value = item.nombre;
-        document.getElementById('leadId').value = item.id;
-        box.style.display = 'none';
-        document.querySelector('[name=nombre_contacto]').value = item.nombre;
+    try {
+      const res  = await fetch(`/negociaciones/api/contactos/?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      resultsBox.innerHTML = '';
+      (data.results || []).forEach(item => {
+        const a = document.createElement('a');
+        a.className = 'list-group-item list-group-item-action small py-2';
+        a.href = '#';
+        const badge = item.tipo === 'lead'
+          ? '<span class="badge bg-info text-dark me-1">Lead</span>'
+          : '<span class="badge bg-success me-1">Cliente</span>';
+        a.innerHTML = `${badge} <strong>${item.nombre}</strong> <span class="text-muted">${item.telefono}</span>`;
+        a.addEventListener('click', e => {
+          e.preventDefault();
+          contactInput.value = item.nombre;
+          document.querySelector('[name=nombre_contacto]').value = item.nombre;
+          if (item.tipo === 'lead') {
+            leadIdInput.value    = item.id;
+            clienteIdInput.value = '';
+          } else {
+            clienteIdInput.value = item.id;
+            leadIdInput.value    = '';
+          }
+          resultsBox.style.display = 'none';
+        });
+        resultsBox.appendChild(a);
       });
-      box.appendChild(a);
-    });
-    box.style.display = box.children.length ? 'block' : 'none';
+      resultsBox.style.display = resultsBox.children.length ? 'block' : 'none';
+    } catch(e) { resultsBox.style.display = 'none'; }
   }, 300);
 });
+
+// Clear contact link when user manually clears the search input
+contactInput.addEventListener('change', function() {
+  if (!this.value.trim()) {
+    leadIdInput.value    = '';
+    clienteIdInput.value = '';
+  }
+});
+
 document.addEventListener('click', e => {
-  if (!e.target.closest('#leadSearch') && !e.target.closest('#leadResults'))
-    document.getElementById('leadResults').style.display = 'none';
+  if (!e.target.closest('#contactSearch') && !e.target.closest('#contactResults'))
+    resultsBox.style.display = 'none';
 });
 </script>
 {% endblock %}

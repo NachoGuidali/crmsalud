@@ -21,6 +21,7 @@ urlpatterns = [
     path('pipelines/<int:pk>/eliminar/', views.PipelineDeleteView.as_view(), name='pipeline_delete'),
     # Stage management
     path('etapas/<int:pk>/eliminar/', views.StageDeleteView.as_view(),   name='stage_delete'),
-    # API
+    # APIs
     path('api/stages/<int:pipeline_pk>/', views.StagesAPIView.as_view(), name='stages_api'),
+    path('api/contactos/',            views.ContactoSearchAPIView.as_view(), name='contacto_search'),
 ]
