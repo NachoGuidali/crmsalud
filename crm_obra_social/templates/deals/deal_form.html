@@ -19,7 +19,7 @@
           <div class="mb-3">
             <label class="form-label fw-semibold">Título *</label>
             <input name="titulo" class="form-control" required
-              value="{{ deal.titulo|default:data.titulo|default:'' }}"
+              value="{% if deal.titulo %}{{ deal.titulo }}{% else %}{{ data.titulo }}{% endif %}"
               placeholder="ej: Contrato Plan Familiar ACME">
           </div>
           <div class="row g-3">
@@ -49,7 +49,7 @@
             <div class="col-md-6">
               <label class="form-label fw-semibold">Valor estimado ($)</label>
               <input type="number" name="valor" class="form-control" step="0.01" min="0"
-                value="{{ deal.valor|default:data.valor|default:'' }}" placeholder="0.00">
+                value="{% if deal.valor %}{{ deal.valor }}{% else %}{{ data.valor }}{% endif %}" placeholder="0.00">
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold">Fecha de cierre estimada</label>
@@ -76,7 +76,7 @@
           <div>
             <label class="form-label fw-semibold">Nombre libre (si no hay contacto vinculado)</label>
             <input name="nombre_contacto" class="form-control"
-              value="{{ deal.nombre_contacto|default:data.nombre_contacto|default:'' }}"
+              value="{% if deal.nombre_contacto %}{{ deal.nombre_contacto }}{% else %}{{ data.nombre_contacto }}{% endif %}"
               placeholder="Completar si no hay lead o cliente asociado">
           </div>
         </div>
@@ -86,7 +86,7 @@
         <div class="card-header bg-transparent fw-semibold">Notas</div>
         <div class="card-body">
           <textarea name="descripcion" class="form-control" rows="4"
-            placeholder="Detalles de la negociación…">{{ deal.descripcion|default:data.descripcion|default:'' }}</textarea>
+            placeholder="Detalles de la negociación…">{% if deal.descripcion %}{{ deal.descripcion }}{% else %}{{ data.descripcion }}{% endif %}</textarea>
         </div>
       </div>
 
