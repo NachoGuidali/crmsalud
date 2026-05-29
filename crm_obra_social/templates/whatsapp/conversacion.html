@@ -32,13 +32,13 @@ audio { max-width: 240px; }
     <div class="d-flex gap-1 align-items-center">
       <button id="toggleCrm"
               class="btn btn-sm {% if conv.bot_crm_activo %}btn-success{% else %}btn-outline-secondary{% endif %}"
-              onclick="toggleBot('crm', {{ conv.bot_crm_activo|yesno:'true,false' }})"
+              onclick="toggleBot('crm', {% if conv.bot_crm_activo %}true{% else %}false{% endif %})"
               title="Bot CRM (reglas automáticas)">
         <i class="bi bi-robot"></i> CRM
       </button>
       <button id="toggleN8n"
               class="btn btn-sm {% if conv.bot_n8n_activo %}btn-success{% else %}btn-outline-secondary{% endif %}"
-              onclick="toggleBot('n8n', {{ conv.bot_n8n_activo|yesno:'true,false' }})"
+              onclick="toggleBot('n8n', {% if conv.bot_n8n_activo %}true{% else %}false{% endif %})"
               title="Bot n8n">
         <i class="bi bi-cpu"></i> n8n
       </button>
