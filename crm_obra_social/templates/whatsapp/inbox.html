@@ -172,13 +172,13 @@ audio { max-width: 220px; }
                 class="btn btn-sm {% if selected_conv.bot_crm_activo %}btn-success{% else %}btn-outline-secondary{% endif %} py-1 px-2"
                 onclick="toggleBot('crm', {% if selected_conv.bot_crm_activo %}true{% else %}false{% endif %})"
                 title="Bot CRM">
-          <i class="bi bi-robot"></i>
+          <i class="bi bi-gear"></i> Bot CRM
         </button>
         <button id="inboxToggleN8n"
                 class="btn btn-sm {% if selected_conv.bot_n8n_activo %}btn-success{% else %}btn-outline-secondary{% endif %} py-1 px-2"
                 onclick="toggleBot('n8n', {% if selected_conv.bot_n8n_activo %}true{% else %}false{% endif %})"
                 title="Bot n8n">
-          <i class="bi bi-cpu"></i>
+          <i class="bi bi-lightning"></i> Bot n8n
         </button>
         {% if request.user.can_see_all_leads and agents %}
         <form method="post">
