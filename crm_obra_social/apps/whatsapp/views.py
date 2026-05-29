@@ -56,11 +56,21 @@ def _forward_to_n8n(payload: dict):
         or data.get('messageType', '')
     )
 
+    # Include bot status so n8n can decide whether to respond
+    bot_n8n_activo = True
+    if phone:
+        from utils.phone import normalize_ar_phone, ar_phone_variants
+        norm = normalize_ar_phone(phone)
+        conv = Conversacion.objects.filter(telefono__in=ar_phone_variants(norm)).first()
+        if conv is not None:
+            bot_n8n_activo = conv.bot_n8n_activo
+
     enriched = {
         **payload,
         'phone': phone,
         'message': content,
         'contact_name': data.get('pushName', ''),
+        'bot_n8n_activo': bot_n8n_activo,
     }
 
     def _send():
@@ -871,3 +881,57 @@ class APIEnviarMensajeView(View):
         except Exception as e:
             logger.error('API send error to %s: %s', phone, e)
             return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+
+class BotToggleView(LoginRequiredMixin, View):
+    """
+    AJAX POST: toggle bot_crm_activo or bot_n8n_activo for a conversation.
+    Body params: bot_type ('crm'|'n8n'), activo ('true'|'false')
+    When bot_n8n_activo is turned off, notifies n8n via webhook.
+    """
+
+    def post(self, request, pk):
+        conv = get_object_or_404(Conversacion, pk=pk)
+        bot_type = request.POST.get('bot_type', '')
+        activo = request.POST.get('activo', 'true').lower() == 'true'
+
+        if bot_type == 'crm':
+            conv.bot_crm_activo = activo
+            conv.save(update_fields=['bot_crm_activo'])
+        elif bot_type == 'n8n':
+            conv.bot_n8n_activo = activo
+            conv.save(update_fields=['bot_n8n_activo'])
+            # Notify n8n about the status change
+            self._notify_n8n_bot_status(conv, activo)
+        else:
+            return JsonResponse({'ok': False, 'error': 'bot_type must be crm or n8n'}, status=400)
+
+        return JsonResponse({
+            'ok': True,
+            'bot_type': bot_type,
+            'activo': activo,
+            'conversacion_id': conv.pk,
+        })
+
+    def _notify_n8n_bot_status(self, conv, activo: bool):
+        import threading
+        import requests as req
+        from django.conf import settings as dj_settings
+        url = getattr(dj_settings, 'N8N_WEBHOOK_URL', '')
+        if not url:
+            return
+
+        payload = {
+            'event': 'bot_status_changed',
+            'phone': conv.telefono,
+            'bot_n8n_activo': activo,
+            'conversacion_id': conv.pk,
+        }
+
+        def _send():
+            try:
+                req.post(url, json=payload, timeout=5)
+            except Exception as e:
+                logger.warning('n8n bot status notify failed: %s', e)
+
+        threading.Thread(target=_send, daemon=True).start()

@@ -76,6 +76,8 @@ class Conversacion(models.Model):
     )
     ultimo_mensaje_at = models.DateTimeField(null=True, blank=True)
     mensajes_no_leidos = models.PositiveIntegerField(default=0)
+    bot_crm_activo = models.BooleanField(default=True, verbose_name='Bot CRM activo')
+    bot_n8n_activo = models.BooleanField(default=True, verbose_name='Bot n8n activo')
 
     class Meta:
         verbose_name = 'Conversación'

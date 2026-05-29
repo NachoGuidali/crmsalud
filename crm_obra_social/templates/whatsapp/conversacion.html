@@ -28,6 +28,21 @@ audio { max-width: 240px; }
     {% if conv.lead %}
     <a href="{% url 'leads:detail' conv.lead.pk %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-person"></i> Ver lead</a>
     {% endif %}
+    <!-- Bot toggles -->
+    <div class="d-flex gap-1 align-items-center">
+      <button id="toggleCrm"
+              class="btn btn-sm {% if conv.bot_crm_activo %}btn-success{% else %}btn-outline-secondary{% endif %}"
+              onclick="toggleBot('crm', {{ conv.bot_crm_activo|yesno:'true,false' }})"
+              title="Bot CRM (reglas automáticas)">
+        <i class="bi bi-robot"></i> CRM
+      </button>
+      <button id="toggleN8n"
+              class="btn btn-sm {% if conv.bot_n8n_activo %}btn-success{% else %}btn-outline-secondary{% endif %}"
+              onclick="toggleBot('n8n', {{ conv.bot_n8n_activo|yesno:'true,false' }})"
+              title="Bot n8n">
+        <i class="bi bi-cpu"></i> n8n
+      </button>
+    </div>
   </div>
 </div>
 
@@ -307,5 +322,31 @@ if (plantillaSelect) {
 // Auto-focus text input on load
 const textInput = document.getElementById('textInput');
 if (textInput) textInput.focus();
+
+function toggleBot(botType, currentlyActive) {
+  const newState = !currentlyActive;
+  const btnId = botType === 'crm' ? 'toggleCrm' : 'toggleN8n';
+  const btn = document.getElementById(btnId);
+  btn.disabled = true;
+
+  const fd = new FormData();
+  fd.append('bot_type', botType);
+  fd.append('activo', newState ? 'true' : 'false');
+
+  fetch('{% url "whatsapp:bot_toggle_conv" conv.pk %}', {
+    method: 'POST',
+    headers: {'X-CSRFToken': '{{ csrf_token }}'},
+    body: fd,
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) {
+      btn.className = 'btn btn-sm ' + (newState ? 'btn-success' : 'btn-outline-secondary');
+      btn.onclick = () => toggleBot(botType, newState);
+    }
+  })
+  .catch(() => {})
+  .finally(() => { btn.disabled = false; });
+}
 </script>
 {% endblock %}

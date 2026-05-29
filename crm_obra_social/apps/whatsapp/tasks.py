@@ -86,8 +86,9 @@ def process_incoming_message(self, message_data: dict):
             timestamp=message_data['timestamp'],
         )
 
-        # Trigger bot auto-response rules
-        _apply_bot_rules(conv, msg_type, message_data.get('content', ''))
+        # Trigger bot auto-response rules (only if CRM bot is active for this conversation)
+        if conv.bot_crm_activo:
+            _apply_bot_rules(conv, msg_type, message_data.get('content', ''))
 
     except Exception as exc:
         logger.exception('Error processing incoming message from %s: %s', phone, exc)
