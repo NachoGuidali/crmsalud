@@ -15,32 +15,7 @@
   </div>
 </div>
 
-<!-- Filters -->
-<form method="get" class="card border-0 shadow-sm mb-3 p-3" id="filter-form">
-  <div class="row g-2">
-    <div class="col-12 col-md-4">{{ filter_form.q }}</div>
-    <div class="col-6 col-md-2">{{ filter_form.estado }}</div>
-    <div class="col-6 col-md-2">{{ filter_form.prioridad }}</div>
-    <div class="col-6 col-md-2">{{ filter_form.origen }}</div>
-    <div class="col-6 col-md-2">{{ filter_form.plan }}</div>
-    <div class="col-6 col-md-2">{{ filter_form.fecha_desde }}</div>
-    <div class="col-6 col-md-2">{{ filter_form.fecha_hasta }}</div>
-    {% if agents %}
-    <div class="col-12 col-md-4">
-      <select name="agente" class="form-select">
-        <option value="">Todos los agentes</option>
-        {% for a in agents %}
-        <option value="{{ a.pk }}" {% if request.GET.agente == a.pk|stringformat:"s" %}selected{% endif %}>{{ a.get_full_name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    {% endif %}
-    <div class="col-auto">
-      <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-search"></i> Filtrar</button>
-      <a href="{% url 'leads:list' %}" class="btn btn-outline-secondary btn-sm">Limpiar</a>
-    </div>
-  </div>
-</form>
+{% include "includes/filter_builder.html" with clear_url="/leads/" %}
 
 <!-- Bulk action bar (supervisor only) -->
 {% if request.user.can_see_all_leads %}

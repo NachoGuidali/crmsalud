@@ -1,10 +1,12 @@
+import csv
+import io
 import logging
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Sum, Count, Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
 
@@ -38,17 +40,26 @@ class DealKanbanView(LoginRequiredMixin, View):
         if not pipeline:
             pipeline = pipelines.first()
 
+        q         = request.GET.get('q', '').strip()
+        agente_id = request.GET.get('agente', '').strip()
+
         stages = pipeline.stages.all()
         deals_qs = Deal.objects.filter(pipeline=pipeline).select_related(
             'lead', 'cliente', 'agente', 'stage'
         )
+        if q:
+            deals_qs = deals_qs.filter(
+                Q(titulo__icontains=q) |
+                Q(nombre_contacto__icontains=q) |
+                Q(lead__nombre_completo__icontains=q) |
+                Q(cliente__nombre_completo__icontains=q)
+            )
+        if agente_id:
+            deals_qs = deals_qs.filter(agente_id=agente_id)
 
         columns = {}
         for stage in stages:
-            columns[stage.pk] = {
-                'stage': stage,
-                'deals': [],
-            }
+            columns[stage.pk] = {'stage': stage, 'deals': []}
         for deal in deals_qs:
             if deal.stage_id in columns:
                 columns[deal.stage_id]['deals'].append(deal)
@@ -57,6 +68,8 @@ class DealKanbanView(LoginRequiredMixin, View):
             'pipeline':  pipeline,
             'pipelines': pipelines,
             'columns':   list(columns.values()),
+            'agentes':   User.objects.filter(is_active=True).order_by('first_name', 'last_name'),
+            'filtros': {'q': q, 'agente': agente_id},
         })
 
 
@@ -192,6 +205,181 @@ class DealMoveView(LoginRequiredMixin, View):
         deal.stage = stage
         deal.save(update_fields=['stage', 'updated_at'])
         return JsonResponse({'ok': True, 'stage_id': stage.pk, 'stage_nombre': stage.nombre})
+
+
+# ─── Export / Import ────────────────────────────────────────────────────────
+
+_EXPORT_HEADERS = [
+    'titulo', 'pipeline', 'etapa', 'valor', 'contacto',
+    'agente', 'descripcion', 'fecha_cierre_estimada', 'creado',
+]
+
+
+class DealExportView(LoginRequiredMixin, View):
+    def get(self, request):
+        qs = Deal.objects.select_related('pipeline', 'stage', 'lead', 'cliente', 'agente')
+        pipeline_id = request.GET.get('pipeline')
+        agente_id   = request.GET.get('agente')
+        q           = request.GET.get('q', '').strip()
+        if pipeline_id:
+            qs = qs.filter(pipeline_id=pipeline_id)
+        if agente_id:
+            qs = qs.filter(agente_id=agente_id)
+        if q:
+            qs = qs.filter(
+                Q(titulo__icontains=q) |
+                Q(nombre_contacto__icontains=q) |
+                Q(lead__nombre_completo__icontains=q) |
+                Q(cliente__nombre_completo__icontains=q)
+            )
+
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="negociaciones.csv"'
+        response.write('﻿')  # BOM for Excel
+
+        writer = csv.writer(response)
+        writer.writerow(_EXPORT_HEADERS)
+        for d in qs:
+            writer.writerow([
+                d.titulo,
+                d.pipeline.nombre,
+                d.stage.nombre,
+                d.valor or '',
+                d.contacto_display if d.contacto_display != '—' else '',
+                d.agente.get_full_name() if d.agente else '',
+                d.descripcion,
+                d.fecha_cierre_estimada.strftime('%Y-%m-%d') if d.fecha_cierre_estimada else '',
+                d.created_at.strftime('%Y-%m-%d %H:%M'),
+            ])
+        return response
+
+
+class DealImportView(LoginRequiredMixin, View):
+    template_name = 'deals/import.html'
+
+    def get(self, request):
+        if request.GET.get('plantilla'):
+            return self._download_template()
+        pipelines = Pipeline.objects.prefetch_related('stages').order_by('nombre')
+        return render(request, self.template_name, {'pipelines': pipelines})
+
+    def post(self, request):
+        archivo = request.FILES.get('archivo')
+        if not archivo:
+            messages.error(request, 'Seleccioná un archivo CSV.')
+            return redirect('deals:import')
+
+        try:
+            text = archivo.read().decode('utf-8-sig')
+        except UnicodeDecodeError:
+            try:
+                text = archivo.read().decode('latin-1')
+            except Exception:
+                messages.error(request, 'No se pudo leer el archivo. Usá codificación UTF-8.')
+                return redirect('deals:import')
+
+        reader = csv.DictReader(io.StringIO(text))
+        required = {'titulo', 'pipeline', 'etapa'}
+        if not required.issubset({h.lower().strip() for h in (reader.fieldnames or [])}):
+            messages.error(request, 'El CSV debe tener al menos las columnas: titulo, pipeline, etapa.')
+            return redirect('deals:import')
+
+        created = skipped = 0
+        errors = []
+        pipeline_cache = {}
+        stage_cache    = {}
+        agente_cache   = {}
+
+        for i, row in enumerate(reader, start=2):
+            row = {k.lower().strip(): (v or '').strip() for k, v in row.items()}
+            titulo = row.get('titulo', '')
+            if not titulo:
+                skipped += 1
+                continue
+
+            # Pipeline
+            p_nombre = row.get('pipeline', '')
+            if p_nombre not in pipeline_cache:
+                pipeline_cache[p_nombre] = Pipeline.objects.filter(nombre__iexact=p_nombre).first()
+            pipeline = pipeline_cache[p_nombre]
+            if not pipeline:
+                errors.append(f'Fila {i}: pipeline "{p_nombre}" no encontrado.')
+                skipped += 1
+                continue
+
+            # Stage
+            s_nombre = row.get('etapa', '')
+            cache_key = f'{pipeline.pk}::{s_nombre}'
+            if cache_key not in stage_cache:
+                stage_cache[cache_key] = PipelineStage.objects.filter(
+                    pipeline=pipeline, nombre__iexact=s_nombre
+                ).first()
+            stage = stage_cache[cache_key]
+            if not stage:
+                errors.append(f'Fila {i}: etapa "{s_nombre}" no encontrada en pipeline "{p_nombre}".')
+                skipped += 1
+                continue
+
+            # Valor
+            valor = None
+            if row.get('valor'):
+                try:
+                    valor = Decimal(row['valor'].replace(',', '.'))
+                except InvalidOperation:
+                    pass
+
+            # Agente
+            agente = None
+            a_nombre = row.get('agente', '')
+            if a_nombre:
+                if a_nombre not in agente_cache:
+                    agente_cache[a_nombre] = User.objects.filter(
+                        Q(username__iexact=a_nombre) |
+                        Q(first_name__icontains=a_nombre) |
+                        Q(last_name__icontains=a_nombre)
+                    ).first()
+                agente = agente_cache[a_nombre]
+
+            deal = Deal(
+                titulo=titulo,
+                pipeline=pipeline,
+                stage=stage,
+                valor=valor,
+                nombre_contacto=row.get('nombre_contacto') or row.get('contacto', ''),
+                descripcion=row.get('descripcion', ''),
+                agente=agente or request.user,
+            )
+            fecha = row.get('fecha_cierre_estimada', '')
+            if fecha:
+                from datetime import date as _date
+                for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y'):
+                    try:
+                        deal.fecha_cierre_estimada = _date.fromisoformat(
+                            fecha) if fmt == '%Y-%m-%d' else _date.strptime(fecha, fmt)
+                        break
+                    except ValueError:
+                        pass
+            deal._cambiado_por = request.user
+            deal.save()
+            created += 1
+
+        if errors:
+            for e in errors[:10]:
+                messages.warning(request, e)
+        messages.success(request, f'{created} negociación(es) importada(s). {skipped} omitida(s).')
+        return redirect('deals:list')
+
+    @staticmethod
+    def _download_template():
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="plantilla_negociaciones.csv"'
+        response.write('﻿')
+        writer = csv.writer(response)
+        writer.writerow(['titulo', 'pipeline', 'etapa', 'valor', 'nombre_contacto',
+                         'agente', 'descripcion', 'fecha_cierre_estimada'])
+        writer.writerow(['Contrato Plan Familiar', 'Ventas', 'Nuevo', '15000',
+                         'Juan Pérez', '', 'Cliente interesado', '2026-06-30'])
+        return response
 
 
 # ─── Contact search API (Lead + Cliente) ───────────────────────────────────

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Importar negociaciones{% endblock %}
+{% block nav_deals %}active{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <a href="{% url 'deals:list' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Negociaciones</a>
+  <h4 class="mt-1 fw-bold">Importar negociaciones</h4>
+</div>
+
+<div class="row g-4">
+  <div class="col-12 col-lg-7">
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-transparent fw-semibold">Subir archivo CSV</div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Archivo CSV</label>
+            <input type="file" name="archivo" class="form-control" accept=".csv" required>
+            <div class="form-text">Codificación UTF-8 o Latin-1. Tamaño máximo: 5 MB.</div>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-upload"></i> Importar</button>
+            <a href="{% url 'deals:import' %}?plantilla=1" class="btn btn-outline-secondary">
+              <i class="bi bi-download"></i> Descargar plantilla
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">Formato del CSV</div>
+      <div class="card-body small">
+        <p class="mb-2">El archivo debe incluir una fila de encabezado con estas columnas:</p>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered mb-3">
+            <thead class="table-light">
+              <tr><th>Columna</th><th>Requerido</th><th>Descripción</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>titulo</code></td><td><span class="badge bg-danger">Sí</span></td><td>Nombre de la negociación</td></tr>
+              <tr><td><code>pipeline</code></td><td><span class="badge bg-danger">Sí</span></td><td>Nombre exacto del pipeline</td></tr>
+              <tr><td><code>etapa</code></td><td><span class="badge bg-danger">Sí</span></td><td>Nombre exacto de la etapa dentro del pipeline</td></tr>
+              <tr><td><code>valor</code></td><td><span class="badge bg-secondary">No</span></td><td>Número (ej: 15000 o 15000.50)</td></tr>
+              <tr><td><code>nombre_contacto</code></td><td><span class="badge bg-secondary">No</span></td><td>Nombre libre del contacto</td></tr>
+              <tr><td><code>agente</code></td><td><span class="badge bg-secondary">No</span></td><td>Nombre completo o username del agente</td></tr>
+              <tr><td><code>descripcion</code></td><td><span class="badge bg-secondary">No</span></td><td>Notas adicionales</td></tr>
+              <tr><td><code>fecha_cierre_estimada</code></td><td><span class="badge bg-secondary">No</span></td><td>Formato: AAAA-MM-DD o DD/MM/AAAA</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-muted mb-0">Los pipelines y etapas deben existir previamente. Las filas con pipeline o etapa no encontrados serán omitidas con un aviso.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="col-12 col-lg-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent fw-semibold">Pipelines y etapas disponibles</div>
+      <div class="card-body p-0">
+        <ul class="list-group list-group-flush">
+          {% for p in pipelines %}
+          <li class="list-group-item small">
+            <strong>{{ p.nombre }}</strong>{% if not p.activo %} <span class="badge bg-secondary">inactivo</span>{% endif %}
+            <div class="ms-2 mt-1 d-flex flex-wrap gap-1">
+              {% for s in p.stages.all %}
+              <span class="badge bg-{{ s.color }}">{{ s.nombre }}</span>
+              {% empty %}
+              <span class="text-muted">Sin etapas</span>
+              {% endfor %}
+            </div>
+          </li>
+          {% empty %}
+          <li class="list-group-item small text-muted">No hay pipelines configurados.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

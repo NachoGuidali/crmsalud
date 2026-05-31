@@ -1,31 +1,31 @@
 import csv
 import io
+import json
 import re
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.paginator import Paginator
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views import View
-from django.views.generic import ListView, DetailView, DeleteView
+from django.views.generic import DetailView, DeleteView
 from django.urls import reverse_lazy
 
 from apps.leads.models import CampoPersonalizado, Plan
+from utils.dynamic_filter import apply_dynamic_filters, fields_for_js, _cliente_fields
 from .forms import ClienteForm, ClienteImportForm
 from .models import Cliente
 
 
-class ClienteListView(LoginRequiredMixin, ListView):
-    model = Cliente
+class ClienteListView(LoginRequiredMixin, View):
     template_name = 'clientes/cliente_list.html'
-    context_object_name = 'clientes'
-    paginate_by = 25
 
-    def get_queryset(self):
+    def get(self, request):
         qs = Cliente.objects.select_related('plan', 'agente')
-        q = self.request.GET.get('q', '').strip()
+
+        q = request.GET.get('q', '').strip()
         if q:
-            from django.db.models import Q
             qs = qs.filter(
                 Q(nombre_completo__icontains=q) |
                 Q(dni__icontains=q) |
@@ -33,19 +33,30 @@ class ClienteListView(LoginRequiredMixin, ListView):
                 Q(email__icontains=q) |
                 Q(numero_afiliado__icontains=q)
             )
-        plan_id = self.request.GET.get('plan', '')
-        if plan_id:
-            qs = qs.filter(plan_id=plan_id)
-        return qs
 
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        from apps.leads.models import Plan
-        ctx['q'] = self.request.GET.get('q', '')
-        ctx['plan_id'] = self.request.GET.get('plan', '')
-        ctx['planes'] = Plan.objects.filter(activo=True)
-        ctx['total'] = self.get_queryset().count()
-        return ctx
+        field_defs = _cliente_fields()
+        qs = apply_dynamic_filters(qs, request, field_defs)
+
+        total = qs.count()
+        paginator = Paginator(qs, 25)
+        page = paginator.get_page(request.GET.get('page'))
+
+        active_filters = list(zip(
+            request.GET.getlist('fc'),
+            request.GET.getlist('fo'),
+            request.GET.getlist('fv'),
+        ))
+
+        return render(request, self.template_name, {
+            'clientes':       page,
+            'total':          total,
+            'q':              q,
+            'active_filters': active_filters,
+            'filter_fields':  json.dumps(fields_for_js(field_defs, request.user), ensure_ascii=False),
+            'is_paginated':   page.has_other_pages(),
+            'page_obj':       page,
+            'paginator':      paginator,
+        })
 
 
 class ClienteDetailView(LoginRequiredMixin, DetailView):

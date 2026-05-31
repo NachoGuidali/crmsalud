@@ -5,8 +5,13 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <h4 class="mb-0 fw-bold"><i class="bi bi-briefcase text-primary"></i> Negociaciones</h4>
-  <div class="d-flex gap-2">
+  <div class="d-flex gap-2 flex-wrap">
     <a href="{% url 'deals:kanban' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-kanban"></i> Kanban</a>
+    <a href="{% url 'deals:export' %}?pipeline={{ filtros.pipeline }}&agente={{ filtros.agente }}&q={{ filtros.q }}"
+       class="btn btn-outline-success btn-sm"><i class="bi bi-download"></i> Exportar</a>
+    {% if request.user.can_see_all_leads %}
+    <a href="{% url 'deals:import' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-upload"></i> Importar</a>
+    {% endif %}
     <a href="{% url 'deals:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nueva</a>
   </div>
 </div>

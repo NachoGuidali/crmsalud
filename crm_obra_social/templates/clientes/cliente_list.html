@@ -15,25 +15,7 @@
   </div>
 </div>
 
-<form method="get" class="mb-3">
-  <div class="row g-2 align-items-end">
-    <div class="col-12 col-sm-6 col-md-4">
-      <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Buscar por nombre, DNI, teléfono, N° afiliado...">
-    </div>
-    <div class="col-6 col-sm-3 col-md-2">
-      <select name="plan" class="form-select form-select-sm">
-        <option value="">Todos los planes</option>
-        {% for p in planes %}
-        <option value="{{ p.pk }}" {% if plan_id == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.nombre }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-auto">
-      <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search"></i></button>
-      {% if q or plan_id %}<a href="{% url 'clientes:list' %}" class="btn btn-sm btn-outline-secondary ms-1">Limpiar</a>{% endif %}
-    </div>
-  </div>
-</form>
+{% include "includes/filter_builder.html" with clear_url="/clientes/" %}
 
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">
@@ -99,11 +81,11 @@
 <nav class="mt-3">
   <ul class="pagination pagination-sm justify-content-center">
     {% if page_obj.has_previous %}
-    <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if plan_id %}&plan={{ plan_id }}{% endif %}">«</a></li>
+    <li class="page-item"><a class="page-link" href="?{% querystring page=page_obj.previous_page_number %}">«</a></li>
     {% endif %}
     <li class="page-item disabled"><span class="page-link">{{ page_obj.number }}/{{ paginator.num_pages }}</span></li>
     {% if page_obj.has_next %}
-    <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if plan_id %}&plan={{ plan_id }}{% endif %}">»</a></li>
+    <li class="page-item"><a class="page-link" href="?{% querystring page=page_obj.next_page_number %}">»</a></li>
     {% endif %}
   </ul>
 </nav>

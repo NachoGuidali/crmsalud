@@ -18,22 +18,18 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-  <div class="d-flex align-items-center gap-3">
-    <h4 class="mb-0 fw-bold"><i class="bi bi-briefcase text-primary"></i> Negociaciones</h4>
-    {% if pipelines %}
-    <select class="form-select form-select-sm" style="width:auto" onchange="location.href='?pipeline='+this.value">
-      {% for p in pipelines %}
-      <option value="{{ p.pk }}" {% if p.pk == pipeline.pk %}selected{% endif %}>{{ p.nombre }}</option>
-      {% endfor %}
-    </select>
-    {% endif %}
-  </div>
+  <h4 class="mb-0 fw-bold"><i class="bi bi-briefcase text-primary"></i> Negociaciones</h4>
   <div class="d-flex gap-2 flex-wrap">
     <a href="{% url 'deals:list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-list"></i> Lista</a>
     {% if request.user.can_see_all_leads %}
     <a href="{% url 'deals:pipeline_list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-sliders"></i> Pipelines</a>
     {% endif %}
-    <a href="{% url 'deals:create' %}{% if pipeline %}?pipeline={{ pipeline.pk }}{% endif %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nueva negociación</a>
+    <a href="{% url 'deals:export' %}?pipeline={{ pipeline.pk }}&q={{ filtros.q }}&agente={{ filtros.agente }}"
+       class="btn btn-outline-success btn-sm"><i class="bi bi-download"></i> Exportar</a>
+    {% if request.user.can_see_all_leads %}
+    <a href="{% url 'deals:import' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-upload"></i> Importar</a>
+    {% endif %}
+    <a href="{% url 'deals:create' %}{% if pipeline %}?pipeline={{ pipeline.pk }}{% endif %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nueva</a>
   </div>
 </div>
 
@@ -48,6 +44,40 @@
   </div>
 </div>
 {% else %}
+
+{# ── Filters bar ─────────────────────────────────────────────────────── #}
+<form method="get" id="kanbanFilters" class="card border-0 shadow-sm mb-3">
+  <div class="card-body py-2">
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-md-3">
+        <input type="text" name="q" class="form-control form-control-sm"
+               placeholder="Buscar título o contacto…" value="{{ filtros.q }}">
+      </div>
+      <div class="col-6 col-md-2">
+        <select name="pipeline" class="form-select form-select-sm" id="pipelineSelect">
+          {% for p in pipelines %}
+          <option value="{{ p.pk }}" {% if p.pk == pipeline.pk %}selected{% endif %}>{{ p.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <select name="agente" class="form-select form-select-sm">
+          <option value="">Todos los agentes</option>
+          {% for u in agentes %}
+          <option value="{{ u.pk }}" {% if filtros.agente == u.pk|stringformat:"s" %}selected{% endif %}>
+            {{ u.get_full_name|default:u.username }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+        <a href="{% url 'deals:kanban' %}?pipeline={{ pipeline.pk }}" class="btn btn-outline-secondary btn-sm">Limpiar</a>
+      </div>
+    </div>
+  </div>
+</form>
+
 <div class="kanban-wrapper">
   <div class="kanban-board" id="kanbanBoard">
     {% for col in columns %}
@@ -114,7 +144,6 @@ document.querySelectorAll('.kanban-cards').forEach(col => {
     if (res.ok) {
       dragged.dataset.stage = newStage;
       col.appendChild(dragged);
-      // update count badges
       document.querySelectorAll('.kanban-cards').forEach(c => {
         const badge = c.closest('.kanban-col').querySelector('.badge');
         if (badge) badge.textContent = c.querySelectorAll('.kanban-card').length;

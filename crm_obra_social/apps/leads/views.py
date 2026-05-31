@@ -16,6 +16,7 @@ from django.views.generic import CreateView, UpdateView, DetailView, DeleteView
 
 from apps.users.models import User
 from apps.clientes.models import Cliente
+from utils.dynamic_filter import apply_dynamic_filters, fields_for_js, _lead_fields
 from .forms import LeadForm, LeadFilterForm, LeadImportForm, EstadoChangeForm, CampoPersonalizadoForm
 from .models import Lead, HistorialEstado, Plan, CampoPersonalizado, Documento
 
@@ -252,40 +253,35 @@ class LeadListView(LoginRequiredMixin, LeadQuerysetMixin, View):
 
     def get(self, request):
         qs = self.get_base_queryset()
-        form = LeadFilterForm(request.GET)
 
-        if form.is_valid():
-            data = form.cleaned_data
-            if data.get('q'):
-                q = data['q']
-                qs = qs.filter(Q(nombre_completo__icontains=q) | Q(dni__icontains=q) | Q(telefono__icontains=q))
-            if data.get('estado'):
-                qs = qs.filter(estado=data['estado'])
-            if data.get('plan'):
-                qs = qs.filter(plan_interes=data['plan'])
-            if data.get('provincia'):
-                qs = qs.filter(provincia__icontains=data['provincia'])
-            if data.get('origen'):
-                qs = qs.filter(origen=data['origen'])
-            if data.get('prioridad'):
-                qs = qs.filter(prioridad=data['prioridad'])
-            if data.get('fecha_desde'):
-                qs = qs.filter(created_at__date__gte=data['fecha_desde'])
-            if data.get('fecha_hasta'):
-                qs = qs.filter(created_at__date__lte=data['fecha_hasta'])
-            if data.get('agente') and request.user.can_see_all_leads:
-                qs = qs.filter(agente_id=data['agente'])
+        q = request.GET.get('q', '').strip()
+        if q:
+            qs = qs.filter(
+                Q(nombre_completo__icontains=q) | Q(dni__icontains=q) | Q(telefono__icontains=q)
+            )
+
+        field_defs = _lead_fields()
+        qs = apply_dynamic_filters(qs, request, field_defs)
 
         paginator = Paginator(qs, 25)
         page = paginator.get_page(request.GET.get('page'))
 
         agents = User.objects.filter(is_active=True).order_by('first_name') if request.user.can_see_all_leads else None
 
+        # Rebuild active filters list for template display
+        active_filters = list(zip(
+            request.GET.getlist('fc'),
+            request.GET.getlist('fo'),
+            request.GET.getlist('fv'),
+        ))
+
         return render(request, self.template_name, {
-            'leads': page,
-            'filter_form': form,
-            'agents': agents,
-            'total_count': qs.count(),
+            'leads':          page,
+            'agents':         agents,
+            'total_count':    qs.count(),
+            'q':              q,
+            'active_filters': active_filters,
+            'filter_fields':  json.dumps(fields_for_js(field_defs, request.user), ensure_ascii=False),
         })
 
 

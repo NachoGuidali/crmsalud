@@ -1,0 +1,197 @@
+{#
+  Dynamic filter builder partial.
+  Requires in context:
+    filter_fields  — JSON string produced by fields_for_js()
+    active_filters — list of (fc, fo, fv) tuples from the view
+    q              — current text search value
+    clear_url      — URL to the list view (for "Limpiar" button)
+#}
+<div class="card border-0 shadow-sm mb-3" id="filterCard">
+  <div class="card-body py-2 px-3">
+    <form method="get" id="filterForm">
+
+      {# ── Text search ─────────────────────────────────────────── #}
+      <div class="row g-2 align-items-center mb-2">
+        <div class="col">
+          <input type="text" name="q" id="filterQ" value="{{ q }}"
+                 class="form-control form-control-sm"
+                 placeholder="Buscar por nombre, DNI o teléfono…">
+        </div>
+        <div class="col-auto">
+          <button type="button" class="btn btn-outline-primary btn-sm" id="btnAddFilter">
+            <i class="bi bi-funnel"></i> Agregar filtro
+          </button>
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-search"></i> Filtrar
+          </button>
+          <a href="{{ clear_url }}" class="btn btn-outline-secondary btn-sm">Limpiar</a>
+        </div>
+      </div>
+
+      {# ── Active filter rows ──────────────────────────────────── #}
+      <div id="filterRows">
+        {% for fc, fo, fv in active_filters %}
+        <div class="filter-row row g-2 align-items-center mb-1"
+             data-fc="{{ fc }}" data-fo="{{ fo }}" data-fv="{{ fv }}">
+          {# Rendered by JS on DOMContentLoaded #}
+        </div>
+        {% endfor %}
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  const FIELDS = {{ filter_fields|safe }};
+
+  const rowsContainer = document.getElementById('filterRows');
+  const form          = document.getElementById('filterForm');
+
+  // ── Build a filter row ────────────────────────────────────────────────
+  function buildRow(fc, fo, fv) {
+    const row = document.createElement('div');
+    row.className = 'filter-row row g-2 align-items-center mb-1';
+
+    // Campo select
+    const fieldSel = document.createElement('select');
+    fieldSel.name      = 'fc';
+    fieldSel.className = 'form-select form-select-sm col-auto';
+    fieldSel.style.width = 'auto';
+    fieldSel.innerHTML  = '<option value="">— Campo —</option>';
+    Object.entries(FIELDS).forEach(([key, def]) => {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = def.label;
+      if (key === fc) opt.selected = true;
+      fieldSel.appendChild(opt);
+    });
+
+    // Operator select (populated when campo changes)
+    const opSel = document.createElement('select');
+    opSel.name      = 'fo';
+    opSel.className = 'form-select form-select-sm col-auto';
+    opSel.style.width = 'auto';
+
+    // Value container (input changes type with campo/op)
+    const valWrap = document.createElement('div');
+    valWrap.className = 'col-auto';
+
+    // Remove btn
+    const rmBtn = document.createElement('button');
+    rmBtn.type      = 'button';
+    rmBtn.className = 'btn btn-outline-danger btn-sm col-auto';
+    rmBtn.innerHTML = '<i class="bi bi-x"></i>';
+    rmBtn.addEventListener('click', () => row.remove());
+
+    row.appendChild(wrapCol(fieldSel));
+    row.appendChild(wrapCol(opSel));
+    row.appendChild(valWrap);
+    row.appendChild(wrapCol(rmBtn));
+
+    function wrapCol(el) {
+      const d = document.createElement('div');
+      d.className = 'col-auto';
+      d.appendChild(el);
+      return d;
+    }
+
+    function renderOpsAndVal(selectedFc, selectedFo, selectedFv) {
+      const def = FIELDS[selectedFc];
+      if (!def) { opSel.innerHTML = ''; valWrap.innerHTML = ''; return; }
+
+      // Ops
+      opSel.innerHTML = '';
+      def.ops.forEach(([v, l]) => {
+        const opt = document.createElement('option');
+        opt.value = v; opt.textContent = l;
+        if (v === selectedFo) opt.selected = true;
+        opSel.appendChild(opt);
+      });
+
+      buildValueInput(def, selectedFo || def.ops[0][0], selectedFv);
+    }
+
+    function buildValueInput(def, currentOp, currentVal) {
+      valWrap.innerHTML = '';
+      // Date ops that need no value
+      const noValOps = new Set(['today', 'yesterday', 'this_week', 'this_month', 'last_7', 'last_30']);
+      if (noValOps.has(currentOp)) return;
+
+      let el;
+      if (def.type === 'choices' || def.type === 'fk') {
+        el = document.createElement('select');
+        el.name      = 'fv';
+        el.className = 'form-select form-select-sm';
+        el.style.minWidth = '160px';
+        el.innerHTML = '<option value="">— Elegí —</option>';
+        (def.options || []).forEach(o => {
+          const opt = document.createElement('option');
+          opt.value = o.v; opt.textContent = o.l;
+          if (o.v === currentVal) opt.selected = true;
+          el.appendChild(opt);
+        });
+      } else if (def.type === 'date') {
+        el = document.createElement('input');
+        el.type      = 'date';
+        el.name      = 'fv';
+        el.value     = currentVal || '';
+        el.className = 'form-control form-control-sm';
+        el.style.width = '145px';
+      } else if (def.type === 'number') {
+        el = document.createElement('input');
+        el.type      = 'number';
+        el.name      = 'fv';
+        el.value     = currentVal || '';
+        el.className = 'form-control form-control-sm';
+        el.style.width = '110px';
+        el.step = '1';
+      } else {
+        el = document.createElement('input');
+        el.type      = 'text';
+        el.name      = 'fv';
+        el.value     = currentVal || '';
+        el.className = 'form-control form-control-sm';
+        el.style.minWidth = '160px';
+        el.placeholder = 'Valor…';
+      }
+      valWrap.appendChild(el);
+    }
+
+    fieldSel.addEventListener('change', function () {
+      renderOpsAndVal(this.value, null, '');
+    });
+    opSel.addEventListener('change', function () {
+      buildValueInput(FIELDS[fieldSel.value], this.value, '');
+    });
+
+    if (fc) renderOpsAndVal(fc, fo, fv);
+
+    return row;
+  }
+
+  // ── Restore saved filters from data-* attrs ───────────────────────────
+  document.querySelectorAll('.filter-row[data-fc]').forEach(placeholder => {
+    const fc = placeholder.dataset.fc;
+    const fo = placeholder.dataset.fo;
+    const fv = placeholder.dataset.fv;
+    const built = buildRow(fc, fo, fv);
+    placeholder.replaceWith(built);
+  });
+
+  // ── Add filter button ─────────────────────────────────────────────────
+  document.getElementById('btnAddFilter').addEventListener('click', () => {
+    rowsContainer.appendChild(buildRow('', '', ''));
+  });
+
+  // ── Before submit: remove rows with no campo selected ─────────────────
+  form.addEventListener('submit', function () {
+    document.querySelectorAll('.filter-row').forEach(row => {
+      const sel = row.querySelector('[name=fc]');
+      if (!sel || !sel.value) row.remove();
+    });
+  });
+
+})();
+</script>
