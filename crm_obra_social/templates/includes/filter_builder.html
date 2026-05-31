@@ -1,11 +1,3 @@
-{#
-  Dynamic filter builder partial.
-  Requires in context:
-    filter_fields  — JSON string produced by fields_for_js()
-    active_filters — list of (fc, fo, fv) tuples from the view
-    q              — current text search value
-    clear_url      — URL to the list view (for "Limpiar" button)
-#}
 <div class="card border-0 shadow-sm mb-3" id="filterCard">
   <div class="card-body py-2 px-3">
     <form method="get" id="filterForm">
