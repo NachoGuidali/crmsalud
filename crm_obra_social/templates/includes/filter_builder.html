@@ -107,12 +107,21 @@
 
     function buildValueInput(def, currentOp, currentVal) {
       valWrap.innerHTML = '';
-      // Date ops that need no value
+      // Date ops that need no value — still emit a hidden fv to keep fc/fo/fv aligned
       const noValOps = new Set(['today', 'yesterday', 'this_week', 'this_month', 'last_7', 'last_30']);
-      if (noValOps.has(currentOp)) return;
+      if (noValOps.has(currentOp)) {
+        const h = document.createElement('input');
+        h.type = 'hidden'; h.name = 'fv'; h.value = '';
+        valWrap.appendChild(h);
+        return;
+      }
+
+      const SELECT_TYPES = new Set(['choices', 'fk', 'extra_bool', 'extra_lista']);
+      const DATE_TYPES   = new Set(['date', 'extra_fecha']);
+      const NUMBER_TYPES = new Set(['number', 'extra_num']);
 
       let el;
-      if (def.type === 'choices' || def.type === 'fk') {
+      if (SELECT_TYPES.has(def.type)) {
         el = document.createElement('select');
         el.name      = 'fv';
         el.className = 'form-select form-select-sm';
@@ -124,14 +133,14 @@
           if (o.v === currentVal) opt.selected = true;
           el.appendChild(opt);
         });
-      } else if (def.type === 'date') {
+      } else if (DATE_TYPES.has(def.type)) {
         el = document.createElement('input');
         el.type      = 'date';
         el.name      = 'fv';
         el.value     = currentVal || '';
         el.className = 'form-control form-control-sm';
         el.style.width = '145px';
-      } else if (def.type === 'number') {
+      } else if (NUMBER_TYPES.has(def.type)) {
         el = document.createElement('input');
         el.type      = 'number';
         el.name      = 'fv';
