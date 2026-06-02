@@ -4,14 +4,23 @@
 
 {% block extra_css %}
 <style>
-.chat-container { height: calc(100vh - 320px); min-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 12px; background: #e5ddd5; border-radius: 8px; }
-.bubble { max-width: 72%; border-radius: 12px; padding: 8px 12px; font-size: .9rem; word-break: break-word; }
-.bubble-in  { align-self: flex-start; background: #fff; border-radius: 0 12px 12px 12px; }
-.bubble-out { align-self: flex-end;   background: #d9fdd3; border-radius: 12px 0 12px 12px; }
-.bubble-time { font-size: .7rem; color: #667781; margin-top: 2px; }
-.btn-interactivo { display: inline-block; border: 1px solid #0d6efd; color: #0d6efd; border-radius: 8px; padding: 3px 10px; margin: 2px 3px 0 0; font-size: .8rem; cursor: default; }
+.chat-container {
+  height: calc(100vh - 320px); min-height: 300px;
+  overflow-y: auto; display: flex; flex-direction: column;
+  gap: 6px; padding: 14px;
+  background: #060c14; border-radius: 8px;
+}
+.bubble { max-width: 72%; border-radius: 12px; padding: 8px 12px; font-size: .875rem; word-break: break-word; }
+.bubble-in  { align-self: flex-start; background: var(--bg3); color: var(--text); border-radius: 4px 12px 12px 12px; }
+.bubble-out { align-self: flex-end;   background: #1a3a5c; color: var(--text); border-radius: 12px 4px 12px 12px; }
+.bubble-time { font-size: .68rem; color: var(--text3); margin-top: 3px; }
+.btn-interactivo { display: inline-block; border: 1px solid var(--blue); color: var(--blue); border-radius: 8px; padding: 3px 10px; margin: 2px 3px 0 0; font-size: .8rem; cursor: default; }
 .media-thumb { max-width: 220px; max-height: 200px; border-radius: 8px; cursor: pointer; }
 audio { max-width: 240px; }
+#tab-template, #tab-interactive { background: var(--bg2) !important; border-color: var(--border) !important; }
+#plantillaPreview { background: var(--bg3) !important; color: var(--text2) !important; }
+.nav-tabs .nav-link { color: var(--text2); border-color: var(--border); }
+.nav-tabs .nav-link.active { color: var(--blue); border-color: var(--border) var(--border) var(--bg2); background: var(--bg2); }
 </style>
 {% endblock %}
 
@@ -134,7 +143,7 @@ audio { max-width: 240px; }
   </ul>
 
   <!-- Template sender -->
-  <div id="tab-template" class="border border-top-0 p-3 rounded-bottom bg-white">
+  <div id="tab-template" class="border border-top-0 p-3 rounded-bottom">
     {% if plantillas %}
     <form method="post" id="templateForm">
       {% csrf_token %}
@@ -161,7 +170,7 @@ audio { max-width: 240px; }
           <button type="submit" class="btn btn-outline-success btn-sm"><i class="bi bi-send"></i> Enviar</button>
         </div>
       </div>
-      <div id="plantillaPreview" class="mt-2 p-2 bg-light rounded small text-muted" style="display:none;white-space:pre-wrap;"></div>
+      <div id="plantillaPreview" class="mt-2 p-2 rounded small" style="display:none;white-space:pre-wrap;"></div>
     </form>
     {% else %}
     <p class="text-muted small mb-0">No hay plantillas. <a href="{% url 'whatsapp:plantilla_list' %}">Ir a plantillas</a></p>
@@ -169,7 +178,7 @@ audio { max-width: 240px; }
   </div>
 
   <!-- Interactive sender -->
-  <div id="tab-interactive" class="border border-top-0 p-3 rounded-bottom bg-white" style="display:none">
+  <div id="tab-interactive" class="border border-top-0 p-3 rounded-bottom" style="display:none">
     <form method="post" id="interactiveForm">
       {% csrf_token %}
       <input type="hidden" name="action" value="send_interactive">

@@ -164,8 +164,8 @@
       <h6 class="fw-semibold small mt-3">1. Crear el lead cuando llega el primer mensaje</h6>
       <pre class="p-3 rounded small" style="background:var(--bg3);color:var(--text);">POST {{ base_url }}/api/v1/leads/
 {
-  "nombre_completo": "{{ '{{' }}$json.pushName{{ '}}' }}",     // nombre de WhatsApp
-  "telefono":        "{{ '{{' }}$json.from{{ '}}' }}",          // número del remitente
+  "nombre_completo": "{% verbatim %}{{$json.pushName}}{% endverbatim %}",     // nombre de WhatsApp
+  "telefono":        "{% verbatim %}{{$json.from}}{% endverbatim %}",          // número del remitente
   "origen":          "whatsapp"
 }
 <span style="color:var(--text3)">// Respuesta: {"status":"created","lead_id":123} o {"status":"updated",...}
@@ -174,21 +174,21 @@
       <h6 class="fw-semibold small mt-3">2. El bot pregunta y el usuario responde — ir actualizando campos</h6>
       <pre class="p-3 rounded small" style="background:var(--bg3);color:var(--text);">POST {{ base_url }}/api/v1/leads/actualizar/
 {
-  "telefono": "{{ '{{' }}$json.from{{ '}}' }}",
-  "email":    "{{ '{{' }}$json.respuesta_email{{ '}}' }}"
+  "telefono": "{% verbatim %}{{$json.from}}{% endverbatim %}",
+  "email":    "{% verbatim %}{{$json.respuesta_email}}{% endverbatim %}"
 }
 
 <span style="color:var(--text3)">// O para un campo personalizado:</span>
 POST {{ base_url }}/api/v1/leads/actualizar/
 {
-  "telefono":            "{{ '{{' }}$json.from{{ '}}' }}",
-  "cobertura_solicitada":"{{ '{{' }}$json.respuesta_cobertura{{ '}}' }}"
+  "telefono":            "{% verbatim %}{{$json.from}}{% endverbatim %}",
+  "cobertura_solicitada":"{% verbatim %}{{$json.respuesta_cobertura}}{% endverbatim %}"
 }</pre>
 
       <h6 class="fw-semibold small mt-3">3. Cambiar el estado del lead según avance el flujo</h6>
       <pre class="p-3 rounded small" style="background:var(--bg3);color:var(--text);">POST {{ base_url }}/api/v1/leads/actualizar/
 {
-  "telefono": "{{ '{{' }}$json.from{{ '}}' }}",
+  "telefono": "{% verbatim %}{{$json.from}}{% endverbatim %}",
   "estado":   "interesado",
   "prioridad": "alta"
 }</pre>
@@ -209,7 +209,7 @@ POST {{ base_url }}/api/v1/leads/actualizar/
 "remoteJid": "5491112345678@s.whatsapp.net"
 
 <span style="color:var(--text3)">// Extraé el número con una función n8n:</span>
-{{ '{{' }}$json.data.key.remoteJid.replace('@s.whatsapp.net','').replace('@c.us',''){{ '}}' }}
+{% verbatim %}{{$json.data.key.remoteJid.replace('@s.whatsapp.net','').replace('@c.us','')}}{% endverbatim %}
 <span style="color:var(--text3)">// Resultado: "5491112345678" — la API del CRM acepta con o sin "+"</span></pre>
     </div>
   </div>
