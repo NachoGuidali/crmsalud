@@ -563,6 +563,12 @@ class PlantillaCreateView(LoginRequiredMixin, CreateView):
               'header_tipo', 'header_contenido', 'footer', 'botones', 'activa')
     success_url = reverse_lazy('whatsapp:plantilla_list')
 
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['variables_json'] = '[]'
+        ctx['botones_json'] = '[]'
+        return ctx
+
     def form_valid(self, form):
         messages.success(self.request, 'Plantilla creada correctamente.')
         return super().form_valid(form)
@@ -574,6 +580,12 @@ class PlantillaUpdateView(LoginRequiredMixin, UpdateView):
     fields = ('nombre', 'idioma', 'cuerpo', 'variables',
               'header_tipo', 'header_contenido', 'footer', 'botones', 'activa')
     success_url = reverse_lazy('whatsapp:plantilla_list')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['variables_json'] = json.dumps(self.object.variables or [])
+        ctx['botones_json'] = json.dumps(self.object.botones or [])
+        return ctx
 
     def form_valid(self, form):
         messages.success(self.request, 'Plantilla actualizada.')

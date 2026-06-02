@@ -59,7 +59,7 @@
           <div class="mb-3">
             <label class="form-label fw-semibold">Nombres de variables (en orden)</label>
             <input name="variables" class="form-control" id="variablesField"
-                   value="{{ form.instance.variables|default:'[]' }}"
+                   value="{{ variables_json }}"
                    placeholder='["nombre", "plan"]'>
             <div class="form-text">JSON array con el nombre de cada variable: <code>["nombre del lead", "plan elegido"]</code></div>
           </div>
@@ -75,7 +75,7 @@
           <h6 class="fw-semibold text-muted mt-4 mb-3">Botones (opcional, máximo 3)</h6>
           <div class="mb-3">
             <textarea name="botones" class="form-control font-monospace" rows="4" id="botonesField"
-                      placeholder='[{"tipo":"reply","texto":"Sí, me interesa"},{"tipo":"url","texto":"Ver planes","valor":"https://..."}]'>{{ form.instance.botones|default:'[]' }}</textarea>
+                      placeholder='[{"tipo":"reply","texto":"Sí, me interesa"},{"tipo":"url","texto":"Ver planes","valor":"https://..."}]'>{{ botones_json }}</textarea>
             <div class="form-text">
               JSON array. Tipos: <code>reply</code> (respuesta rápida),
               <code>url</code> (abrir URL, campo <code>"valor"</code>),

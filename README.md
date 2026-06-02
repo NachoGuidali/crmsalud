@@ -1,6 +1,6 @@
-# CRM Obra Social
+# CRM Supreg — Obra Social
 
-Sistema CRM completo para agentes comerciales de obras sociales argentinas. Gestiona el ciclo de vida completo del prospecto: captación, seguimiento, cotización, afiliación y comunicación por WhatsApp.
+Sistema CRM completo para agentes comerciales de obras sociales argentinas. Gestiona el ciclo de vida completo del prospecto: captación, seguimiento, cotización, afiliación y comunicación por WhatsApp (vía **Evolution API**, protocolo QR — sin API oficial de Meta).
 
 ---
 
@@ -10,17 +10,17 @@ Sistema CRM completo para agentes comerciales de obras sociales argentinas. Gest
 - [Servicios Docker](#servicios-docker)
 - [Instalación y puesta en marcha](#instalación-y-puesta-en-marcha)
 - [Variables de entorno](#variables-de-entorno)
-- [Configuración del Webhook de WhatsApp](#configuración-del-webhook-de-whatsapp)
+- [WhatsApp — Evolution API (QR)](#whatsapp--evolution-api-qr)
 - [Roles y permisos](#roles-y-permisos)
 - [Módulos del sistema](#módulos-del-sistema)
   - [Leads](#leads)
   - [Clientes](#clientes)
   - [Contactos](#contactos)
-  - [Kanban](#kanban)
+  - [Negociaciones (Deals)](#negociaciones-deals)
   - [Agenda / Tareas](#agenda--tareas)
   - [Cotizaciones](#cotizaciones)
   - [WhatsApp Inbox](#whatsapp-inbox)
-  - [Plantillas HSM](#plantillas-hsm)
+  - [Plantillas de Mensaje](#plantillas-de-mensaje)
   - [Bot WhatsApp](#bot-whatsapp)
   - [Chatbot Visual](#chatbot-visual)
   - [Campañas masivas](#campañas-masivas)
@@ -29,11 +29,14 @@ Sistema CRM completo para agentes comerciales de obras sociales argentinas. Gest
   - [Campos personalizados](#campos-personalizados)
   - [Reportes](#reportes)
   - [Usuarios](#usuarios)
+- [Filtros dinámicos (Leads y Clientes)](#filtros-dinámicos-leads-y-clientes)
 - [Importación masiva de leads](#importación-masiva-de-leads)
+- [Importación / Exportación de Deals](#importación--exportación-de-deals)
 - [Tareas asíncronas (Celery)](#tareas-asíncronas-celery)
 - [Comandos útiles](#comandos-útiles)
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [URLs principales](#urls-principales)
+- [Trabajo pendiente / en curso](#trabajo-pendiente--en-curso)
 
 ---
 
@@ -52,18 +55,22 @@ Sistema CRM completo para agentes comerciales de obras sociales argentinas. Gest
 | Imágenes | Pillow 10 |
 | Frontend | Bootstrap 5.3.3 + Bootstrap Icons 1.11 |
 | Editor de flujos | Drawflow (CDN) |
+| WhatsApp bridge | Evolution API v2 (self-hosted, QR code) |
 
 ---
 
 ## Servicios Docker
 
 ```
-web          → Django + Gunicorn (puerto 8000)
-db           → PostgreSQL 15 (puerto 5433)
-redis        → Redis 7 (128 MB LRU)
-celery       → Worker (concurrencia 2)
-celery-beat  → Scheduler de tareas periódicas
+web             → Django + Gunicorn (puerto 8002 en host → 8000 interno)
+db              → PostgreSQL 15 (puerto 5434 en host → 5432 interno)
+redis           → Redis 7 (128 MB LRU)
+celery          → Worker (concurrencia 2)
+celery-beat     → Scheduler de tareas periódicas
+evolution-api   → WhatsApp bridge via QR (puerto 8080)
 ```
+
+El servicio `evolution-api` usa la misma base de datos PostgreSQL del CRM pero en una base separada (`evolution_api`). Persiste instancias en un volumen Docker (`evolution_instances`).
 
 ---
 
@@ -72,83 +79,125 @@ celery-beat  → Scheduler de tareas periódicas
 ```bash
 git clone <repo>
 cd crmsupreg
-cp .env.example .env          # completar variables
+cp .env.example .env          # completar variables (ver sección siguiente)
 docker compose up -d --build
 docker compose exec web python manage.py migrate
 docker compose exec web python manage.py createsuperuser
 docker compose exec web python manage.py collectstatic --noinput
+# Opcional: cargar planes de ejemplo
+docker compose exec web python manage.py loaddata apps/leads/fixtures/planes_iniciales.json
 ```
 
-Acceder en: `http://localhost:8000`
-Django Admin: `http://localhost:8000/admin`
+Acceder en: `http://localhost:8002`  
+Django Admin: `http://localhost:8002/admin`
 
 ---
 
 ## Variables de entorno
 
+Copiar `.env.example` como `.env` y completar:
+
 ```env
 # Django
-SECRET_KEY=tu-secret-key-larga-y-segura
-DEBUG=False
-ALLOWED_HOSTS=tudominio.com,www.tudominio.com
+DJANGO_SECRET_KEY=tu-secret-key-larga-y-segura
+DJANGO_DEBUG=False
 
-# Base de datos
-POSTGRES_DB=crmsupreg
+# PostgreSQL
+POSTGRES_DB=crm_obra_social
 POSTGRES_USER=crm_user
 POSTGRES_PASSWORD=password_seguro
-DB_HOST=db
-DB_PORT=5432
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
 
-# Redis
+# Redis / Celery
 REDIS_URL=redis://redis:6379/0
 
-# WhatsApp Meta Cloud API
-WHATSAPP_ACCESS_TOKEN=tu_token_de_meta
-WHATSAPP_PHONE_NUMBER_ID=tu_phone_number_id
-WHATSAPP_BUSINESS_ACCOUNT_ID=tu_waba_id
-WHATSAPP_APP_SECRET=tu_app_secret
-WHATSAPP_WEBHOOK_VERIFY_TOKEN=tu_token_verificacion
+# Evolution API (WhatsApp via QR — sin API oficial de Meta)
+EVOLUTION_API_URL=http://evolution-api:8080
+EVOLUTION_API_KEY=tu_api_key_segura
+EVOLUTION_INSTANCE_NAME=crm-supreg
+EVOLUTION_WEBHOOK_TOKEN=token_secreto_para_validar_webhooks
+EVOLUTION_SERVER_URL=http://localhost:8080   # URL pública para QR callback
+
+# Proxy residencial (opcional — si el VPS tiene IP de datacenter bloqueada por WA)
+PROXY_HOST=
+PROXY_PORT=
+PROXY_PROTOCOL=http
+PROXY_USERNAME=
+PROXY_PASSWORD=
+
+ALLOWED_HOSTS=localhost 127.0.0.1 your-domain.com
 ```
+
+> **IMPORTANTE:** Ya NO hay variables de Meta Cloud API (`WHATSAPP_ACCESS_TOKEN`, etc.). El sistema usa exclusivamente Evolution API.
 
 ---
 
-## Configuración del Webhook de WhatsApp
+## WhatsApp — Evolution API (QR)
 
-1. En Meta Business Manager → WhatsApp → Configuración → Webhooks
-2. URL del webhook: `https://tu-dominio.com/whatsapp/webhook/`
-3. Verify Token: el valor de `WHATSAPP_WEBHOOK_VERIFY_TOKEN` del `.env`
-4. Suscribirse a los eventos: `messages`, `message_deliveries`, `message_reads`
+El CRM **no usa la API oficial de Meta**. Usa [Evolution API v2](https://evolution-api.com/) como bridge, que opera con el protocolo de WhatsApp Web (QR code), igual que WAZZUP.
 
-En desarrollo podés usar **ngrok** para exponer el servidor local:
-```bash
-ngrok http 8000
+### Ventajas sobre Meta Cloud API
+- Sin cuentas Business de Meta
+- Sin plantillas HSM aprobadas (texto libre siempre)
+- Sin ventana de 24h (texto libre en cualquier momento)
+- Sin límite de 1000 conversaciones/día en tier gratuito
+
+### Configuración inicial
+1. Ir a `/whatsapp/configuracion/`
+2. Ingresar: Evolution API URL, API Key, nombre de instancia, token de webhook
+3. El panel QR aparece automáticamente — escanear con el teléfono
+4. Una vez conectado, el estado cambia a "Conectado"
+
+### Webhook
+Evolution API envía webhooks al CRM en: `https://tu-dominio.com/whatsapp/webhook/`
+
+Formato de eventos:
+```json
+// Mensaje entrante:
+{"event": "messages.upsert", "instance": "crm-supreg",
+ "data": {"key": {"remoteJid": "5491112345678@s.whatsapp.net", "fromMe": false, "id": "..."},
+          "pushName": "Nombre", "message": {"conversation": "texto"},
+          "messageType": "conversation", "messageTimestamp": 1234567890}}
+
+// Actualización de estado:
+{"event": "messages.update", "instance": "crm-supreg",
+ "data": [{"key": {"id": "MSG_ID"}, "update": {"status": "DELIVERY_ACK"}}]}
 ```
 
-Las credenciales también se pueden configurar desde el panel en `/whatsapp/configuracion/` (solo superadmin).
+Tipos de mensaje soportados: `conversation`, `imageMessage`, `documentMessage`, `audioMessage`, `videoMessage`, `buttonsResponseMessage`, `listResponseMessage`, `stickerMessage`.
+
+### Funciones disponibles en sender.py
+| Función | Descripción |
+|---|---|
+| `send_text_message(to, body)` | Texto plano |
+| `send_media_message(to, media_url, mediatype, filename, caption)` | Imagen/doc/video por URL |
+| `send_interactive_message(to, body_text, buttons, header_text, footer_text)` | Botones interactivos |
+| `get_connection_state()` | Estado: `open` / `close` / `connecting` |
+| `get_qr_code()` | Base64 PNG del QR o None si ya conectado |
 
 ---
 
 ## Roles y permisos
 
-El sistema tiene tres roles con niveles de acceso diferenciados:
+El permiso clave es `user.can_see_all_leads` (True para Supervisores y Superadmins).
 
 | Funcionalidad | Agente | Supervisor | Superadmin |
 |---|:---:|:---:|:---:|
-| Ver sus propios leads | ✅ | ✅ | ✅ |
-| Ver todos los leads | ❌ | ✅ | ✅ |
+| Ver sus propios leads/clientes | ✅ | ✅ | ✅ |
+| Ver todos los leads/clientes | ❌ | ✅ | ✅ |
 | Asignación masiva de agentes | ❌ | ✅ | ✅ |
 | Importar / exportar leads | ❌ | ✅ | ✅ |
 | Convertir lead a cliente | ❌ | ✅ | ✅ |
+| Importar clientes | ❌ | ✅ | ✅ |
 | Campañas masivas | ❌ | ✅ | ✅ |
 | Automatizaciones | ❌ | ✅ | ✅ |
-| Plantillas HSM | ❌ | ✅ | ✅ |
+| Plantillas de mensaje | ❌ | ✅ | ✅ |
 | Chatbot visual | ❌ | ✅ | ✅ |
 | Integraciones API | ❌ | ✅ | ✅ |
 | Gestión de usuarios | ❌ | ✅ | ✅ |
 | Campos personalizados | ❌ | ✅ | ✅ |
-| Configurar WhatsApp API | ❌ | ❌ | ✅ |
-
-**Regla de visibilidad:** Los agentes solo ven los leads, clientes, tareas y conversaciones que tienen asignados. Los supervisores y superadmins ven todo.
+| Configurar WhatsApp API | ❌ | ✅ | ✅ |
 
 ---
 
@@ -156,334 +205,261 @@ El sistema tiene tres roles con niveles de acceso diferenciados:
 
 ### Leads
 
-Pipeline principal de ventas. Un lead representa un prospecto que aún no se convirtió en cliente.
+Pipeline principal de ventas. Un lead es un prospecto no convertido a cliente.
 
-**Estados del pipeline:**
-
+**Estados:**
 ```
 Nuevo → Contactado → Interesado → Doc. Pendiente → En Revisión → Afiliado
                                                               ↘ Perdido
 ```
 
-**Campos:**
-- Datos personales: nombre completo, DNI (7-8 dígitos), fecha de nacimiento, teléfono (formato `+54...`), email, localidad, provincia
-- Comerciales: plan de interés, grupo familiar, origen, prioridad (Alta / Media / Baja)
-- Agente asignado
-- Motivo de pérdida (al marcar como Perdido)
-- Datos extra: JSON para columnas personalizadas importadas o campos adicionales
-- Documentos adjuntos: recibo de sueldo, DNI, contrato, otros
-- Historial completo de cambios de estado con fecha, usuario y nota
+**Campos principales:** nombre completo, DNI (7-8 dígitos), fecha de nacimiento, teléfono (formato `+54...`), email, localidad, provincia, plan de interés (FK a Plan), grupo familiar, origen, prioridad (Alta/Media/Baja), agente asignado, motivo de pérdida, datos_extra (JSONField).
 
 **Funcionalidades:**
-- Filtrado por nombre, DNI, teléfono, email, estado, prioridad, origen, plan, agente y rango de fechas
-- Exportación a CSV con todos los campos
+- Filtro dinámico multi-campo (ver [Filtros dinámicos](#filtros-dinámicos-leads-y-clientes))
+- Exportación a CSV
+- Importación masiva CSV/Excel
+- Asignación masiva con checkboxes (supervisor+)
 - Conversión a cliente (supervisor+)
-- Carga de documentos por tipo con íconos automáticos
-- Botón directo a WhatsApp desde el listado
-- **Asignación masiva:** checkboxes para seleccionar múltiples leads y asignarlos a un agente en un clic (supervisor+)
+- Documentos adjuntos por tipo (recibo, DNI, contrato, otro)
+- Historial de cambios de estado con nota y usuario
+- Vista Kanban con drag & drop
 
 ---
 
 ### Clientes
 
-Leads que completaron el proceso de afiliación.
-
-**Campos adicionales respecto al lead:**
-- Número de afiliado
-- Plan contratado (FK)
-- Fecha de alta
+Leads convertidos / afiliados. Comparten el modelo base pero con campos extra:
+- Número de afiliado, plan contratado (FK), fecha de alta
+- `datos_extra` JSONField igual que leads
 
 **Funcionalidades:**
-- Listado con búsqueda por nombre, DNI, teléfono, número de afiliado y plan
-- Importación masiva por CSV/Excel
-- Edición de campos personalizados
-- Ver tareas relacionadas
-- Botón directo a WhatsApp desde el listado
+- Filtro dinámico multi-campo (igual que leads)
+- Importación masiva CSV/Excel (supervisor+)
+- Edición de campos personalizados en detalle
+- Tareas relacionadas
+- WhatsApp directo desde el listado
 
 ---
 
 ### Contactos
 
-Vista unificada que combina leads y clientes en una sola tabla. Permite filtrar por tipo (solo leads, solo clientes, o ambos) para tener una visión global sin cambiar de sección.
+Vista unificada leads + clientes en una sola tabla. URL: `/leads/contactos/`
 
 ---
 
-### Kanban
+### Negociaciones (Deals)
 
-Vista de tablero del pipeline de leads. Columnas por estado con drag & drop para mover leads entre estados. Cada agente ve solo sus leads asignados; supervisores ven todos.
+Módulo de gestión de oportunidades/negocios con múltiples pipelines.
+
+**Modelos:**
+- `Pipeline`: nombre, descripción, activo
+- `PipelineStage`: pertenece a un Pipeline, tiene nombre, orden, color (Bootstrap)
+- `Deal`: título, pipeline, etapa, valor, lead/cliente asociado, agente, descripción, fecha de cierre estimada
+- `DealHistory`: historial de cambios de etapa
+
+**Vistas:**
+- **Kanban** (`/negociaciones/`): tablero drag & drop por etapa, con buscador (q + agente), filtro de pipeline
+- **Lista** (`/negociaciones/lista/`): tabla con filtros, paginación
+- **Import** (`/negociaciones/importar/`): CSV con columnas: titulo, pipeline, etapa, valor, contacto, agente, descripcion, fecha_cierre_estimada
+- **Export** (`/negociaciones/exportar/`): CSV descarga, respeta filtros activos (pipeline, q, agente)
+- CRUD completo (crear, ver, editar, eliminar)
+- Gestión de pipelines y etapas (`/negociaciones/pipelines/`)
+- Mover deal de etapa vía AJAX (`/negociaciones/<pk>/mover/`)
 
 ---
 
 ### Agenda / Tareas
 
-Gestión de tareas vinculadas a leads o clientes.
-
-**Tipos:** Llamada, WhatsApp, Reunión, Documentación, Seguimiento
-
+**Tipos:** Llamada, WhatsApp, Reunión, Documentación, Seguimiento  
 **Estados:** Pendiente / Completada / Vencida
 
-**Funcionalidades:**
 - Vista de agenda semanal
-- Filtro por tipo y estado
-- Registro del resultado al completar
-- Badge en el navbar con tareas pendientes del día
-- Detección automática de tareas vencidas (Celery cada 15 min)
+- Badge en navbar con tareas pendientes del día
+- Registro de resultado al completar
+- Celery marca vencidas automáticamente cada 15 min
 
 ---
 
 ### Cotizaciones
 
-Generación de propuestas comerciales en PDF.
-
-**Campos:**
-- Lead vinculado, plan, monto mensual, notas
-- Integrantes familiares (nombre, DNI, fecha de nacimiento, parentesco: titular / cónyuge / hijo / otro)
-- Estado: Borrador / Enviada / Aceptada / Rechazada
-
-**Funcionalidades:**
-- Generación de PDF con WeasyPrint (guardado en `media/cotizaciones/pdf/`)
-- Descarga directa del PDF
-- Envío de la cotización directamente por WhatsApp al lead
+- Vinculadas a un lead
+- Integrantes familiares (nombre, DNI, fecha nacimiento, parentesco)
+- PDF generado con WeasyPrint (guardado en `media/cotizaciones/pdf/`)
+- Envío directo por WhatsApp al lead
 
 ---
 
 ### WhatsApp Inbox
 
-Bandeja de entrada estilo WhatsApp Web con panel dual: lista de conversaciones a la izquierda y chat a la derecha.
+Bandeja estilo WhatsApp Web (panel dual: lista de conversaciones + chat).
 
-**Funcionalidades:**
-- Polling automático (mensajes cada 4s, inbox cada 8s)
+- Polling: mensajes cada 4s, inbox cada 8s
+- Texto libre **siempre disponible** (sin restricción de ventana 24h — Evolution API)
+- Mensajes con botones interactivos
+- Historial completo con estados: pendiente / enviado / entregado / leído / fallido
 - Filtro por estado de conversación y no leídos
-- Envío de texto libre (dentro de la ventana de 24h activa)
-- Envío de plantillas HSM aprobadas (dentro y fuera de la ventana)
-- Envío de mensajes con botones interactivos
-- Envío de listas de opciones
-- Indicador visual de ventana de 24h activa/expirada
-- Historial completo con estado por mensaje (enviado / entregado / leído / error)
-- Inicio de conversación desde los listados de leads, contactos y clientes
+- Inicio de conversación desde leads, contactos y clientes
 
-**Ventana de 24 horas (política Meta):**
-- Dentro de la ventana: texto libre
-- Fuera de la ventana: solo plantillas HSM aprobadas
+> **Nota:** El campo `ventana_activa` y `ventana_expira_at` fueron eliminados del modelo `Conversacion` en la migración a Evolution API.
 
 ---
 
-### Plantillas HSM
+### Plantillas de Mensaje
 
-Gestión del ciclo de vida completo de mensajes pre-aprobados por Meta.
+Mensajes pre-configurados con variables. Ya **no requieren aprobación de Meta**.
 
 **Campos:**
-- Nombre, categoría (Marketing / Utilidad / Autenticación), idioma
-- Cuerpo con variables `{{1}}`, `{{2}}`, etc.
-- Encabezado: ninguno, texto, imagen, documento o video
-- Pie de página (max 60 caracteres)
-- Botones: respuesta rápida, URL o llamada telefónica
+- nombre, cuerpo con `{{1}}`, `{{2}}`..., variables (lista JSON de nombres)
+- header (none/text/image/document/video), footer, botones (reply/url/phone)
+- activa (bool) — no hay campo `status` de aprobación Meta
 
-**Estados:** Pendiente → Aprobada / Rechazada
-
-**Funcionalidades:**
-- Crear plantilla en borrador
-- Enviar a Meta para aprobación
-- Sincronizar estado desde Meta
-- Vista previa con variables de ejemplo
-- Uso en campañas masivas y automatizaciones
+**Uso:** campañas masivas, automatizaciones, bot, envío manual desde inbox.  
+**Preview:** método `plantilla.preview(valores=[...])` reemplaza variables.
 
 ---
 
 ### Bot WhatsApp
 
-Reglas de auto-respuesta para mensajes entrantes sin intervención humana.
+Reglas de auto-respuesta configurables.
 
-**Tipos de disparo:**
-- Primer mensaje de un contacto nuevo (mensaje de bienvenida)
-- Palabra clave detectada en el mensaje (case-insensitive)
-
-**Tipos de respuesta:**
-- Texto libre
-- Plantilla HSM aprobada
-- Mensaje interactivo con botones
-
-**Acciones opcionales al disparar:**
-- Cambiar estado del lead automáticamente
-- Cambiar prioridad del lead
-- Solo ejecutar si el lead no tiene agente asignado
-- Solo ejecutar una vez por conversación (evita respuestas repetidas)
+**Triggers:** primer mensaje (bienvenida), palabra clave (case-insensitive, coincidencia parcial)  
+**Respuestas:** texto libre, plantilla, botones interactivos  
+**Acciones opcionales:** cambiar estado/prioridad del lead, solo sin agente, solo una vez por conversación
 
 ---
 
 ### Chatbot Visual
 
-Editor visual de flujos de conversación drag & drop, similar a WATI/ManyChat. Permite diseñar bots complejos con lógica ramificada.
-
-**Nodos disponibles:**
-
-| Nodo | Descripción |
-|---|---|
-| Inicio | Punto de entrada del flujo |
-| Enviar mensaje | Envía un texto al contacto |
-| Hacer pregunta | Hace una pregunta y guarda la respuesta en una variable |
-| Botones | Mensaje con hasta 3 botones interactivos (WhatsApp) |
-| Lista de opciones | Menú desplegable con hasta 5 opciones |
-| Condición | Ramifica el flujo según el valor de una variable (Sí / No) |
-| Actualizar atributo | Actualiza un campo del lead (nombre, estado, plan, prioridad, etc.) |
-| Asignar etiqueta | Agrega una etiqueta al contacto |
-| Asignar agente | Asigna el lead a un agente específico |
-| Asignar equipo | Asigna el lead a un equipo |
-| Suscribir | Suscribe el contacto a campañas masivas |
-| Desuscribir | Desuscribe el contacto de campañas masivas |
-
-**Funcionalidades del editor:**
-- Canvas con pan, zoom y conexiones entre nodos
-- Panel izquierdo: librería de nodos por categoría
-- Panel derecho: formulario de configuración del nodo seleccionado
-- Historial de deshacer/rehacer (Ctrl+Z / Ctrl+Y)
-- Guardado con Ctrl+S o botón, con indicador de estado
-- Los flujos se almacenan como JSON en la base de datos
+Editor visual con Drawflow. Flujos JSON guardados en BD. Nodos: inicio, mensaje, pregunta, botones, lista, condición, actualizar atributo, asignar etiqueta/agente/equipo, suscribir/desuscribir campaña.
 
 ---
 
 ### Campañas masivas
 
-Envío masivo de mensajes WhatsApp usando plantillas HSM aprobadas.
+Envío masivo usando plantillas. Asíncrono via Celery, ~800 msg/min.
 
-**Selección de destinatarios:**
-
-*Por segmento (filtros automáticos):*
-- Plan específico
-- Provincia (búsqueda parcial)
-- Estado del lead
-- Días sin contacto (leads inactivos)
-- Tipo: solo leads, solo clientes, o ambos
-
-*Manual:*
-- Búsqueda y selección individual de leads y clientes desde el formulario
-
-**Preview en tiempo real:** muestra la cantidad exacta de destinatarios antes de lanzar.
-
-**Variables de plantilla:** se mapean a campos del contacto:
-- `nombre_completo`, `email`, `plan`, `localidad`, `provincia`, `telefono`
-- Soporte para campos personalizados
-
-**Ejecución:**
-- Asíncrona vía Celery
-- Rate limiting: ~800 mensajes/min (margen bajo el límite de 1000/min de Meta)
-- Log individual por mensaje con estado (enviado / error)
-- Estadísticas en tiempo real: enviados, entregados, leídos, errores
+**Destinatarios:** por filtro (plan, provincia, estado, días sin contacto, tipo lead/cliente) o selección manual.  
+**Variables:** se mapean a campos del contacto (`nombre_completo`, `email`, `plan`, `localidad`, `provincia`, `telefono`, campos personalizados).
 
 ---
 
 ### Automatizaciones
 
-Reglas que se ejecutan automáticamente cada hora sobre leads que cumplen determinados criterios de tiempo.
+Reglas que se ejecutan cada hora.
 
-**Triggers (basados en tiempo):**
-- N días desde que se creó el lead
-- N días sin actividad (sin cambios registrados)
-- N días sin respuesta de WhatsApp del contacto
-
-**Condiciones opcionales:**
-- Estado del lead (cualquiera o uno específico)
-- Prioridad del lead
-- Origen del lead
-
-**Acciones disponibles:**
-1. Cambiar estado del lead
-2. Cambiar prioridad del lead
-3. Enviar plantilla HSM de WhatsApp al lead
-4. Crear tarea para el agente asignado (con plazo en días)
-
-**Funcionalidades:**
-- Activar/desactivar sin eliminar
-- Ejecución manual para pruebas
-- Log de cada ejecución por regla y lead
-- Prevención de duplicados: la misma regla no se aplica dos veces al mismo lead
+**Triggers (tiempo):** N días desde creación, N días sin actividad, N días sin respuesta de WA.  
+**Condiciones:** estado, prioridad, origen del lead.  
+**Acciones:** cambiar estado, cambiar prioridad, enviar plantilla por WA (como texto via `preview()`), crear tarea.
 
 ---
 
 ### Integraciones API
 
-API REST pública para recibir leads desde sistemas externos (landing pages, formularios web, otros CRMs).
-
-**Autenticación:** API Key en header `Authorization: Api-Key <key>`
-
-**Endpoints disponibles:**
+API REST para recibir leads de sistemas externos.
 
 ```
-POST /api/v1/leads/            → Crear lead desde sistema externo
-GET  /api/v1/leads/<id>/       → Consultar estado de un lead
+POST /api/v1/leads/            → Crear lead (auth: header "Authorization: Api-Key <key>")
+GET  /api/v1/leads/<id>/       → Consultar estado
 POST /api/v1/webhook/<source>/ → Webhook genérico
 ```
 
-**Campos al crear lead:**
-- `nombre_completo` (requerido), `telefono` (requerido)
-- `email`, `dni`, `localidad`, `provincia`, `codigo_pais`, `plan_id` (opcionales)
-
-**Gestión de API Keys:**
-- Nombre, descripción, estado activo/inactivo
-- Agente por defecto, estado inicial y origen por defecto para los leads creados con esa key
-- Estadísticas: última vez usada, total de usos
-- Log completo de cada llamada: IP, request/response, duración, resultado
+Gestión de API Keys con log completo (IP, request/response, duración).
 
 ---
 
 ### Campos personalizados
 
-Sistema de campos dinámicos para extender los modelos sin modificar la base de datos.
+Modelo `CampoPersonalizado` (en `apps/leads/`).
 
-**Tipos de campo:** Texto libre, Número, Fecha, Booleano (Sí/No), Lista (dropdown con opciones)
+**Tipos:** texto, numero, fecha, booleano, lista  
+**Alcance:** solo leads, solo clientes, ambos  
+**Almacenamiento:** valores en `datos_extra` JSONField (texto/numero/fecha como string, booleano como bool)  
+**Soporte de reglas condicionales:** `CampoRegla` — campo visible/oculto/obligatorio/solo_lectura según estado del lead
 
-**Alcance:** Solo leads, solo clientes, o ambos.
-
-Los valores se almacenan en el campo JSON `datos_extra` del lead/cliente y se muestran como campos editables en el formulario de detalle. También se pueden usar en:
-- Mapeo de variables en campañas masivas
-- Plantillas de descripción en tareas de automatización
-- Importación masiva (columnas extra del Excel)
+Los campos personalizados aparecen en:
+- Detalle de lead/cliente (sección editable)
+- Filtros dinámicos (ver abajo)
+- Mapeo de variables en campañas
+- Importación masiva (columnas extra)
+- Automatizaciones (descripción de tarea)
 
 ---
 
 ### Reportes
 
-**Dashboard principal (`/`):**
-- Conteo de leads por cada estado del pipeline
-- Tareas del día (lista de las 10 más próximas)
-- Conversaciones con mensajes no leídos
-- Actividad reciente (últimos 10 leads actualizados)
-- Ranking de agentes por leads afiliados (supervisor+)
-- Leads creados esta semana
-
-**Reporte de conversión (`/reportes/conversion/`):**
-- Funnel completo con conteos por estado
-- Leads por origen (Web, Campaña, Referido, Llamada, WhatsApp)
-- Leads por agente con métricas de conversión
-
-**Reporte de mensajes (`/reportes/mensajes/`):**
-- Mensajes enviados y recibidos filtrados por rango de fechas
-
-**Exportación:** CSV del reporte de conversión desde `/reportes/exportar/`
+- **Dashboard** (`/`): conteo por estado, tareas del día, conversaciones no leídas, actividad reciente, ranking agentes, leads esta semana
+- **Conversión** (`/reportes/conversion/`): funnel completo, por origen, por agente
+- **Mensajes** (`/reportes/mensajes/`): enviados/recibidos por rango de fechas
+- **Exportar CSV** (`/reportes/exportar/`)
 
 ---
 
 ### Usuarios
 
-Gestión de cuentas del sistema (supervisor+).
+**Roles:** Superadmin / Supervisor / Agente  
+**Campos:** nombre, apellido, email (login), rol, teléfono interno, avatar, activo/inactivo
 
-**Campos:** nombre, apellido, email (usuario de login), rol, teléfono interno, avatar, estado activo/inactivo.
+---
 
-**Roles:** Superadmin / Supervisor / Agente
+## Filtros dinámicos (Leads y Clientes)
+
+Implementación en `utils/dynamic_filter.py`. Reemplaza los filtros fijos anteriores.
+
+### Patrón URL
+```
+?q=texto&fc=campo1&fo=op1&fv=val1&fc=campo2&fo=op2&fv=val2
+```
+- `q`: búsqueda de texto libre (nombre, DNI, teléfono, email)
+- `fc[]`: nombre del campo
+- `fo[]`: operador
+- `fv[]`: valor (siempre presente, incluso vacío `""` para operadores sin valor como `today`)
+
+### Tipos de campo soportados
+| Tipo | Operadores disponibles |
+|---|---|
+| `text` | contiene, no contiene, es igual a, empieza con |
+| `choices` | es |
+| `fk` | es (match por `_id`) |
+| `number` | igual a, ≥, ≤, >, < |
+| `date` | hoy, ayer, esta semana, este mes, últimos 7/30 días, en fecha exacta, desde, hasta |
+| `extra_text` | igual que `text` (busca en `datos_extra__slug`) |
+| `extra_num` | igual que `number` (usa `Cast + KeyTextTransform`) |
+| `extra_fecha` | en fecha exacta, desde, hasta (comparación lexicográfica de ISO strings) |
+| `extra_bool` | es (true/false) |
+| `extra_lista` | es (match exacto) |
+
+### Campos disponibles en Leads
+nombre, DNI, teléfono, email, localidad, provincia, estado, prioridad, origen, plan (FK), grupo familiar, agente (FK, supervisor+), fecha de creación, última actualización + todos los `CampoPersonalizado` activos con alcance `leads` o `ambos`.
+
+### Campos disponibles en Clientes
+nombre, DNI, teléfono, email, localidad, provincia, plan (FK), N° afiliado, grupo familiar, agente (FK, supervisor+), fecha de creación, última actualización + todos los `CampoPersonalizado` activos con alcance `clientes` o `ambos`.
+
+### Bug histórico corregido
+El filtro de fechas tipo `hoy/ayer/esta semana/etc.` no funcionaba porque el JS no emitía ningún input `fv` para esos operadores. El `zip()` del backend cortaba en la lista más corta → el filtro se ignoraba.
+
+**Fix aplicado:**
+1. JS (`filter_builder.html`): cuando el operador no requiere valor, se emite un `<input type="hidden" name="fv" value="">` para mantener el alineamiento de listas.
+2. Backend (`dynamic_filter.py`): `zip()` reemplazado por `zip_longest(..., fillvalue='')` como segunda defensa.
+
+### Partial template
+`templates/includes/filter_builder.html` — incluir con:
+```html
+{% include "includes/filter_builder.html" with clear_url="/leads/" %}
+```
+Requiere en contexto: `filter_fields` (JSON string), `active_filters` (lista de tuplas fc/fo/fv), `q`.
 
 ---
 
 ## Importación masiva de leads
 
-Formatos soportados: **CSV** (UTF-8 o Latin-1) y **Excel** (`.xlsx`, `.xls`)
+**Formatos:** CSV (UTF-8 o Latin-1) y Excel (.xlsx, .xls)  
+**Plantilla:** Leads → Importar → Descargar plantilla
 
-Descargar plantilla oficial: **Leads → Importar → Descargar plantilla**
-
-### Columnas reconocidas automáticamente
-
-| Campo | Nombres de columna aceptados |
+### Columnas reconocidas
+| Campo | Nombres aceptados |
 |---|---|
-| Nombre completo | `nombre_completo`, `nombre`, `name`, `full_name`, `apellido` |
+| Nombre | `nombre_completo`, `nombre`, `name`, `full_name`, `apellido` |
 | Teléfono | `telefono`, `phone`, `tel`, `celular`, `movil` |
 | Código de país | `codigo_pais`, `codigopais`, `country_code`, `cod_pais` |
 | Email | `email`, `correo`, `mail` |
@@ -498,30 +474,19 @@ Descargar plantilla oficial: **Leads → Importar → Descargar plantilla**
 | Agente | `agente`, `agent`, `vendedor`, `asesor` |
 | Grupo familiar | `grupo_familiar`, `grupo` |
 
-### Columna Agente
+**Columnas extra** no reconocidas se guardan en `datos_extra` (JSON).
 
-Permite asignar cada lead a un agente diferente dentro del mismo archivo. Acepta:
-- Nombre completo del agente (`Juan Pérez`)
-- Username
-- Email
+**Deduplicación:** busca por teléfono → por DNI. Si existe y "actualizar existentes" está activo, completa campos vacíos.
 
-Si el valor no coincide con ningún usuario activo, el lead queda sin agente (o con el valor por defecto del formulario). La columna `Agente` del archivo tiene prioridad sobre el checkbox "Asignarme los leads".
+**Columna Agente:** acepta nombre completo, username o email. Tiene prioridad sobre el checkbox "asignarme los leads".
 
-### Deduplicación
+---
 
-1. Busca por **teléfono**
-2. Si no encuentra, busca por **DNI**
-3. Si existe y "actualizar existentes" está activado → actualiza campos vacíos
-4. Si existe y no está activado → omite la fila
+## Importación / Exportación de Deals
 
-### Columnas extra
+**Export** (`/negociaciones/exportar/`): CSV con BOM (Excel-compatible). Columnas: titulo, pipeline, etapa, valor, contacto, agente, descripcion, fecha_cierre_estimada, creado. Respeta filtros activos de la URL.
 
-Cualquier columna no reconocida se guarda en `datos_extra` como JSON. Si existe un campo personalizado con ese nombre, se asocia y valida automáticamente.
-
-### Opciones del formulario de importación
-
-- **Actualizar existentes:** si un lead ya existe, actualiza sus campos vacíos con los valores del archivo
-- **Asignarme los leads:** asigna todos los leads importados al usuario que realiza la importación (la columna `Agente` del archivo tiene prioridad)
+**Import** (`/negociaciones/importar/`): sube CSV, matchea pipeline/etapa/agente por nombre (case-insensitive). Errores reportados por fila.
 
 ---
 
@@ -529,14 +494,14 @@ Cualquier columna no reconocida se guarda en `datos_extra` como JSON. Si existe 
 
 | Tarea | Frecuencia | Descripción |
 |---|---|---|
-| `marcar_tareas_vencidas` | Cada 15 min | Marca como vencidas las tareas pendientes con fecha pasada |
-| `notificar_tareas_proximas` | Cada hora | Registra tareas en los próximos 30 min para alertas |
-| `ejecutar_automatizaciones` | Cada hora | Aplica todas las reglas de automatización activas |
-| `expire_24h_windows` | Cada hora | Expira ventanas de 24h de WhatsApp vencidas |
-| `sync_plantillas_status` | Cada 30 min | Sincroniza estado de plantillas HSM desde Meta |
-| `ejecutar_campana` | On-demand | Envío de campaña masiva con rate limiting |
-| `process_incoming_message` | On-demand | Procesamiento de mensajes del webhook (3 reintentos) |
-| `send_whatsapp_message_task` | On-demand | Envío de mensajes salientes de WhatsApp |
+| `marcar_tareas_vencidas` | Cada 15 min | Marca como vencidas tareas pendientes con fecha pasada |
+| `notificar_tareas_proximas` | Cada hora | Registra tareas en próximos 30 min |
+| `ejecutar_automatizaciones` | Cada hora | Aplica reglas de automatización activas |
+| `ejecutar_campana` | On-demand | Envío de campaña con rate limiting |
+| `process_incoming_message` | On-demand | Procesa mensajes del webhook (3 reintentos) |
+| `send_whatsapp_message_task` | On-demand | Envío de mensajes salientes |
+
+> **Eliminadas en la migración a Evolution API:** `expire_24h_windows` y `sync_plantillas_status`. Si aparecen en `django_celery_beat` hay que eliminarlas desde `/admin/django_celery_beat/periodictask/`.
 
 ---
 
@@ -546,6 +511,10 @@ Cualquier columna no reconocida se guarda en `datos_extra` como JSON. Si existe 
 # Ver logs en tiempo real
 docker compose logs -f web
 docker compose logs -f celery
+docker compose logs -f evolution-api
+
+# Reiniciar solo el web
+docker compose restart web
 
 # Shell de Django
 docker compose exec web python manage.py shell
@@ -554,10 +523,10 @@ docker compose exec web python manage.py shell
 docker compose exec web python manage.py makemigrations
 docker compose exec web python manage.py migrate
 
-# Cargar fixtures de planes iniciales
-docker compose exec web python manage.py loaddata apps/leads/fixtures/planes_iniciales.json
+# Deploy estándar (servidor)
+cd /opt/crmsalud/crmsalud && git pull && docker compose restart web
 
-# Reiniciar solo el worker de Celery
+# Reiniciar Celery también (si hubo cambios en tasks)
 docker compose restart celery celery-beat
 ```
 
@@ -567,34 +536,40 @@ docker compose restart celery celery-beat
 
 ```
 crmsupreg/
-├── docker-compose.yml
-├── Dockerfile
-├── requirements.txt
-├── .env
+├── docker-compose.yml          # 5 servicios: web, db, redis, celery, celery-beat, evolution-api
+├── .env.example
 └── crm_obra_social/
+    ├── Dockerfile
     ├── config/
     │   ├── settings/
-    │   │   ├── base.py
+    │   │   ├── base.py         # Settings base — incluye EVOLUTION_API_* vars
     │   │   ├── development.py
     │   │   └── production.py
     │   ├── urls.py
     │   └── celery.py
     ├── apps/
-    │   ├── users/          # Usuarios, roles y autenticación
-    │   ├── leads/          # Leads, pipeline, importación, campos personalizados
-    │   ├── clientes/       # Clientes afiliados
-    │   ├── tasks/          # Agenda y tareas
-    │   ├── quotes/         # Cotizaciones con PDF
-    │   ├── whatsapp/       # Inbox, webhook Meta, plantillas HSM, bot
-    │   ├── campaigns/      # Campañas masivas
-    │   ├── automations/    # Reglas de automatización
-    │   ├── integrations/   # API Keys y webhooks externos
-    │   ├── chatbot/        # Editor visual de flujos de chatbot
-    │   └── reports/        # Dashboard y reportes
-    ├── templates/          # Templates HTML (Bootstrap 5)
-    ├── static/
-    │   └── css/main.css
-    └── media/              # Archivos subidos (documentos, avatares, PDFs)
+    │   ├── users/              # Usuarios, roles, autenticación (User.can_see_all_leads)
+    │   ├── leads/              # Leads, pipeline, importación, CampoPersonalizado, Plan
+    │   ├── clientes/           # Clientes afiliados (importación CSV/Excel)
+    │   ├── deals/              # Negociaciones — Pipeline, PipelineStage, Deal, DealHistory
+    │   ├── tasks/              # Agenda y tareas vinculadas a leads/clientes
+    │   ├── quotes/             # Cotizaciones con PDF (WeasyPrint)
+    │   ├── whatsapp/           # Inbox, webhook Evolution API, plantillas, bot, campaigns
+    │   ├── campaigns/          # Campañas masivas vía Celery
+    │   ├── automations/        # Reglas de automatización con triggers de tiempo
+    │   ├── integrations/       # API pública con API Keys
+    │   ├── chatbot/            # Editor visual de flujos (Drawflow)
+    │   └── reports/            # Dashboard y reportes
+    ├── utils/
+    │   ├── dynamic_filter.py   # Filtros dinámicos multi-campo (Leads, Clientes)
+    │   └── phone.py            # Normalización de teléfonos AR
+    ├── templates/
+    │   ├── base.html
+    │   ├── includes/
+    │   │   └── filter_builder.html  # Partial de filtros dinámicos (reutilizable)
+    │   └── <app>/              # Templates por módulo
+    ├── static/css/main.css
+    └── media/                  # Documentos, avatares, PDFs de cotizaciones
 ```
 
 ---
@@ -609,13 +584,23 @@ crmsupreg/
 | Leads — Importar | `/leads/importar/` |
 | Leads — Exportar | `/leads/exportar/` |
 | Leads — Asignación masiva | `/leads/asignar-masivo/` |
+| Leads — Campos personalizados | `/leads/campos/` |
 | Contactos (unificado) | `/leads/contactos/` |
 | Clientes | `/clientes/` |
+| Clientes — Importar | `/clientes/importar/` |
+| Negociaciones — Kanban | `/negociaciones/` |
+| Negociaciones — Lista | `/negociaciones/lista/` |
+| Negociaciones — Exportar | `/negociaciones/exportar/` |
+| Negociaciones — Importar | `/negociaciones/importar/` |
+| Negociaciones — Pipelines | `/negociaciones/pipelines/` |
 | Agenda | `/tareas/agenda/` |
 | Cotizaciones | `/cotizaciones/` |
 | WhatsApp Inbox | `/whatsapp/inbox/` |
 | WhatsApp Webhook | `/whatsapp/webhook/` |
-| Plantillas HSM | `/whatsapp/plantillas/` |
+| WhatsApp Config | `/whatsapp/configuracion/` |
+| WhatsApp QR | `/whatsapp/qr/` |
+| WhatsApp Estado conexión | `/whatsapp/estado/` |
+| Plantillas de Mensaje | `/whatsapp/plantillas/` |
 | Bot WhatsApp | `/whatsapp/bot/` |
 | Chatbot Visual | `/chatbot/` |
 | Campañas | `/campanas/` |
@@ -624,7 +609,49 @@ crmsupreg/
 | API Pública | `/api/v1/` |
 | Reportes — Conversión | `/reportes/conversion/` |
 | Reportes — Mensajes | `/reportes/mensajes/` |
-| Campos personalizados | `/leads/campos/` |
 | Usuarios | `/usuarios/` |
-| Configurar WhatsApp | `/whatsapp/configuracion/` |
 | Django Admin | `/admin/` |
+
+---
+
+## Trabajo pendiente / en curso
+
+### Migración Evolution API — Templates (en progreso)
+
+La migración de WhatsApp de Meta Cloud API a Evolution API está casi completa. Los cambios de backend ya fueron aplicados (modelos, sender, webhook, tasks, views, urls). Lo que falta:
+
+**Templates HTML por actualizar:**
+
+1. **`templates/whatsapp/config.html`** — reemplazar formulario Meta por:
+   - Campos Evolution API (URL, API key, instance name, webhook token)
+   - Panel de estado de conexión + QR con polling JS (GET `/whatsapp/qr/` y `/whatsapp/estado/`)
+
+2. **`templates/whatsapp/inbox.html`** — eliminar:
+   - Badge/indicador de ventana 24h activa/expirada
+   - Lógica JS que bloqueaba el input de texto según ventana
+   - El input de texto debe estar **siempre habilitado**
+
+3. **`templates/whatsapp/plantilla_list.html`** — eliminar:
+   - Columna "Estado" (PENDING/APPROVED/REJECTED)
+   - Columna "Último sync"
+   - Botones "Enviar a Meta" y "Sincronizar"
+   - Alert explicando flujo de aprobación Meta
+
+4. **`templates/whatsapp/plantilla_form.html`** — eliminar campos:
+   - `nombre_meta`, `status`, `meta_template_id`, `ultimo_sync_at`
+
+5. **`templates/base.html`** — cambiar:
+   - "Plantillas HSM" → "Plantillas"
+   - "Configurar WhatsApp" visible para supervisores (no solo superadmin)
+
+**Configuración Docker:**
+- `docker-compose.yml`: ya tiene el servicio `evolution-api` agregado ✅
+- `.env.example`: ya tiene las variables de Evolution API ✅
+- `config/settings/base.py`: verificar que tenga las vars `EVOLUTION_*` y no las de Meta
+
+### Convención de deploy
+El proyecto corre en `/opt/crmsalud/crmsalud/` en el servidor. Deploy estándar:
+```bash
+cd /opt/crmsalud/crmsalud && git pull && docker compose restart web
+```
+Si hay cambios en Celery tasks también: `docker compose restart celery celery-beat`

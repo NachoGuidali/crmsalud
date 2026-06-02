@@ -1,9 +1,12 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-bs-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}CRM Obra Social{% endblock %}</title>
+  <title>{% block title %}CRM Supreg{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="/static/css/main.css">
@@ -12,132 +15,208 @@
 <body>
 
 {% if user.is_authenticated %}
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-  <div class="container-fluid">
-    <a class="navbar-brand fw-bold" href="{% url 'reports:dashboard' %}">
-      <i class="bi bi-heart-pulse-fill"></i> CRM Obra Social
-    </a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarMain">
-      <ul class="navbar-nav me-auto">
-        <li class="nav-item">
-          <a class="nav-link {% block nav_dashboard %}{% endblock %}" href="{% url 'reports:dashboard' %}">
-            <i class="bi bi-speedometer2"></i> Dashboard
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% block nav_leads %}{% endblock %}" href="{% url 'leads:list' %}">
-            <i class="bi bi-people"></i> Leads
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% block nav_contacts %}{% endblock %}" href="{% url 'leads:contact_list' %}">
-            <i class="bi bi-person-lines-fill"></i> Contactos
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% block nav_clientes %}{% endblock %}" href="{% url 'clientes:list' %}">
-            <i class="bi bi-person-check-fill"></i> Clientes
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% block nav_kanban %}{% endblock %}" href="{% url 'leads:kanban' %}">
-            <i class="bi bi-kanban"></i> Kanban
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% block nav_deals %}{% endblock %}" href="{% url 'deals:kanban' %}">
-            <i class="bi bi-briefcase"></i> Negocios
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% block nav_whatsapp %}{% endblock %}" href="{% url 'whatsapp:inbox' %}">
-            <i class="bi bi-whatsapp"></i> Inbox
-            {% if unread_messages_count > 0 %}
-            <span class="badge bg-danger rounded-pill">{{ unread_messages_count }}</span>
-            {% endif %}
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% block nav_tasks %}{% endblock %}" href="{% url 'tasks:agenda' %}">
-            <i class="bi bi-calendar-check"></i> Agenda
-            {% if pending_tasks_count > 0 %}
-            <span class="badge bg-warning text-dark rounded-pill">{{ pending_tasks_count }}</span>
-            {% endif %}
-          </a>
-        </li>
-        {% if user.can_see_all_leads %}
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-            <i class="bi bi-bar-chart"></i> Más
-          </a>
-          <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="{% url 'campaigns:list' %}"><i class="bi bi-megaphone"></i> Campañas</a></li>
-            <li><a class="dropdown-item" href="{% url 'whatsapp:plantilla_list' %}"><i class="bi bi-file-text"></i> Plantillas</a></li>
-            <li><a class="dropdown-item" href="{% url 'whatsapp:bot_list' %}"><i class="bi bi-robot"></i> Bot WhatsApp</a></li>
-            <li><a class="dropdown-item {% block nav_chatbot %}{% endblock %}" href="{% url 'chatbot:list' %}"><i class="bi bi-diagram-3"></i> Chatbot Visual</a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="{% url 'automations:list' %}"><i class="bi bi-lightning-charge"></i> Automatizaciones</a></li>
-            <li><a class="dropdown-item" href="{% url 'integrations:list' %}"><i class="bi bi-plug"></i> Integraciones API</a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="{% url 'reports_detail:conversion' %}"><i class="bi bi-funnel"></i> Reporte conversión</a></li>
-            <li><a class="dropdown-item" href="{% url 'reports_detail:mensajes' %}"><i class="bi bi-chat-dots"></i> Reporte mensajes</a></li>
-            <li><a class="dropdown-item" href="{% url 'users:list' %}"><i class="bi bi-person-gear"></i> Usuarios</a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="{% url 'leads:campos' %}"><i class="bi bi-sliders"></i> Campos personalizados</a></li>
-            {% if user.can_see_all_leads %}
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="{% url 'whatsapp:config' %}"><i class="bi bi-whatsapp text-success"></i> Configurar WhatsApp</a></li>
-            {% endif %}
-          </ul>
-        </li>
+
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="app-layout">
+
+  <!-- ── Sidebar ─────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-logo">
+      <div class="logo-mark">SR</div>
+      <div>
+        <div class="logo-text">Supreg CRM</div>
+        <div class="logo-sub">Obra Social</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+
+      <div class="nav-section">Principal</div>
+
+      <a href="{% url 'reports:dashboard' %}" class="nav-item {% block nav_dashboard %}{% endblock %}">
+        <span class="nav-icon"><i class="bi bi-speedometer2"></i></span> Dashboard
+      </a>
+      <a href="{% url 'leads:list' %}" class="nav-item {% block nav_leads %}{% endblock %}">
+        <span class="nav-icon"><i class="bi bi-people"></i></span> Leads
+      </a>
+      <a href="{% url 'leads:contact_list' %}" class="nav-item {% block nav_contacts %}{% endblock %}">
+        <span class="nav-icon"><i class="bi bi-person-lines-fill"></i></span> Contactos
+      </a>
+      <a href="{% url 'clientes:list' %}" class="nav-item {% block nav_clientes %}{% endblock %}">
+        <span class="nav-icon"><i class="bi bi-person-check-fill"></i></span> Clientes
+      </a>
+      <a href="{% url 'leads:kanban' %}" class="nav-item {% block nav_kanban %}{% endblock %}">
+        <span class="nav-icon"><i class="bi bi-kanban"></i></span> Kanban Leads
+      </a>
+      <a href="{% url 'deals:kanban' %}" class="nav-item {% block nav_deals %}{% endblock %}">
+        <span class="nav-icon"><i class="bi bi-briefcase"></i></span> Negociaciones
+      </a>
+      <a href="{% url 'tasks:agenda' %}" class="nav-item {% block nav_tasks %}{% endblock %}">
+        <span class="nav-icon"><i class="bi bi-calendar-check"></i></span> Agenda
+        {% if pending_tasks_count > 0 %}
+        <span class="nav-badge warning">{{ pending_tasks_count }}</span>
         {% endif %}
-      </ul>
-      <ul class="navbar-nav ms-auto">
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" role="button" data-bs-toggle="dropdown">
+      </a>
+
+      <div class="nav-section">WhatsApp</div>
+
+      <a href="{% url 'whatsapp:inbox' %}" class="nav-item {% block nav_whatsapp %}{% endblock %}">
+        <span class="nav-icon"><i class="bi bi-whatsapp"></i></span> Inbox
+        {% if unread_messages_count > 0 %}
+        <span class="nav-badge danger">{{ unread_messages_count }}</span>
+        {% endif %}
+      </a>
+
+      {% if user.can_see_all_leads %}
+      <a href="{% url 'campaigns:list' %}" class="nav-item">
+        <span class="nav-icon"><i class="bi bi-megaphone"></i></span> Campañas
+      </a>
+      <a href="{% url 'whatsapp:plantilla_list' %}" class="nav-item">
+        <span class="nav-icon"><i class="bi bi-file-text"></i></span> Plantillas
+      </a>
+      <a href="{% url 'whatsapp:bot_list' %}" class="nav-item">
+        <span class="nav-icon"><i class="bi bi-robot"></i></span> Bot WhatsApp
+      </a>
+      <a href="{% url 'chatbot:list' %}" class="nav-item {% block nav_chatbot %}{% endblock %}">
+        <span class="nav-icon"><i class="bi bi-diagram-3"></i></span> Chatbot Visual
+      </a>
+
+      <div class="nav-section">Configuración</div>
+
+      <a href="{% url 'automations:list' %}" class="nav-item">
+        <span class="nav-icon"><i class="bi bi-lightning-charge"></i></span> Automatizaciones
+      </a>
+      <a href="{% url 'leads:campos' %}" class="nav-item">
+        <span class="nav-icon"><i class="bi bi-sliders"></i></span> Campos personalizados
+      </a>
+      <a href="{% url 'integrations:list' %}" class="nav-item">
+        <span class="nav-icon"><i class="bi bi-plug"></i></span> Integraciones API
+      </a>
+      <a href="{% url 'reports_detail:conversion' %}" class="nav-item">
+        <span class="nav-icon"><i class="bi bi-bar-chart"></i></span> Reportes
+      </a>
+      <a href="{% url 'users:list' %}" class="nav-item">
+        <span class="nav-icon"><i class="bi bi-person-gear"></i></span> Usuarios
+      </a>
+      <a href="{% url 'whatsapp:config' %}" class="nav-item">
+        <span class="nav-icon"><i class="bi bi-whatsapp" style="color:var(--green)"></i></span> Config. WhatsApp
+      </a>
+      {% endif %}
+
+    </nav>
+
+    <!-- User info at bottom -->
+    <div class="sidebar-bottom">
+      <a href="{% url 'users:profile' %}" class="avatar-sm" title="Mi perfil">
+        {% if user.avatar %}
+        <img src="{{ user.avatar.url }}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;" alt="">
+        {% else %}
+        {{ user.get_full_name|default:user.username|slice:":2"|upper }}
+        {% endif %}
+      </a>
+      <div style="overflow:hidden;flex:1;">
+        <div class="user-name">{{ user.get_full_name|default:user.username }}</div>
+        <div class="user-role">{{ user.get_rol_display|default:"Agente" }}</div>
+      </div>
+      <form method="post" action="{% url 'users:logout' %}" style="flex-shrink:0;">
+        {% csrf_token %}
+        <button type="submit" class="icon-btn" title="Cerrar sesión" style="background:transparent;border:none;color:var(--text3);">
+          <i class="bi bi-box-arrow-right"></i>
+        </button>
+      </form>
+    </div>
+
+  </aside>
+
+  <!-- ── Main area ────────────────────────────────────── -->
+  <div class="main-area">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <button class="topbar-hamburger" id="sidebarToggle">
+        <i class="bi bi-list"></i>
+      </button>
+      <span class="topbar-title">{% block page_title %}{% endblock %}</span>
+      <div class="topbar-actions">
+        {% if unread_messages_count > 0 %}
+        <a href="{% url 'whatsapp:inbox' %}" class="topbar-icon-btn" title="{{ unread_messages_count }} mensajes no leídos">
+          <i class="bi bi-whatsapp"></i>
+          <span class="badge-dot"></span>
+        </a>
+        {% endif %}
+        {% if pending_tasks_count > 0 %}
+        <a href="{% url 'tasks:agenda' %}" class="topbar-icon-btn" title="{{ pending_tasks_count }} tareas pendientes">
+          <i class="bi bi-calendar-check"></i>
+          <span class="badge-dot" style="background:var(--amber);"></span>
+        </a>
+        {% endif %}
+        <div class="dropdown">
+          <div class="topbar-user dropdown-toggle" data-bs-toggle="dropdown" role="button">
             {% if user.avatar %}
-            <img src="{{ user.avatar.url }}" class="rounded-circle" width="28" height="28" alt="avatar">
+            <img src="{{ user.avatar.url }}" alt="">
             {% else %}
-            <i class="bi bi-person-circle fs-5"></i>
+            <div class="u-initials">{{ user.get_full_name|default:user.username|slice:":2"|upper }}</div>
             {% endif %}
-            {{ user.get_full_name|default:user.username }}
-          </a>
+            <span class="d-none d-md-inline">{{ user.get_full_name|default:user.username }}</span>
+          </div>
           <ul class="dropdown-menu dropdown-menu-end">
-            <li><a class="dropdown-item" href="{% url 'users:profile' %}"><i class="bi bi-person"></i> Mi perfil</a></li>
+            <li><a class="dropdown-item" href="{% url 'users:profile' %}"><i class="bi bi-person me-2"></i>Mi perfil</a></li>
             <li><hr class="dropdown-divider"></li>
             <li>
               <form method="post" action="{% url 'users:logout' %}">
                 {% csrf_token %}
-                <button type="submit" class="dropdown-item text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</button>
+                <button type="submit" class="dropdown-item text-danger">
+                  <i class="bi bi-box-arrow-right me-2"></i>Cerrar sesión
+                </button>
               </form>
             </li>
           </ul>
-        </li>
-      </ul>
+        </div>
+      </div>
     </div>
+
+    <!-- Content -->
+    <div class="content-area">
+      {% if messages %}
+      <div class="mb-3">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </div>
+
   </div>
-</nav>
+</div>
+
+{% else %}
+<main>{% block content %}{% endblock %}</main>
 {% endif %}
 
-<main class="{% if user.is_authenticated %}container-fluid py-3{% endif %}">
-  {% if messages %}
-  <div class="{% if user.is_authenticated %}mb-3{% endif %}">
-    {% for message in messages %}
-    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
-      {{ message }}
-      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  {% block content %}{% endblock %}
-</main>
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function () {
+  var toggle   = document.getElementById('sidebarToggle');
+  var sidebar  = document.getElementById('sidebar');
+  var overlay  = document.getElementById('sidebarOverlay');
+  if (!toggle) return;
+  toggle.addEventListener('click', function () {
+    sidebar.classList.toggle('show');
+    overlay.classList.toggle('show');
+  });
+  overlay.addEventListener('click', function () {
+    sidebar.classList.remove('show');
+    overlay.classList.remove('show');
+  });
+})();
+</script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>
