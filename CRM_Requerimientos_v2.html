@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM — Requerimientos</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f7f4; color: #1a1916; font-size: 14px; line-height: 1.6; padding: 2rem; }
+  .wrap { max-width: 780px; margin: 0 auto; }
+
+  .page-title { font-size: 22px; font-weight: 500; color: #1a1916; margin: 0 0 4px; }
+  .page-sub { font-size: 13px; color: #6b7280; margin: 0 0 1.5rem; }
+
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1.5rem; border-bottom: 1px solid #e5e2db; padding-bottom: 12px; }
+  .tab { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid #e5e2db; background: #f0ede8; color: #6b7280; }
+  .tab.active { background: #1a1916; color: #fff; border-color: #1a1916; }
+  .tab:hover:not(.active) { border-color: #9ca3af; color: #1a1916; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .group { margin-bottom: 1.75rem; }
+  .group-title { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: #9ca3af; margin: 0 0 10px; display: flex; align-items: center; gap: 6px; }
+  .group-title i { font-size: 14px; }
+  .items { display: flex; flex-direction: column; gap: 6px; }
+
+  .item { background: #fff; border: 1px solid #e5e2db; border-radius: 8px; padding: 10px 14px; display: flex; gap: 10px; align-items: flex-start; }
+  .item:hover { border-color: #d1cec8; }
+  .item-icon { font-size: 16px; color: #9ca3af; margin-top: 1px; flex-shrink: 0; }
+  .item-body { flex: 1; }
+  .item-name { font-size: 13px; font-weight: 500; color: #1a1916; margin: 0 0 2px; }
+  .item-desc { font-size: 12px; color: #6b7280; margin: 0; line-height: 1.5; }
+  .item-badges { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
+  .badge { font-size: 10px; padding: 2px 7px; border-radius: 20px; font-weight: 500; }
+  .b-new { background: #f0fdf4; color: #166534; }
+  .b-base { background: #f0ede8; color: #6b7280; }
+
+  .note { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #1e40af; margin-bottom: 1.5rem; line-height: 1.6; }
+
+  /* Req cards */
+  .req-list { display: flex; flex-direction: column; gap: 8px; }
+  .req-row { background: #fff; border: 1px solid #e5e2db; border-radius: 8px; padding: 12px 16px; display: flex; gap: 12px; align-items: flex-start; }
+  .req-row:hover { border-color: #d1cec8; }
+  .badge-num { min-width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; flex-shrink: 0; margin-top: 1px; }
+  .req-content { flex: 1; }
+  .req-name { font-size: 13px; font-weight: 500; color: #1a1916; margin: 0 0 3px; }
+  .req-detail { font-size: 12px; color: #6b7280; margin: 0 0 7px; line-height: 1.5; }
+  .tags { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+
+  .nb { background:#eff6ff; color:#1d4ed8; }
+  .np { background:#f5f3ff; color:#5b21b6; }
+  .nt { background:#f0fdfa; color:#134e4a; }
+  .na { background:#fffbeb; color:#92400e; }
+  .nc { background:#fef2f2; color:#991b1b; }
+  .nk { background:#fdf2f8; color:#831843; }
+  .ng { background:#f0fdf4; color:#166534; }
+  .nr { background:#f0ede8; color:#6b7280; }
+
+  .cx-high { background:#fef2f2; color:#991b1b; }
+  .cx-med { background:#fffbeb; color:#92400e; }
+  .cx-low { background:#f0fdf4; color:#166534; }
+
+  .divider { height: 1px; background: #e5e2db; margin: 1.5rem 0; }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #6b7280; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* Auto items */
+  .auto-group { margin-bottom: 1.75rem; }
+  .auto-group-title { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #9ca3af; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .auto-group-title::after { content:''; flex:1; height:1px; background:#e5e2db; }
+  .auto-item { background:#fff; border:1px solid #e5e2db; border-radius:8px; padding:12px 16px; margin-bottom:6px; display:flex; gap:14px; align-items:flex-start; }
+  .auto-item:hover { border-color:#d1cec8; }
+  .auto-dot { width:8px; height:8px; border-radius:50%; margin-top:5px; flex-shrink:0; }
+  .auto-item-name { font-size:13px; font-weight:600; color:#1a1916; margin-bottom:2px; }
+  .auto-item-desc { font-size:12px; color:#6b7280; line-height:1.5; }
+  .auto-badge { font-size:10px; font-weight:600; padding:1px 6px; border-radius:4px; margin-left:6px; vertical-align:middle; }
+  .ab-new { background:#f0fdf4; color:#166534; }
+  .ab-base { background:#f0ede8; color:#9ca3af; }
+
+  /* Table */
+  table { width:100%; border-collapse:collapse; font-size:13px; margin-bottom:1.5rem; }
+  th { text-align:left; padding:8px 12px; background:#f0ede8; border:1px solid #e5e2db; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:#9ca3af; }
+  td { padding:10px 12px; border:1px solid #e5e2db; vertical-align:top; color:#6b7280; background:#fff; }
+  tr:hover td { background:#f8f7f4; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<p class="page-title">Motor de Automatizaciones</p>
+<p class="page-sub">Catálogo completo · Triggers + Acciones · Basado en Bitrix24, adaptado al CRM propio</p>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('modulos')">Módulos</div>
+  <div class="tab" onclick="switchTab('triggers')">Triggers</div>
+  <div class="tab" onclick="switchTab('actions')">Acciones</div>
+  <div class="tab" onclick="switchTab('conditions')">Condiciones</div>
+  <div class="tab" onclick="switchTab('config')">Config. general</div>
+</div>
+
+<!-- MÓDULOS -->
+<div id="modulos" class="panel active">
+  <div class="note"><strong>Referencia:</strong> Bitrix24. Los ítems marcados <span class="ab-new" style="padding:1px 6px;border-radius:4px;">PROPIO</span> no tienen equivalente en Bitrix24.</div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#dc2626"></div> Complejidad alta</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#d97706"></div> Complejidad media</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#16a34a"></div> Complejidad baja</div>
+  </div>
+
+  <!-- Módulo 1 -->
+  <div class="group">
+    <p class="group-title"><i class="ti ti-users"></i> Módulo 1 — Contactos</p>
+    <div class="req-list">
+      <div class="req-row">
+        <div class="badge-num nb">1</div>
+        <div class="req-content">
+          <p class="req-name">Modelo unificado de contactos con tipos</p>
+          <p class="req-detail">Todo parte de "Contacto". Tipos: Lead (potencial), Cliente, Proveedor, Usuario de sistema. Cada tipo puede tener campos y vistas propias, sin duplicar la entidad base.</p>
+          <div class="tags"><span class="tag nb">Base del sistema</span><span class="tag cx-med">Complejidad media</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num nb">2</div>
+        <div class="req-content">
+          <p class="req-name">Usuarios del sistema con roles y permisos</p>
+          <p class="req-detail">Los usuarios son un tipo de contacto con rol adicional: admin, vendedor, supervisor, etc. Permisos granulares por módulo y acción.</p>
+          <div class="tags"><span class="tag np">Roles</span><span class="tag cx-med">Complejidad media</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num nb">3</div>
+        <div class="req-content">
+          <p class="req-name">Normalización de teléfonos (+549)</p>
+          <p class="req-detail">Todos los números almacenados con prefijo +549. Al recibir mensaje de número conocido, se asocia al contacto existente sin crear duplicado.</p>
+          <div class="tags"><span class="tag nt">WhatsApp</span><span class="tag cx-low">Complejidad baja</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num nb">4</div>
+        <div class="req-content">
+          <p class="req-name">Enlace de contactos a cualquier elemento del CRM</p>
+          <p class="req-detail">Cualquier tipo de contacto puede vincularse a leads, negociaciones, tareas u otros módulos. Relación flexible N-N. Ningún vínculo es obligatorio.</p>
+          <div class="tags"><span class="tag nb">Relaciones</span><span class="tag cx-med">Complejidad media</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num nb">5</div>
+        <div class="req-content">
+          <p class="req-name">Campos personalizados globales por entidad</p>
+          <p class="req-detail">Configurables a nivel de entidad. Opción de aplicar a todas. Tipos: texto, número, fecha, lista, booleano, moneda. Pueden tener condiciones: obligatorio al llegar a cierta etapa, visibilidad condicional.</p>
+          <div class="tags"><span class="tag nb">Campos</span><span class="tag cx-med">Complejidad media</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Módulo 2 -->
+  <div class="group">
+    <p class="group-title"><i class="ti ti-bolt"></i> Módulo 2 — Motor de Automatizaciones (estilo Bitrix)</p>
+    <div class="req-list">
+      <div class="req-row">
+        <div class="badge-num na">6</div>
+        <div class="req-content">
+          <p class="req-name">Constructor visual de reglas (no-code)</p>
+          <p class="req-detail">Interfaz tipo Bitrix24: seleccionar trigger → agregar condiciones → definir acciones. Soporte de múltiples condiciones con AND/OR. Activar/desactivar reglas individualmente.</p>
+          <div class="tags"><span class="tag na">UI Builder</span><span class="tag cx-high">Complejidad alta</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num na">7</div>
+        <div class="req-content">
+          <p class="req-name">Triggers sobre cualquier campo del sistema</p>
+          <p class="req-detail">El sistema escucha cambios sobre cualquier campo de cualquier entidad (estándar o personalizado). El usuario selecciona el campo desde un desplegable completo al configurar la regla.</p>
+          <div class="tags"><span class="tag na">Trigger</span><span class="tag cx-high">Complejidad alta</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num na">8</div>
+        <div class="req-content">
+          <p class="req-name">Condiciones evaluables antes de ejecutar</p>
+          <p class="req-detail">Evaluar condiciones sobre campos del elemento, del contacto vinculado o del responsable. Ej: "si edad = 21 Y estado = interesado → ejecutar". AND/OR con agrupación.</p>
+          <div class="tags"><span class="tag na">Condición</span><span class="tag cx-high">Complejidad alta</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num na">9</div>
+        <div class="req-content">
+          <p class="req-name">Movimiento entre embudos vía automatización</p>
+          <p class="req-detail">Las reglas pueden mover un elemento de un embudo a otro (leads → deals, o entre pipelines del mismo módulo). Se especifica embudo destino y etapa inicial.</p>
+          <div class="tags"><span class="tag ng">PROPIO</span><span class="tag cx-high">Complejidad alta</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num na">10</div>
+        <div class="req-content">
+          <p class="req-name">Log de ejecuciones y modo test</p>
+          <p class="req-detail">Historial de cada ejecución: resultado (éxito / error / condición no cumplida), timestamp. Modo test: ejecutar sobre un elemento real sin efectos reales.</p>
+          <div class="tags"><span class="tag nr">Debugging</span><span class="tag cx-med">Complejidad media</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Módulo 3 -->
+  <div class="group">
+    <p class="group-title"><i class="ti ti-layout-kanban"></i> Módulo 3 — Pipeline de Leads</p>
+    <div class="req-list">
+      <div class="req-row">
+        <div class="badge-num ng">11</div>
+        <div class="req-content">
+          <p class="req-name">Pipeline con etapas personalizadas</p>
+          <p class="req-detail">Etapas configurables (nombre, color, orden). Etapas fijas: "Nuevo", "Ganado" y "Perdido". Las columnas del Kanban son las etapas.</p>
+          <div class="tags"><span class="tag ng">Pipeline</span><span class="tag cx-med">Complejidad media</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num ng">12</div>
+        <div class="req-content">
+          <p class="req-name">Vista Kanban y lista</p>
+          <p class="req-detail">Kanban con drag & drop entre columnas. Lista con columnas configurables, filtros y ordenamiento. Preferencia de vista persistente por usuario.</p>
+          <div class="tags"><span class="tag ng">Kanban</span><span class="tag ng">Lista</span><span class="tag cx-med">Complejidad media</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num ng">13</div>
+        <div class="req-content">
+          <p class="req-name">Conversión automática Lead → Cliente</p>
+          <p class="req-detail">Al llegar a etapa "Ganado": cambia tipo de contacto a "cliente", dispara trigger de comisiones, ejecuta automatizaciones configuradas. También accionable manualmente.</p>
+          <div class="tags"><span class="tag ng">PROPIO</span><span class="tag cx-high">Crítico</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num ng">14</div>
+        <div class="req-content">
+          <p class="req-name">Automatizaciones en el pipeline de leads</p>
+          <p class="req-detail">Cada etapa puede tener reglas configuradas. Acceso a cualquier campo del lead o del contacto vinculado. Mismo motor de automatizaciones del sistema.</p>
+          <div class="tags"><span class="tag na">Automatización</span><span class="tag cx-high">Complejidad alta</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Módulo 4 -->
+  <div class="group">
+    <p class="group-title"><i class="ti ti-briefcase"></i> Módulo 4 — Deals / Negociaciones</p>
+    <div class="note" style="margin-bottom:12px;">Los deals son módulo independiente. No requieren contacto ni vendedor vinculado obligatoriamente. Múltiples embudos, misma dinámica que Bitrix24.</div>
+    <div class="req-list">
+      <div class="req-row">
+        <div class="badge-num nc">15</div>
+        <div class="req-content">
+          <p class="req-name">Múltiples embudos con etapas personalizadas</p>
+          <p class="req-detail">Crear múltiples pipelines de deals, cada uno con etapas propias (nombre, color, orden). Cada embudo tiene sus propias reglas de automatización independientes.</p>
+          <div class="tags"><span class="tag nc">Pipeline</span><span class="tag cx-med">Complejidad media</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num nc">16</div>
+        <div class="req-content">
+          <p class="req-name">Vista Kanban y lista de deals</p>
+          <p class="req-detail">Misma dinámica que leads. Selector de embudo activo visible y rápido. Kanban + lista con preferencia persistente por usuario y por embudo.</p>
+          <div class="tags"><span class="tag nc">Kanban</span><span class="tag nc">Lista</span><span class="tag cx-med">Complejidad media</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num nc">17</div>
+        <div class="req-content">
+          <p class="req-name">Automatizaciones en deals</p>
+          <p class="req-detail">Misma dinámica que leads. Las reglas pueden acceder a campos del deal y del contacto vinculado (si existe). Acción disponible: mover a otro embudo.</p>
+          <div class="tags"><span class="tag na">Automatización</span><span class="tag cx-high">Complejidad alta</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Módulo 5 -->
+  <div class="group">
+    <p class="group-title"><i class="ti ti-coin"></i> Módulo 5 — Comisiones</p>
+    <div class="note" style="margin-bottom:12px;">Cálculo en tiempo real al convertir lead → cliente. Fórmula: valor_venta × porcentaje_vendedor = comisión. El campo "valor" es seleccionable (cualquier campo numérico existente o uno nuevo). El porcentaje es completamente parametrizable por condiciones.</div>
+    <div class="req-list">
+      <div class="req-row">
+        <div class="badge-num np">18</div>
+        <div class="req-content">
+          <p class="req-name">Configuración parametrizable de comisiones por vendedor</p>
+          <p class="req-detail">Reglas de comisión: vendedor, campo de valor (numérico, seleccionable), porcentaje fijo o variable según condiciones (usa el mismo motor de condiciones del sistema). Ej: "si monto > 100.000 → 10%, si no → 7%". Múltiples reglas por vendedor, se aplica la primera que cumple.</p>
+          <div class="tags"><span class="tag np">PROPIO</span><span class="tag cx-med">Complejidad media</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num np">19</div>
+        <div class="req-content">
+          <p class="req-name">Vista Kanban + lista de comisiones</p>
+          <p class="req-detail">Lista: vendedor, lead convertido, fecha, valor venta, %, monto comisión, estado. Kanban por estado: Pendiente → Aprobada → Pagada. Vendedores solo ven las propias. Admins ven todas.</p>
+          <div class="tags"><span class="tag np">Vista</span><span class="tag cx-med">Complejidad media</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num np">20</div>
+        <div class="req-content">
+          <p class="req-name">Estado de pago manual y automático</p>
+          <p class="req-detail">El estado puede cambiarse manualmente por admin/supervisor, o automáticamente via regla de automatización con la acción "Marcar comisión como pagada". Cada cambio queda en historial con usuario y timestamp.</p>
+          <div class="tags"><span class="tag na">Automatización</span><span class="tag ng">PROPIO</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Módulo 6 -->
+  <div class="group">
+    <p class="group-title"><i class="ti ti-message-chatbot"></i> Módulo 6 — Chatbot e Inbox</p>
+    <div class="req-list">
+      <div class="req-row">
+        <div class="badge-num nt">21</div>
+        <div class="req-content">
+          <p class="req-name">Editor visual de chatbot — condiciones con campos</p>
+          <p class="req-detail">Al agregar nodo "Condición" en el flujo, desplegable con todos los campos del sistema. Las condiciones se evalúan en tiempo real contra los datos actuales del contacto vinculado.</p>
+          <div class="tags"><span class="tag nt">Chatbot</span><span class="tag cx-high">Complejidad alta</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num nt">22</div>
+        <div class="req-content">
+          <p class="req-name">Variables de respuesta en el flujo</p>
+          <p class="req-detail">Al agregar nodo "Pregunta", la respuesta del usuario se guarda como variable nombrada (ej: {{nombre_empresa}}). Esa variable puede usarse en mensajes siguientes o escribirse directamente en un campo del contacto.</p>
+          <div class="tags"><span class="tag ng">PROPIO</span><span class="tag cx-high">Complejidad alta</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num nt">23</div>
+        <div class="req-content">
+          <p class="req-name">n8n — actualizar contacto, no duplicar</p>
+          <p class="req-detail">Al recibir mensaje: busca contacto por número (+549). Si existe → update del registro existente. Si no existe → crea nuevo. Lo mismo aplica al crear desde el CRM. Nunca dos contactos con el mismo número.</p>
+          <div class="tags"><span class="tag nt">n8n</span><span class="tag cx-low">Complejidad baja</span></div>
+        </div>
+      </div>
+      <div class="req-row">
+        <div class="badge-num nt">24</div>
+        <div class="req-content">
+          <p class="req-name">Control de bot por conversación en inbox</p>
+          <p class="req-detail">Toggle en cada hilo de conversación para activar/desactivar el bot de n8n o el bot interno del CRM, de forma independiente por conversación. Estado persiste por hilo.</p>
+          <div class="tags"><span class="tag ng">PROPIO</span><span class="tag cx-low">Complejidad baja</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TRIGGERS -->
+<div id="triggers" class="panel">
+  <div class="note">Los triggers detectan algo que ocurre en el sistema y disparan la ejecución de la regla. Cada regla tiene un trigger + condiciones opcionales + una o más acciones.</div>
+
+  <div class="auto-group">
+    <div class="auto-group-title">Cambios de etapa / estado</div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Al entrar a una etapa <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Se dispara cuando el elemento llega a la etapa configurada. El más usado en pipelines.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Al salir de una etapa <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Se dispara cuando el elemento abandona una etapa determinada.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#16a34a"></div><div><div class="auto-item-name">Al moverse entre embudos <span class="auto-badge ab-new">PROPIO</span></div><div class="auto-item-desc">Se dispara cuando un elemento pasa de un embudo a otro (leads → deals, o entre pipelines).</div></div></div>
+  </div>
+
+  <div class="auto-group">
+    <div class="auto-group-title">Cambios de campo</div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Al cambiar el valor de un campo <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Cualquier campo del elemento (estándar o personalizado). Seleccionable desde desplegable. Ej: cuando "edad" pasa a 21.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Al completarse un campo vacío <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Se dispara cuando un campo vacío recibe un valor por primera vez.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Al cambiar el responsable <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Cuando el vendedor/usuario asignado al elemento cambia.</div></div></div>
+  </div>
+
+  <div class="auto-group">
+    <div class="auto-group-title">Comunicación entrante</div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Primer mensaje recibido (canal) <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Cuando el contacto envía su primer mensaje por WhatsApp u otro canal conectado.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Respuesta del cliente a un mensaje <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">El contacto responde a un mensaje enviado previamente desde el CRM.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Llamada entrante <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Se recibe una llamada del número asociado al contacto.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Llamada perdida <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Se perdió una llamada del contacto sin responder.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Email abierto por el cliente <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">El destinatario abrió un email enviado desde el CRM.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Link abierto en email <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">El cliente hizo clic en un enlace dentro de un email enviado.</div></div></div>
+  </div>
+
+  <div class="auto-group">
+    <div class="auto-group-title">Tiempo y fechas</div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Sin actividad por N días en la etapa <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">El elemento lleva N días en la etapa sin modificaciones ni actividad registrada.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Fecha de campo alcanzada <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Cuando llega la fecha guardada en un campo de tipo fecha del elemento.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#16a34a"></div><div><div class="auto-item-name">N días antes/después de fecha de campo <span class="auto-badge ab-new">PROPIO</span></div><div class="auto-item-desc">Disparar X días antes o después de la fecha de un campo. Ej: recordatorio 3 días antes de vencimiento.</div></div></div>
+  </div>
+
+  <div class="auto-group">
+    <div class="auto-group-title">Externos / Sistema</div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Webhook entrante <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Un sistema externo (n8n, Make, Zapier) llama a un endpoint del CRM, disparando la regla.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Formulario completado <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">El contacto completó un formulario vinculado al elemento.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Tarea vinculada completada <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Una tarea asociada al elemento cambia a estado "completada".</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#16a34a"></div><div><div class="auto-item-name">Lead convertido a cliente <span class="auto-badge ab-new">PROPIO</span></div><div class="auto-item-desc">Trigger nativo al pasar a etapa "Ganado". Base del cálculo de comisiones.</div></div></div>
+  </div>
+</div>
+
+<!-- ACCIONES -->
+<div id="actions" class="panel">
+  <div class="note">Se pueden encadenar múltiples acciones. Ejecución inmediata o diferida (N tiempo). En secuencia o en paralelo.</div>
+
+  <div class="auto-group">
+    <div class="auto-group-title">Comunicación con el contacto</div>
+    <div class="auto-item"><div class="auto-dot" style="background:#16a34a"></div><div><div class="auto-item-name">Enviar mensaje WhatsApp <span class="auto-badge ab-new">PROPIO</span></div><div class="auto-item-desc">Con variables dinámicas de campos del elemento. Vía bot interno o n8n.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Enviar email <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Desde casilla del responsable o fija. Plantillas con campos dinámicos. Asunto y cuerpo configurables.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Enviar SMS <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Mensaje corto al número del contacto. Máx 200 caracteres con campos dinámicos.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Programar llamada / actividad <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Crear actividad de llamada o reunión para el responsable en fecha/hora configurada.</div></div></div>
+  </div>
+
+  <div class="auto-group">
+    <div class="auto-group-title">Gestión del elemento</div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Cambiar etapa / estado <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Mover el elemento a otra etapa del mismo embudo.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#16a34a"></div><div><div class="auto-item-name">Mover a otro embudo <span class="auto-badge ab-new">PROPIO</span></div><div class="auto-item-desc">Trasladar a pipeline distinto (mismo módulo u otro). Se especifica embudo destino y etapa inicial.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Actualizar campo del elemento <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Escribir valor fijo o calculado en cualquier campo (estándar o personalizado). Campo seleccionable desde desplegable.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Cambiar responsable <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Asignar usuario específico, o por regla de distribución (menor carga, round-robin).</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#16a34a"></div><div><div class="auto-item-name">Convertir lead a cliente <span class="auto-badge ab-new">PROPIO</span></div><div class="auto-item-desc">Cambia tipo de contacto a "cliente" y dispara trigger de comisiones.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Crear elemento vinculado <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Crear nuevo lead, deal o tarea relacionado al actual, con campos precompletados.</div></div></div>
+  </div>
+
+  <div class="auto-group">
+    <div class="auto-group-title">Notificaciones internas</div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Notificar a usuario(s) <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Push notification interna al responsable, roles específicos o departamentos.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Enviar mensaje a chat interno <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Mensaje a chat grupal interno con datos dinámicos del elemento.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Agregar nota al timeline <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Comentario automático en el historial del elemento con texto y campos dinámicos.</div></div></div>
+  </div>
+
+  <div class="auto-group">
+    <div class="auto-group-title">Tareas y actividades</div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Crear tarea <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Con responsable, deadline y descripción con campos dinámicos del elemento.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Completar tareas de la etapa <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">Marca como completadas las tareas creadas por automatizaciones en la etapa actual.</div></div></div>
+  </div>
+
+  <div class="auto-group">
+    <div class="auto-group-title">Integraciones externas</div>
+    <div class="auto-item"><div class="auto-dot" style="background:#d97706"></div><div><div class="auto-item-name">Ejecutar webhook <span class="auto-badge ab-base">Base</span></div><div class="auto-item-desc">POST a URL externa. Campos a enviar configurables. Compatible con n8n, Make, Zapier, etc.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#16a34a"></div><div><div class="auto-item-name">Activar / desactivar bot <span class="auto-badge ab-new">PROPIO</span></div><div class="auto-item-desc">Encender o apagar el bot de n8n o el bot interno en la conversación activa del contacto.</div></div></div>
+  </div>
+
+  <div class="auto-group">
+    <div class="auto-group-title">Comisiones</div>
+    <div class="auto-item"><div class="auto-dot" style="background:#16a34a"></div><div><div class="auto-item-name">Calcular y registrar comisión <span class="auto-badge ab-new">PROPIO</span></div><div class="auto-item-desc">valor_venta × porcentaje_vendedor = comisión. Crea registro con estado "pendiente".</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#16a34a"></div><div><div class="auto-item-name">Marcar comisión como pagada <span class="auto-badge ab-new">PROPIO</span></div><div class="auto-item-desc">Cambia estado de la comisión. Encadenable con notificación al vendedor.</div></div></div>
+  </div>
+</div>
+
+<!-- CONDICIONES -->
+<div id="conditions" class="panel">
+  <div class="note">Se aplican sobre campos del elemento, del contacto vinculado, o del responsable. Soportan AND/OR con agrupación.</div>
+
+  <table>
+    <thead>
+      <tr><th>Tipo de campo</th><th>Operadores disponibles</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Numérico</strong> (entero, decimal, moneda)</td><td>igual a · distinto de · mayor que · menor que · mayor o igual · menor o igual · entre (rango) · está vacío · no está vacío</td></tr>
+      <tr><td><strong>Texto</strong></td><td>igual a · distinto de · contiene · no contiene · empieza con · termina con · está vacío · no está vacío</td></tr>
+      <tr><td><strong>Fecha</strong></td><td>igual a · antes de · después de · entre fechas · hace N días · en los próximos N días · está vacío · no está vacío</td></tr>
+      <tr><td><strong>Lista / Select</strong></td><td>es uno de (múltiple) · no es ninguno de · está vacío · no está vacío</td></tr>
+      <tr><td><strong>Booleano</strong> (sí/no)</td><td>es verdadero · es falso</td></tr>
+    </tbody>
+  </table>
+
+  <div class="auto-group">
+    <div class="auto-group-title">Alcance de campos evaluables</div>
+    <div class="auto-item"><div class="auto-dot" style="background:#6b7280"></div><div><div class="auto-item-name">Campos del propio elemento</div><div class="auto-item-desc">Cualquier campo estándar o personalizado del lead, deal o contacto donde corre la regla.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#6b7280"></div><div><div class="auto-item-name">Campos del contacto vinculado</div><div class="auto-item-desc">Datos del contacto/lead/cliente enlazado. Ej: "edad del lead asociado al deal".</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#6b7280"></div><div><div class="auto-item-name">Campos del responsable</div><div class="auto-item-desc">Rol, porcentaje de comisión configurado, departamento del usuario asignado.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#6b7280"></div><div><div class="auto-item-name">Lógica AND / OR con grupos anidados</div><div class="auto-item-desc">Ej: (edad > 18 Y ciudad = "Buenos Aires") O (segmento = "VIP").</div></div></div>
+  </div>
+</div>
+
+<!-- CONFIG GENERAL -->
+<div id="config" class="panel">
+
+  <div class="auto-group">
+    <div class="auto-group-title">Ejecución</div>
+    <div class="auto-item"><div class="auto-dot" style="background:#6b7280"></div><div><div class="auto-item-name">Inmediata o diferida</div><div class="auto-item-desc">La acción se ejecuta al instante o después de N minutos / horas / días. Permite encadenar acciones con tiempos entre ellas.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#6b7280"></div><div><div class="auto-item-name">Secuencial o paralela</div><div class="auto-item-desc">Múltiples acciones en secuencia (esperando resultado) o simultáneamente.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#6b7280"></div><div><div class="auto-item-name">Frecuencia de ejecución</div><div class="auto-item-desc">Una vez por elemento, o cada vez que se cumple el trigger. Previene loops y duplicados.</div></div></div>
+  </div>
+
+  <div class="auto-group">
+    <div class="auto-group-title">Gestión de reglas</div>
+    <div class="auto-item"><div class="auto-dot" style="background:#6b7280"></div><div><div class="auto-item-name">Activar / desactivar</div><div class="auto-item-desc">Pausar una regla sin eliminarla. Reactivable en cualquier momento.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#6b7280"></div><div><div class="auto-item-name">Duplicar regla</div><div class="auto-item-desc">Clonar con toda la configuración para otra etapa o con cambios mínimos.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#6b7280"></div><div><div class="auto-item-name">Detener cadena para un elemento</div><div class="auto-item-desc">Interrumpir ejecución en cadena para un elemento puntual sin afectar a los demás.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#6b7280"></div><div><div class="auto-item-name">Modo test / simulación</div><div class="auto-item-desc">Ejecutar sobre un elemento real sin efectos reales. Muestra qué acción hubiera tomado y si la condición se cumplía.</div></div></div>
+    <div class="auto-item"><div class="auto-dot" style="background:#6b7280"></div><div><div class="auto-item-name">Log de ejecuciones</div><div class="auto-item-desc">Historial completo: resultado (éxito / error / condición no cumplida / diferida), timestamp. Visible en tab "Automatizaciones" de cada elemento.</div></div></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

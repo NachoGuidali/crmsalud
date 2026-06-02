@@ -49,7 +49,7 @@
           <dt class="col-5">Grupo familiar</dt><dd class="col-7">{{ lead.grupo_familiar }}</dd>
           <dt class="col-5">Origen</dt><dd class="col-7">{{ lead.get_origen_display }}</dd>
           <dt class="col-5">Prioridad</dt><dd class="col-7"><span class="badge bg-{{ lead.get_prioridad_badge_class }}">{{ lead.get_prioridad_display }}</span></dd>
-          <dt class="col-5">Agente</dt><dd class="col-7">{{ lead.agente.get_full_name|default:"Sin asignar" }}</dd>
+          <dt class="col-5">Agente</dt><dd class="col-7">{{ lead.agente.get_full_name|default:lead.agente.username|default:"Sin asignar" }}</dd>
           <dt class="col-5">Creado</dt><dd class="col-7">{{ lead.created_at|date:"d/m/Y H:i" }}</dd>
           {% for campo in campos %}{% with cfg=campos_config|dict_key:campo.slug val=lead.datos_extra|dict_key:campo.slug %}{% if val and not cfg.oculto %}
           <dt class="col-5">{{ campo.nombre }}</dt>

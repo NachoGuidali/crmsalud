@@ -39,7 +39,7 @@
           <dt class="col-5">Plan</dt><dd class="col-7">{{ cliente.plan|default:"—" }}</dd>
           <dt class="col-5">N° afiliado</dt><dd class="col-7">{{ cliente.numero_afiliado|default:"—" }}</dd>
           <dt class="col-5">Grupo familiar</dt><dd class="col-7">{{ cliente.grupo_familiar }}</dd>
-          <dt class="col-5">Agente</dt><dd class="col-7">{{ cliente.agente.get_full_name|default:"Sin asignar" }}</dd>
+          <dt class="col-5">Agente</dt><dd class="col-7">{{ cliente.agente.get_full_name|default:cliente.agente.username|default:"Sin asignar" }}</dd>
           <dt class="col-5">Alta</dt><dd class="col-7">{{ cliente.created_at|date:"d/m/Y" }}</dd>
         </dl>
       </div>

@@ -137,7 +137,7 @@
           {% endif %}
           <div class="d-flex justify-content-between align-items-center mt-1">
             {% if deal.agente %}
-            <span class="text-muted" style="font-size:.72rem;">{{ deal.agente.get_full_name }}</span>
+            <span class="text-muted" style="font-size:.72rem;">{{ deal.agente.get_full_name|default:deal.agente.username }}</span>
             {% else %}<span></span>{% endif %}
             <a href="{% url 'deals:update' deal.pk %}" class="text-muted" style="font-size:.75rem;"><i class="bi bi-pencil"></i></a>
           </div>

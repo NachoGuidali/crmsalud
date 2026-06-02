@@ -74,7 +74,7 @@
           </td>
           <td>{{ deal.contacto_display }}</td>
           <td>{% if deal.valor %}<span class="text-success">${{ deal.valor|floatformat:0 }}</span>{% else %}—{% endif %}</td>
-          <td>{{ deal.agente.get_full_name|default:"—" }}</td>
+          <td>{{ deal.agente.get_full_name|default:deal.agente.username|default:"—" }}</td>
           <td>{{ deal.fecha_cierre_estimada|date:"d/m/Y"|default:"—" }}</td>
           <td class="text-end">
             <a href="{% url 'deals:update' deal.pk %}" class="btn btn-sm btn-outline-secondary py-0"><i class="bi bi-pencil"></i></a>
