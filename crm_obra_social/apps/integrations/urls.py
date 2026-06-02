@@ -15,6 +15,8 @@ urlpatterns = [
 # Public REST API
 api_urlpatterns = [
     path('leads/', views.LeadCreateAPIView.as_view(), name='api_leads_create'),
+    path('leads/actualizar/', views.LeadUpdateAPIView.as_view(), name='api_leads_update'),
+    path('leads/buscar/', views.LeadSearchAPIView.as_view(), name='api_leads_search'),
     path('leads/<int:pk>/', views.LeadStatusAPIView.as_view(), name='api_leads_status'),
     path('webhook/<str:source>/', views.GenericWebhookView.as_view(), name='api_webhook'),
 ]

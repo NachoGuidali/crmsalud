@@ -184,8 +184,117 @@ class LeadCreateAPIView(View):
 
 
 @method_decorator(csrf_exempt, name='dispatch')
+class LeadUpdateAPIView(View):
+    """
+    POST /api/v1/leads/actualizar/
+    Update lead fields by phone number. Designed for n8n/chatbot flows.
+
+    Body (JSON):
+    {
+        "telefono": "+541123456789",   // required — used to find the lead
+        "nombre_completo": "...",      // optional
+        "email": "...",
+        "dni": "...",
+        "localidad": "...",
+        "provincia": "...",
+        "notas": "...",
+        "plan": "Individual",          // plan name
+        "estado": "interesado",        // nuevo|contactado|interesado|doc_pendiente|en_revision|afiliado|perdido
+        "prioridad": "alta",           // alta|media|baja
+        "datos_extra": {"clave": "valor"},  // merged into datos_extra
+        "cualquier_otro_campo": "..."  // saved in datos_extra automatically
+    }
+    """
+
+    def post(self, request):
+        api_key = _get_api_key(request)
+        if not api_key:
+            return JsonResponse({'error': 'unauthorized'}, status=401)
+
+        try:
+            data = json.loads(request.body) if 'application/json' in (request.content_type or '') else request.POST.dict()
+        except Exception:
+            return JsonResponse({'error': 'bad_request'}, status=400)
+
+        raw_phone = str(data.get('telefono') or data.get('phone') or '').strip()
+        phone = _normalize_phone(raw_phone)
+        if not phone:
+            return JsonResponse({'error': 'telefono requerido', 'code': 'validation_error'}, status=422)
+
+        from apps.leads.models import Lead, Plan
+
+        lead = Lead.objects.filter(telefono=phone).first()
+        if not lead:
+            return JsonResponse({'error': 'lead_not_found', 'telefono': phone}, status=404)
+
+        updated = []
+
+        DIRECT_FIELDS = ('nombre_completo', 'email', 'localidad', 'provincia', 'notas')
+        for field in DIRECT_FIELDS:
+            val = str(data.get(field) or '').strip()
+            if val:
+                setattr(lead, field, val)
+                updated.append(field)
+
+        if data.get('dni'):
+            import re as _re
+            dni_clean = _re.sub(r'\D', '', str(data['dni']))[:8]
+            if dni_clean:
+                lead.dni = dni_clean
+                updated.append('dni')
+
+        if data.get('plan'):
+            plan = Plan.objects.filter(nombre__iexact=str(data['plan']).strip()).first()
+            if plan:
+                lead.plan_interes = plan
+                updated.append('plan_interes')
+
+        if data.get('estado'):
+            estado_val = str(data['estado']).strip().lower()
+            valid_estados = [e[0] for e in Lead.ESTADO_CHOICES]
+            if estado_val in valid_estados:
+                lead.estado = estado_val
+                updated.append('estado')
+
+        if data.get('prioridad'):
+            prio_val = str(data['prioridad']).strip().lower()
+            valid_prios = [p[0] for p in Lead.PRIORIDAD_CHOICES]
+            if prio_val in valid_prios:
+                lead.prioridad = prio_val
+                updated.append('prioridad')
+
+        # datos_extra: merge explicit dict + any unknown keys
+        known = {
+            'telefono', 'phone', 'nombre_completo', 'email', 'dni', 'localidad',
+            'provincia', 'notas', 'plan', 'estado', 'prioridad', 'datos_extra', 'api_key',
+        }
+        extra_updates = {k: str(v) for k, v in data.items() if k not in known and str(v).strip()}
+        if isinstance(data.get('datos_extra'), dict):
+            extra_updates.update({k: str(v) for k, v in data['datos_extra'].items() if str(v).strip()})
+
+        if extra_updates:
+            current = lead.datos_extra or {}
+            current.update(extra_updates)
+            lead.datos_extra = current
+            if 'datos_extra' not in updated:
+                updated.append('datos_extra')
+
+        if updated:
+            lead.save(update_fields=updated + ['updated_at'])
+
+        resp = {
+            'status': 'updated',
+            'lead_id': lead.pk,
+            'telefono': lead.telefono,
+            'campos_actualizados': updated,
+        }
+        _log_request(api_key, '/api/v1/leads/actualizar/', 'POST', request, 200, resp, lead=lead)
+        return JsonResponse(resp)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
 class LeadStatusAPIView(View):
-    """GET /api/v1/leads/<pk>/ — returns lead status."""
+    """GET /api/v1/leads/<pk>/ — returns lead status + datos_extra."""
 
     def get(self, request, pk):
         api_key = _get_api_key(request)
@@ -193,21 +302,38 @@ class LeadStatusAPIView(View):
             return JsonResponse({'error': 'unauthorized'}, status=401)
         from apps.leads.models import Lead
         try:
-            lead = Lead.objects.get(pk=pk)
+            lead = Lead.objects.select_related('plan_interes', 'agente').get(pk=pk)
         except Lead.DoesNotExist:
             return JsonResponse({'error': 'not_found'}, status=404)
-        resp = {
-            'lead_id': lead.pk,
-            'nombre_completo': lead.nombre_completo,
-            'telefono': lead.telefono,
-            'estado': lead.estado,
-            'estado_display': lead.get_estado_display(),
-            'prioridad': lead.prioridad,
-            'agente': lead.agente.get_full_name() if lead.agente else None,
-            'created_at': lead.created_at.isoformat(),
-            'updated_at': lead.updated_at.isoformat(),
-        }
-        return JsonResponse(resp)
+        return JsonResponse(_lead_to_dict(lead))
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class LeadSearchAPIView(View):
+    """
+    GET /api/v1/leads/buscar/?telefono=+541123456789
+    Find a lead by phone number. Returns full data including datos_extra.
+    Used by n8n to check conversation state (datos_extra.bot_step).
+    """
+
+    def get(self, request):
+        api_key = _get_api_key(request)
+        if not api_key:
+            return JsonResponse({'error': 'unauthorized'}, status=401)
+
+        raw_phone = request.GET.get('telefono') or request.GET.get('phone') or ''
+        phone = _normalize_phone(raw_phone.strip())
+        if not phone:
+            return JsonResponse({'error': 'telefono requerido'}, status=422)
+
+        from apps.leads.models import Lead
+        lead = Lead.objects.select_related('plan_interes', 'agente').filter(telefono=phone).first()
+        if not lead:
+            return JsonResponse({'found': False, 'telefono': phone}, status=404)
+
+        data = _lead_to_dict(lead)
+        data['found'] = True
+        return JsonResponse(data)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -300,6 +426,27 @@ def _create_lead_from_data(api_key, data, request, endpoint):
     resp = {'status': 'created', 'lead_id': lead.pk}
     _log_request(api_key, endpoint, 'POST', request, 201, resp, lead=lead)
     return JsonResponse(resp, status=201)
+
+
+def _lead_to_dict(lead) -> dict:
+    """Serialize a Lead to a dict for API responses."""
+    return {
+        'lead_id':        lead.pk,
+        'nombre_completo':lead.nombre_completo,
+        'telefono':       lead.telefono,
+        'email':          lead.email,
+        'dni':            lead.dni,
+        'localidad':      lead.localidad,
+        'provincia':      lead.provincia,
+        'plan':           str(lead.plan_interes) if lead.plan_interes else None,
+        'estado':         lead.estado,
+        'estado_display': lead.get_estado_display(),
+        'prioridad':      lead.prioridad,
+        'agente':         lead.agente.get_full_name() if lead.agente else None,
+        'datos_extra':    lead.datos_extra or {},
+        'created_at':     lead.created_at.isoformat(),
+        'updated_at':     lead.updated_at.isoformat(),
+    }
 
 
 def _normalize_phone(raw: str, codigo_pais: str = '54') -> str:
