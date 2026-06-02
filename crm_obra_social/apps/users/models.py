@@ -39,3 +39,7 @@ class User(AbstractUser):
     @property
     def can_see_all_leads(self):
         return self.role in (self.ROLE_SUPERADMIN, self.ROLE_SUPERVISOR)
+
+    @property
+    def display_name(self):
+        return self.get_full_name() or self.username

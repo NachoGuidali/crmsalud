@@ -49,7 +49,7 @@
             <td class="font-monospace small">{{ c.telefono|default:"—" }}</td>
             <td class="small">{{ c.plan|default:"—" }}</td>
             <td class="small text-muted">{{ c.numero_afiliado|default:"—" }}</td>
-            <td class="small text-muted">{{ c.agente.get_full_name|default:c.agente.username|default:"—" }}</td>
+            <td class="small text-muted">{{ c.agente.display_name|default:"—" }}</td>
             <td class="small text-muted">{{ c.created_at|date:"d/m/Y" }}</td>
             <td>
               <div class="d-flex gap-1">

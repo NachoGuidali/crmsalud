@@ -75,7 +75,7 @@
                   {% else %}
                   <a href="{% url 'leads:detail' c.pk %}" class="fw-semibold text-decoration-none text-dark">{{ c.nombre_completo }}</a>
                   {% endif %}
-                  {% if c.agente %}<div class="text-muted" style="font-size:.72rem;">{{ c.agente.get_full_name|default:c.agente.username }}</div>{% endif %}
+                  {% if c.agente %}<div class="text-muted" style="font-size:.72rem;">{{ c.agente.display_name }}</div>{% endif %}
                 </div>
               </div>
             </td>

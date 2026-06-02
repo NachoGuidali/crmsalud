@@ -37,7 +37,7 @@
               <a href="{% url 'clientes:detail' deal.cliente_id %}">{{ deal.cliente.nombre_completo }}</a>
             {% else %}{{ deal.nombre_contacto|default:"—" }}{% endif %}
           </dd>
-          <dt class="col-5">Agente</dt><dd class="col-7">{{ deal.agente.get_full_name|default:deal.agente.username|default:\"Sin asignar\" }}</dd>
+          <dt class="col-5">Agente</dt><dd class="col-7">{{ deal.agente.display_name|default:"Sin asignar" }}</dd>
           <dt class="col-5">Cierre est.</dt><dd class="col-7">{{ deal.fecha_cierre_estimada|date:"d/m/Y"|default:"—" }}</dd>
           <dt class="col-5">Creado</dt><dd class="col-7">{{ deal.created_at|date:"d/m/Y H:i" }}</dd>
         </dl>

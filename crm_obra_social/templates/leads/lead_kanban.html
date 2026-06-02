@@ -82,7 +82,7 @@
           <div class="mt-1">
             <span class="badge bg-{{ lead.get_prioridad_badge_class }}" style="font-size:.7rem;">{{ lead.get_prioridad_display }}</span>
             {% if lead.agente %}
-            <span class="text-muted" style="font-size:.72rem;">{{ lead.agente.get_full_name|default:lead.agente.username }}</span>
+            <span class="text-muted" style="font-size:.72rem;">{{ lead.agente.display_name }}</span>
             {% endif %}
           </div>
         </div>

@@ -79,7 +79,7 @@
             <td class="small">{{ lead.plan_interes|default:"—" }}</td>
             <td><span class="badge bg-{{ lead.get_estado_badge_class }}">{{ lead.get_estado_display }}</span></td>
             <td><span class="badge bg-{{ lead.get_prioridad_badge_class }}">{{ lead.get_prioridad_display }}</span></td>
-            <td class="small">{{ lead.agente.get_full_name|default:lead.agente.username|default:"Sin asignar" }}</td>
+            <td class="small">{{ lead.agente.display_name|default:"Sin asignar" }}</td>
             <td class="small text-muted">{{ lead.created_at|date:"d/m/Y" }}</td>
             <td>
               <div class="d-flex gap-1">
