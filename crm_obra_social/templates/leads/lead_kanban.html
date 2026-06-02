@@ -4,15 +4,50 @@
 
 {% block extra_css %}
 <style>
-.kanban-wrapper { overflow-x: auto; }
-.kanban-board { display: flex; gap: 12px; min-width: max-content; padding-bottom: 16px; }
+.kanban-wrapper { overflow-x: auto; padding-bottom: 8px; }
+.kanban-board { display: flex; gap: 12px; min-width: max-content; padding-bottom: 16px; align-items: flex-start; }
 .kanban-col { width: 240px; flex-shrink: 0; }
-.kanban-col-header { font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; padding: 6px 10px; border-radius: 6px 6px 0 0; }
-.kanban-cards { min-height: 200px; background: #f8f9fa; border-radius: 0 0 6px 6px; padding: 6px; }
-.kanban-card { background: #fff; border-radius: 6px; padding: 10px; margin-bottom: 6px; cursor: grab; box-shadow: 0 1px 3px rgba(0,0,0,.08); border-left: 4px solid transparent; font-size: .85rem; }
+.kanban-col-header {
+  font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+  padding: 8px 12px; border-radius: 8px 8px 0 0;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg3); color: var(--text2);
+  border: 1px solid var(--border); border-bottom: none;
+}
+.kanban-col-header .col-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.kanban-col-header .col-badge {
+  margin-left: auto; font-size: 10px; background: var(--bg4);
+  color: var(--text3); padding: 1px 7px; border-radius: 10px; font-weight: 500;
+}
+.kanban-cards {
+  min-height: 200px;
+  background: #0a1020;
+  border-radius: 0 0 8px 8px;
+  padding: 8px;
+  display: flex; flex-direction: column; gap: 7px;
+  border: 1px solid var(--border); border-top: none;
+}
+.kanban-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 11px 13px;
+  cursor: grab;
+  border-left: 3px solid transparent;
+  font-size: .83rem;
+  transition: border-color .12s, box-shadow .12s, transform .12s;
+  color: var(--text);
+}
+.kanban-card:hover {
+  border-color: var(--border2);
+  box-shadow: 0 4px 16px rgba(0,0,0,.35);
+  transform: translateY(-1px);
+}
 .kanban-card:active { cursor: grabbing; }
-.kanban-card.dragging { opacity: .5; }
-.kanban-cards.drag-over { background: #e9ecef; outline: 2px dashed #0d6efd; }
+.kanban-card.dragging { opacity: .4; }
+.kanban-cards.drag-over { background: #0d1830; outline: 2px dashed var(--blue); outline-offset: -3px; }
+.kanban-card a { color: var(--text); text-decoration: none; }
+.kanban-card a:hover { color: var(--blue); }
 </style>
 {% endblock %}
 
@@ -29,9 +64,10 @@
   <div class="kanban-board" id="kanbanBoard">
     {% for estado_key, col in columns.items %}
     <div class="kanban-col">
-      <div class="kanban-col-header bg-{{ col.color }} text-white">
+      <div class="kanban-col-header">
+        <span class="col-dot" style="background:var(--bs-{{ col.color }}, #6366f1)"></span>
         {{ col.label }}
-        <span class="badge bg-white text-dark ms-1 float-end">{{ col.leads|length }}</span>
+        <span class="col-badge">{{ col.leads|length }}</span>
       </div>
       <div class="kanban-cards" data-estado="{{ estado_key }}" id="col-{{ estado_key }}">
         {% for lead in col.leads %}
