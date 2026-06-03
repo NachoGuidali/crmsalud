@@ -7,6 +7,9 @@ urlpatterns = [
     path('webhook/', views.WebhookView.as_view(), name='webhook'),
     path('api/enviar/', views.APIEnviarMensajeView.as_view(), name='api_enviar'),
 
+    # Media upload
+    path('send-media/', views.SendMediaView.as_view(), name='send_media'),
+
     # Inbox
     path('inbox/', views.InboxView.as_view(), name='inbox'),
     path('api/inbox/updates/', views.InboxUpdatesAPIView.as_view(), name='inbox_updates_api'),

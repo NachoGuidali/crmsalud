@@ -188,11 +188,26 @@
           {% for doc in documentos %}
           <li class="list-group-item px-0 d-flex align-items-center gap-2">
             <i class="bi bi-{{ doc.icono }} fs-5"></i>
-            <div class="flex-grow-1">
-              <a href="{{ doc.archivo.url }}" target="_blank" class="fw-semibold text-decoration-none small">{{ doc.nombre }}</a>
-              <div class="text-muted" style="font-size:.72rem;">{{ doc.get_tipo_display }} · {{ doc.created_at|date:"d/m/Y" }} · {{ doc.subido_por.get_full_name|default:"Sistema" }}</div>
+            <div class="flex-grow-1 overflow-hidden">
+              {% if doc.url %}
+              <a href="{{ doc.url }}" target="_blank" class="fw-semibold text-decoration-none small text-truncate d-block">{{ doc.nombre }}</a>
+              {% else %}
+              <span class="fw-semibold small text-muted">{{ doc.nombre }}</span>
+              {% endif %}
+              <div class="d-flex align-items-center gap-2 flex-wrap" style="font-size:.72rem; color:var(--text3);">
+                <span>{{ doc.get_tipo_display }}</span>
+                <span>·</span>
+                <span>{{ doc.created_at|date:"d/m/Y H:i" }}</span>
+                {% if doc.fuente == 'whatsapp' %}
+                <span class="badge" style="background:#25D36622; color:#25D366; border:1px solid #25D36644; font-size:.65rem;">
+                  <i class="bi bi-whatsapp"></i> WhatsApp
+                </span>
+                {% else %}
+                <span>· {{ doc.subido_por.get_full_name|default:"Sistema" }}</span>
+                {% endif %}
+              </div>
             </div>
-            <form method="post" action="{% url 'leads:documento_delete' doc.pk %}" class="d-inline"
+            <form method="post" action="{% url 'leads:documento_delete' doc.pk %}" class="d-inline flex-shrink-0"
                   onsubmit="return confirm('¿Eliminar este documento?')">
               {% csrf_token %}
               <button type="submit" class="btn btn-outline-danger btn-sm py-0"><i class="bi bi-trash"></i></button>
@@ -201,7 +216,7 @@
           {% endfor %}
         </ul>
         {% else %}
-        <p class="text-muted small">Sin documentos subidos todavía.</p>
+        <p class="text-muted small">Sin documentos todavía. Los archivos recibidos por WhatsApp aparecen aquí automáticamente.</p>
         {% endif %}
       </div>
 

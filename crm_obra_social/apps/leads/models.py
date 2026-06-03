@@ -253,10 +253,20 @@ class Documento(models.Model):
         (TIPO_OTRO, 'Otro'),
     ]
 
+    FUENTE_MANUAL = 'manual'
+    FUENTE_WHATSAPP = 'whatsapp'
+    FUENTE_CHOICES = [
+        (FUENTE_MANUAL, 'Manual'),
+        (FUENTE_WHATSAPP, 'WhatsApp'),
+    ]
+
     lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name='documentos')
     nombre = models.CharField(max_length=200, verbose_name='Descripción')
     tipo = models.CharField(max_length=30, choices=TIPO_CHOICES, default=TIPO_OTRO, verbose_name='Tipo')
-    archivo = models.FileField(upload_to='documentos/%Y/%m/', verbose_name='Archivo')
+    archivo = models.FileField(upload_to='documentos/%Y/%m/', blank=True, verbose_name='Archivo')
+    url_externa = models.URLField(blank=True, max_length=2000, verbose_name='URL externa',
+                                  help_text='URL del archivo cuando no hay archivo local (ej: media de WhatsApp)')
+    fuente = models.CharField(max_length=20, choices=FUENTE_CHOICES, default=FUENTE_MANUAL, verbose_name='Fuente')
     subido_por = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True,
         on_delete=models.SET_NULL, related_name='documentos_subidos',
@@ -272,17 +282,34 @@ class Documento(models.Model):
         return f'{self.nombre} ({self.get_tipo_display()})'
 
     @property
+    def url(self):
+        """Return the URL to access this document (local file or external URL)."""
+        if self.archivo:
+            return self.archivo.url
+        return self.url_externa or ''
+
+    @property
     def extension(self):
-        name = self.archivo.name or ''
+        src = self.archivo.name if self.archivo else self.url_externa
+        name = src or ''
+        # Strip query params from URL
+        name = name.split('?')[0]
         return name.rsplit('.', 1)[-1].lower() if '.' in name else ''
 
     @property
     def icono(self):
+        # WhatsApp media types by fuente
+        if self.fuente == self.FUENTE_WHATSAPP and not self.extension:
+            return 'whatsapp text-success'
         ext = self.extension
         if ext == 'pdf':
             return 'file-earmark-pdf text-danger'
         if ext in ('jpg', 'jpeg', 'png', 'gif', 'webp'):
             return 'file-earmark-image text-primary'
+        if ext in ('mp4', 'mov', 'avi', 'webm'):
+            return 'file-earmark-play text-warning'
+        if ext in ('mp3', 'ogg', 'wav', 'm4a', 'opus'):
+            return 'file-earmark-music text-purple'
         if ext in ('xlsx', 'xls', 'csv'):
             return 'file-earmark-spreadsheet text-success'
         if ext in ('docx', 'doc'):

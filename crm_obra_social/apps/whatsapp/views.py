@@ -895,6 +895,104 @@ class APIEnviarMensajeView(View):
             return JsonResponse({'ok': False, 'error': str(e)}, status=500)
 
 
+class SendMediaView(LoginRequiredMixin, View):
+    """
+    AJAX POST: upload a file and send it as a WhatsApp media message.
+    Accepts multipart/form-data with: conv_pk, media_file, caption (optional)
+    Returns JSON: {ok, msg_id, mediatype, filename, local_url}
+    """
+    MAX_SIZE_MB = 20
+
+    def post(self, request):
+        import base64
+        import mimetypes
+        from django.core.files.storage import default_storage
+        from django.core.files.base import ContentFile
+        from .sender import send_media_base64
+
+        conv_pk = request.POST.get('conv_pk', '').strip()
+        if not conv_pk:
+            return JsonResponse({'ok': False, 'error': 'conv_pk requerido'}, status=400)
+
+        conv = get_object_or_404(Conversacion, pk=conv_pk)
+
+        # Permission: own conversations only (unless supervisor)
+        if not request.user.can_see_all_leads:
+            if conv.agente != request.user and getattr(conv.lead, 'agente', None) != request.user:
+                return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
+
+        uploaded = request.FILES.get('media_file')
+        if not uploaded:
+            return JsonResponse({'ok': False, 'error': 'No se recibió ningún archivo'}, status=400)
+
+        # Size limit
+        if uploaded.size > self.MAX_SIZE_MB * 1024 * 1024:
+            return JsonResponse({'ok': False, 'error': f'El archivo supera {self.MAX_SIZE_MB} MB'}, status=400)
+
+        filename = uploaded.name
+        content_type = uploaded.content_type or mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+        caption = request.POST.get('caption', '').strip()
+
+        # Determine Evolution API mediatype
+        if content_type.startswith('image/'):
+            mediatype = 'image'
+            msg_tipo = Mensaje.TIPO_IMAGEN
+        elif content_type.startswith('video/'):
+            mediatype = 'video'
+            msg_tipo = Mensaje.TIPO_VIDEO
+        elif content_type.startswith('audio/'):
+            mediatype = 'audio'
+            msg_tipo = Mensaje.TIPO_AUDIO
+        else:
+            mediatype = 'document'
+            msg_tipo = Mensaje.TIPO_DOCUMENTO
+
+        file_bytes = uploaded.read()
+        b64 = base64.b64encode(file_bytes).decode('utf-8')
+
+        # Save locally for display in the chat and documents tab
+        from django.utils import timezone as tz
+        save_path = f'chat_media/{tz.now().strftime("%Y/%m")}/{filename}'
+        saved_name = default_storage.save(save_path, ContentFile(file_bytes))
+        local_url = default_storage.url(saved_name)
+
+        try:
+            result = send_media_base64(conv.telefono, b64, mediatype, content_type, filename, caption)
+            wam_id = result.get('id', '')
+
+            msg = Mensaje.objects.create(
+                conversacion=conv,
+                lead=conv.lead,
+                direccion=Mensaje.DIR_SALIENTE,
+                tipo=msg_tipo,
+                contenido=caption or filename,
+                whatsapp_message_id=wam_id,
+                media_url=local_url,
+                status=Mensaje.STATUS_ENVIADO,
+                enviado_por=request.user,
+                timestamp=tz.now(),
+            )
+            Conversacion.objects.filter(pk=conv.pk).update(ultimo_mensaje_at=tz.now())
+            _auto_contactado(conv)
+
+            return JsonResponse({
+                'ok': True,
+                'msg_id': msg.pk,
+                'mediatype': mediatype,
+                'filename': filename,
+                'local_url': local_url,
+                'caption': caption,
+            })
+        except Exception as e:
+            # Clean up local file if send failed
+            try:
+                default_storage.delete(saved_name)
+            except Exception:
+                pass
+            logger.error('SendMediaView error to %s: %s', conv.telefono, e)
+            return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+
 class BotToggleView(LoginRequiredMixin, View):
     """
     AJAX POST: toggle bot_crm_activo or bot_n8n_activo for a conversation.

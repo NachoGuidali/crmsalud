@@ -296,18 +296,34 @@ audio { max-width: 220px; }
     <!-- Reply area -->
     <div class="wa-reply-area">
 
-      <!-- Text message (always available) -->
+      <!-- Text + media send -->
       <div class="mb-2">
-        <form method="post" class="d-flex gap-2">
+        <form method="post" class="d-flex gap-2" id="textForm">
           {% csrf_token %}
           <input type="hidden" name="action" value="send_text">
           <input type="hidden" name="conv_pk" value="{{ selected_conv.pk }}">
           <input type="hidden" name="_q" value="{{ q }}">
           <input type="hidden" name="_estado" value="{{ estado }}">
           <input type="hidden" name="_no_leidos" value="{{ solo_no_leidos }}">
+          <!-- Attachment button -->
+          <label class="btn btn-outline-secondary btn-sm px-2 mb-0 flex-shrink-0" id="attachLabel"
+                 title="Enviar imagen o archivo" style="cursor:pointer;">
+            <i class="bi bi-paperclip" id="attachIcon"></i>
+            <input type="file" id="mediaFileInput" style="display:none"
+                   accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.zip">
+          </label>
           <input type="text" name="body" id="textInput" class="form-control form-control-sm" placeholder="Escribí un mensaje..." autocomplete="off">
           <button type="submit" class="btn btn-success btn-sm px-3"><i class="bi bi-send"></i></button>
         </form>
+        <!-- Media upload progress bar (hidden by default) -->
+        <div id="mediaUploadBar" class="mt-1" style="display:none;">
+          <div class="d-flex align-items-center gap-2">
+            <div class="progress flex-grow-1" style="height:4px;">
+              <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" style="width:100%"></div>
+            </div>
+            <span class="small text-muted" id="mediaUploadName"></span>
+          </div>
+        </div>
       </div>
 
       <!-- Template / Interactive tabs -->
@@ -540,6 +556,71 @@ function toggleBot(botType, currentlyActive) {
   .finally(() => { btn.disabled = false; });
 }
 </script>
+
+{% if selected_conv %}
+<script>
+// ── Media upload ──────────────────────────────────────────────────────────────
+const SEND_MEDIA_URL = "{% url 'whatsapp:send_media' %}";
+const MEDIA_CONV_PK  = "{{ selected_conv.pk }}";
+
+document.getElementById('mediaFileInput').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+
+  const bar      = document.getElementById('mediaUploadBar');
+  const nameEl   = document.getElementById('mediaUploadName');
+  const icon     = document.getElementById('attachIcon');
+  const label    = document.getElementById('attachLabel');
+
+  bar.style.display = '';
+  nameEl.textContent = file.name;
+  icon.className = 'bi bi-hourglass-split';
+  label.style.pointerEvents = 'none';
+
+  const fd = new FormData();
+  fd.append('media_file', file);
+  fd.append('conv_pk', MEDIA_CONV_PK);
+  fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+  const caption = document.getElementById('textInput').value.trim();
+  if (caption) fd.append('caption', caption);
+
+  fetch(SEND_MEDIA_URL, {method: 'POST', body: fd})
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        document.getElementById('textInput').value = '';
+        // Show sent bubble immediately without full reload
+        const chatArea = document.getElementById('chatContainer');
+        if (chatArea) {
+          const wrap = document.createElement('div');
+          wrap.className = 'justify-content-end d-flex';
+          const typeIcon = {image:'bi-image', video:'bi-camera-video', audio:'bi-mic', document:'bi-file-earmark'}[data.mediatype] || 'bi-paperclip';
+          wrap.innerHTML = `<div class="bubble bubble-out">
+            <div class="d-flex align-items-center gap-1">
+              <i class="bi ${typeIcon}"></i>
+              <span>${data.filename}</span>
+            </div>
+            ${data.caption ? '<div class="small mt-1">'+data.caption+'</div>' : ''}
+            <div class="bubble-time text-end">ahora ✓</div>
+          </div>`;
+          chatArea.appendChild(wrap);
+          chatArea.scrollTop = chatArea.scrollHeight;
+        }
+      } else {
+        alert('Error al enviar: ' + (data.error || 'desconocido'));
+      }
+    })
+    .catch(err => { alert('Error de red: ' + err); })
+    .finally(() => {
+      bar.style.display = 'none';
+      icon.className = 'bi bi-paperclip';
+      label.style.pointerEvents = '';
+      this.value = '';
+    });
+});
+</script>
+{% endif %}
 
 <!-- Modal: nueva conversación -->
 <div class="modal fade" id="nuevaConvModal" tabindex="-1" aria-labelledby="nuevaConvLabel" aria-hidden="true">

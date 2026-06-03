@@ -80,10 +80,7 @@ def send_text_message(to: str, body: str) -> dict:
 
 
 def send_media_message(to: str, media_url: str, mediatype: str, filename: str = '', caption: str = '') -> dict:
-    """
-    Send a media message (image, video, document, audio) via Evolution API.
-    mediatype: 'image' | 'video' | 'document' | 'audio'
-    """
+    """Send a media message via public URL."""
     url = _evo_url(f'/message/sendMedia/{_instance()}')
     payload = {
         'number': _normalize_phone(to),
@@ -108,6 +105,37 @@ def send_media_message(to: str, media_url: str, mediatype: str, filename: str = 
         raise
     finally:
         _log_request(url, 'POST', payload, response, int((time.monotonic() - start) * 1000))
+
+
+def send_media_base64(to: str, base64_data: str, mediatype: str, mimetype: str,
+                      filename: str = '', caption: str = '') -> dict:
+    """Send a media message from base64-encoded content (no public URL needed)."""
+    url = _evo_url(f'/message/sendMedia/{_instance()}')
+    payload = {
+        'number': _normalize_phone(to),
+        'mediatype': mediatype,
+        'media': base64_data,
+        'mimetype': mimetype,
+        'fileName': filename or f'archivo.{mediatype}',
+    }
+    if caption:
+        payload['caption'] = caption
+    start = time.monotonic()
+    response = None
+    # Don't log full base64 payload (too large) — use truncated version
+    log_payload = {**payload, 'media': f'<base64 {len(base64_data)} chars>'}
+    try:
+        response = requests.post(url, json=payload, headers=_evo_headers(), timeout=60)
+        response.raise_for_status()
+        data = response.json()
+        msg_id = _extract_message_id(data)
+        logger.info('Media base64 (%s) sent to %s (id=%s)', mediatype, to, msg_id)
+        return {'id': msg_id}
+    except requests.RequestException as e:
+        logger.error('Error sending media base64 to %s: %s', to, e)
+        raise
+    finally:
+        _log_request(url, 'POST', log_payload, response, int((time.monotonic() - start) * 1000))
 
 
 def send_interactive_message(to: str, body_text: str, buttons: list, header_text: str = '', footer_text: str = '') -> dict:

@@ -74,6 +74,8 @@ def process_incoming_message(self, message_data: dict):
 
         msg_type = message_data.get('type', Mensaje.TIPO_TEXTO)
 
+        media_url = message_data.get('media_url', '')
+
         mensaje = Mensaje.objects.create(
             conversacion=conv,
             lead=conv.lead,
@@ -81,10 +83,35 @@ def process_incoming_message(self, message_data: dict):
             direccion=Mensaje.DIR_ENTRANTE,
             tipo=msg_type,
             contenido=message_data.get('content', ''),
-            media_url=message_data.get('media_url', ''),
+            media_url=media_url,
             status=Mensaje.STATUS_ENTREGADO,
             timestamp=message_data['timestamp'],
         )
+
+        # Auto-save incoming media to lead's document list
+        if (media_url and conv.lead
+                and msg_type in (Mensaje.TIPO_IMAGEN, Mensaje.TIPO_DOCUMENTO,
+                                 Mensaje.TIPO_VIDEO, Mensaje.TIPO_AUDIO)):
+            try:
+                from apps.leads.models import Documento
+                tipo_label = {
+                    Mensaje.TIPO_IMAGEN: 'Imagen',
+                    Mensaje.TIPO_DOCUMENTO: 'Documento',
+                    Mensaje.TIPO_VIDEO: 'Video',
+                    Mensaje.TIPO_AUDIO: 'Audio',
+                }.get(msg_type, 'Archivo')
+                contact_name = (message_data.get('contact_name', '')
+                                or conv.nombre_contacto
+                                or conv.telefono)
+                Documento.objects.create(
+                    lead=conv.lead,
+                    nombre=f'WhatsApp — {tipo_label} de {contact_name}',
+                    tipo=Documento.TIPO_OTRO,
+                    url_externa=media_url,
+                    fuente=Documento.FUENTE_WHATSAPP,
+                )
+            except Exception as doc_err:
+                logger.warning('Could not create Documento for incoming media: %s', doc_err)
 
         # Trigger bot auto-response rules (only if CRM bot is active for this conversation)
         if conv.bot_crm_activo:

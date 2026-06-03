@@ -135,9 +135,24 @@ audio { max-width: 240px; }
     <form method="post" class="d-flex gap-2">
       {% csrf_token %}
       <input type="hidden" name="action" value="send_text">
+      <!-- Attachment button -->
+      <label class="btn btn-outline-secondary px-2 mb-0 flex-shrink-0" id="attachLabel"
+             title="Enviar imagen o archivo" style="cursor:pointer;">
+        <i class="bi bi-paperclip" id="attachIcon"></i>
+        <input type="file" id="mediaFileInput" style="display:none"
+               accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.zip">
+      </label>
       <input type="text" name="body" id="textInput" class="form-control" placeholder="Escribí un mensaje..." autocomplete="off">
       <button type="submit" class="btn btn-success px-3"><i class="bi bi-send"></i></button>
     </form>
+    <div id="mediaUploadBar" class="mt-1" style="display:none;">
+      <div class="d-flex align-items-center gap-2">
+        <div class="progress flex-grow-1" style="height:4px;">
+          <div class="progress-bar progress-bar-striped progress-bar-animated bg-success" style="width:100%"></div>
+        </div>
+        <span class="small text-muted" id="mediaUploadName"></span>
+      </div>
+    </div>
   </div>
 
   <!-- Tabs for template, interactive -->
@@ -363,5 +378,61 @@ function toggleBot(botType, currentlyActive) {
   .catch(() => {})
   .finally(() => { btn.disabled = false; });
 }
+
+// ── Media upload ──────────────────────────────────────────────────────────────
+document.getElementById('mediaFileInput').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+
+  const bar    = document.getElementById('mediaUploadBar');
+  const nameEl = document.getElementById('mediaUploadName');
+  const icon   = document.getElementById('attachIcon');
+  const label  = document.getElementById('attachLabel');
+
+  bar.style.display = '';
+  nameEl.textContent = file.name;
+  icon.className = 'bi bi-hourglass-split';
+  label.style.pointerEvents = 'none';
+
+  const fd = new FormData();
+  fd.append('media_file', file);
+  fd.append('conv_pk', '{{ conv.pk }}');
+  fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+  const caption = document.getElementById('textInput').value.trim();
+  if (caption) fd.append('caption', caption);
+
+  fetch("{% url 'whatsapp:send_media' %}", {method: 'POST', body: fd})
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        document.getElementById('textInput').value = '';
+        const chat = document.getElementById('chatContainer');
+        if (chat) {
+          const wrap = document.createElement('div');
+          wrap.className = 'd-flex justify-content-end';
+          const typeIcon = {image:'bi-image', video:'bi-camera-video', audio:'bi-mic', document:'bi-file-earmark'}[data.mediatype] || 'bi-paperclip';
+          wrap.innerHTML = `<div class="bubble bubble-out">
+            <div class="d-flex align-items-center gap-1">
+              <i class="bi ${typeIcon}"></i> <span>${data.filename}</span>
+            </div>
+            ${data.caption ? '<div class="small mt-1">'+data.caption+'</div>' : ''}
+            <div class="bubble-time text-end">ahora ✓</div>
+          </div>`;
+          chat.appendChild(wrap);
+          chat.scrollTop = chat.scrollHeight;
+        }
+      } else {
+        alert('Error al enviar: ' + (data.error || 'desconocido'));
+      }
+    })
+    .catch(err => { alert('Error de red: ' + err); })
+    .finally(() => {
+      bar.style.display = 'none';
+      icon.className = 'bi bi-paperclip';
+      label.style.pointerEvents = '';
+      this.value = '';
+    });
+});
 </script>
 {% endblock %}
