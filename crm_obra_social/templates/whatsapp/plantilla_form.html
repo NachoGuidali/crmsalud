@@ -56,15 +56,13 @@
           <!-- Variable reference chips -->
           <div class="mb-2">
             <span class="small me-1" style="color:var(--text3)">Insertar variable:</span>
-            {% with vars="nombre_completo,email,plan,localidad,provincia,telefono,dni,notas" %}
-            {% for v in vars.split(",") %}
-            <button type="button" class="btn btn-sm me-1 mb-1 var-chip" data-var="{{v}}"
+            {% for v in plantilla_vars %}
+            <button type="button" class="btn btn-sm me-1 mb-1 var-chip" data-var="{{ v }}"
                     style="background:var(--bg3); color:var(--blue); border:1px solid var(--blue)44; font-size:.75rem; padding:2px 8px; border-radius:20px;">
-              {{v}}
+              {{ v }}
             </button>
             {% endfor %}
-            {% endwith %}
-            <span class="small ms-1" style="color:var(--text3)">· o escribí <code>{{mi_campo}}</code> directamente</span>
+            <span class="small ms-1" style="color:var(--text3)">· o escribí {% verbatim %}{{mi_campo_extra}}{% endverbatim %} para datos extra</span>
           </div>
 
           <div class="mb-2">

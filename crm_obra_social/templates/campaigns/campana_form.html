@@ -550,27 +550,29 @@ function updateMappingJson() {
 }
 
 // Returns a human-readable label for what replaces {{N}}
+function _varTag(n) { return '{{' + n + '}}'; }
+
 function _mappingLabel(i) {
   const m = currentMapping[i];
-  if (!m) return `{{${i+1}}}`;
+  if (!m) return _varTag(i + 1);
   if (m.tipo === 'campo') {
     const ch = CAMPO_CHOICES.find(c => c.val === m.valor);
-    return ch ? `[${ch.label}]` : `[${m.valor}]`;
+    return ch ? '[' + ch.label + ']' : '[' + m.valor + ']';
   }
-  if (m.tipo === 'extra') return m.valor ? `[dato extra: ${m.valor}]` : `[dato extra]`;
-  if (m.tipo === 'fijo')  return m.valor ? `"${m.valor}"` : `[texto fijo]`;
-  return `{{${i+1}}}`;
+  if (m.tipo === 'extra') return m.valor ? '[dato extra: ' + m.valor + ']' : '[dato extra]';
+  if (m.tipo === 'fijo')  return m.valor ? '"' + m.valor + '"' : '[texto fijo]';
+  return _varTag(i + 1);
 }
 
 function _mappingExample(i) {
   const m = currentMapping[i];
-  if (!m) return `{{${i+1}}}`;
+  if (!m) return _varTag(i + 1);
   if (m.tipo === 'campo') {
     const ch = CAMPO_CHOICES.find(c => c.val === m.valor);
     return ch ? ch.ejemplo : m.valor;
   }
   if (m.tipo === 'fijo') return m.valor || '...';
-  return `(dato extra: ${m.valor || '?'})`;
+  return '(dato extra: ' + (m.valor || '?') + ')';
 }
 
 function updateMappedPreview() {
@@ -659,9 +661,9 @@ function showNamedVarsInfo(template) {
   card.style.display = '';
   legacyCard.style.display = 'none'; // named vars don't need mapping
   listEl.innerHTML = unique.map(v =>
-    `<span class="badge rounded-pill" style="background:#10B98122; color:#10B981; border:1px solid #10B98144; font-size:.85rem;">
-      <i class="bi bi-braces me-1"></i>{{${esc(v)}}}
-    </span>`
+    '<span class="badge rounded-pill" style="background:#10B98122; color:#10B981; border:1px solid #10B98144; font-size:.85rem;">'
+    + '<i class="bi bi-braces me-1"></i>{{' + esc(v) + '}}'
+    + '</span>'
   ).join('');
 }
 

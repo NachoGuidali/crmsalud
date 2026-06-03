@@ -567,6 +567,7 @@ class PlantillaCreateView(LoginRequiredMixin, CreateView):
         ctx = super().get_context_data(**kwargs)
         ctx['variables_json'] = '[]'
         ctx['botones_json'] = '[]'
+        ctx['plantilla_vars'] = list(PlantillaHSM.NAMED_FIELDS.keys())
         return ctx
 
     def form_valid(self, form):
@@ -585,6 +586,7 @@ class PlantillaUpdateView(LoginRequiredMixin, UpdateView):
         ctx = super().get_context_data(**kwargs)
         ctx['variables_json'] = json.dumps(self.object.variables or [])
         ctx['botones_json'] = json.dumps(self.object.botones or [])
+        ctx['plantilla_vars'] = list(PlantillaHSM.NAMED_FIELDS.keys())
         return ctx
 
     def form_valid(self, form):
