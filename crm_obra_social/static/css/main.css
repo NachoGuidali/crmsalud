@@ -729,4 +729,67 @@ html, body {
   }
   .topbar-hamburger { display: flex !important; }
   .content-area { padding: 14px 16px; }
+  /* Kanban: narrower columns on tablet */
+  .kanban-col { min-width: 210px; width: 210px; }
+}
+
+@media (max-width: 767.98px) {
+  /* Content */
+  .content-area { padding: 10px 12px; }
+
+  /* Topbar */
+  .topbar { padding: 0 12px; }
+  .topbar-user-name { display: none; }
+
+  /* Kanban: narrow columns on mobile */
+  .kanban-col { min-width: 180px; width: 180px; }
+  .kcard { padding: 10px 12px; }
+
+  /* Stats cards: smaller numbers */
+  .stat-card .s-val { font-size: 20px; }
+
+  /* Tables: make cells compact */
+  .table-sm td, .table-sm th { padding: .3rem .4rem; font-size: .8rem; }
+
+  /* Login card: tighter padding on small screens */
+  .login-card { padding: 1.75rem 1.25rem; }
+
+  /* Page headings: smaller */
+  h4.fw-bold, h4.mb-0.fw-bold { font-size: 1.1rem; }
+
+  /* Bubbles: wider on mobile */
+  .bubble { max-width: 88%; }
+
+  /* Empty state: reduce padding */
+  .empty-state { padding: 36px 20px; }
+
+  /* Filters: stack items */
+  .filter-row .col-6 { flex: 0 0 100%; max-width: 100%; }
+
+  /* Inline select max-width: allow full width */
+  select.form-select[style*="max-width"] { max-width: 100% !important; }
+  select.form-select[style*="min-width"] { min-width: 0 !important; width: 100% !important; }
+
+  /* Pagination: smaller */
+  .pagination .page-link { padding: .2rem .5rem; font-size: .72rem; }
+}
+
+@media (max-width: 575.98px) {
+  /* Content */
+  .content-area { padding: 8px 10px; }
+
+  /* Buttons that are too wide */
+  .btn-group.w-100 .btn { font-size: .78rem; padding: .3rem .5rem; }
+
+  /* Card header: smaller text */
+  .card-header { font-size: .88rem; padding: .6rem .9rem; }
+
+  /* Badges: ensure wrap */
+  .d-flex.gap-2.flex-wrap { gap: .4rem !important; }
+
+  /* Kanban col: minimum usable */
+  .kanban-col { min-width: 160px; width: 160px; }
+
+  /* Table action buttons: icon only */
+  .table .btn-sm { padding: .2rem .35rem; font-size: .78rem; }
 }

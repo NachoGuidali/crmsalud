@@ -5,11 +5,11 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <h4 class="mb-0 fw-bold"><i class="bi bi-people text-primary"></i> Leads <span class="badge bg-secondary fs-6">{{ total_count }}</span></h4>
-  <div class="d-flex gap-2">
+  <div class="d-flex flex-wrap gap-2">
     <a href="{% url 'leads:kanban' %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-kanban"></i> Ver Kanban</a>
     <a href="{% url 'leads:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nuevo lead</a>
     {% if request.user.can_see_all_leads %}
-    <a href="{% url 'leads:csv_import' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-upload"></i> Importar contactos</a>
+    <a href="{% url 'leads:csv_import' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-upload"></i> <span class="d-none d-sm-inline">Importar</span> contactos</a>
     <a href="{% url 'leads:csv_export' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download"></i> Exportar</a>
     {% endif %}
   </div>
@@ -29,7 +29,7 @@
           <i class="bi bi-check2-square"></i> <span id="bulk-count">0</span> seleccionado(s)
         </span>
         <div class="d-flex align-items-center gap-2 ms-auto">
-          <select name="agente_id" class="form-select form-select-sm" style="min-width:180px;" required>
+          <select name="agente_id" class="form-select form-select-sm" required>
             <option value="">Asignar a agente…</option>
             {% for a in agents %}
             <option value="{{ a.pk }}">{{ a.get_full_name }}</option>
@@ -61,8 +61,15 @@
               <input type="checkbox" class="form-check-input" id="chk-all" title="Seleccionar todos">
             </th>
             {% endif %}
-            <th>Nombre</th><th>DNI</th><th>Teléfono</th><th>Plan</th>
-            <th>Estado</th><th>Prioridad</th><th>Agente</th><th>Creado</th><th></th>
+            <th>Nombre</th>
+            <th class="d-none d-md-table-cell">DNI</th>
+            <th class="d-none d-sm-table-cell">Teléfono</th>
+            <th class="d-none d-lg-table-cell">Plan</th>
+            <th>Estado</th>
+            <th class="d-none d-md-table-cell">Prioridad</th>
+            <th class="d-none d-lg-table-cell">Agente</th>
+            <th class="d-none d-xl-table-cell">Creado</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -73,14 +80,14 @@
               <input type="checkbox" class="form-check-input lead-chk" value="{{ lead.pk }}" name="lead_ids">
             </td>
             {% endif %}
-            <td><a href="{% url 'leads:detail' lead.pk %}" class="fw-semibold text-decoration-none">{{ lead.nombre_completo }}</a></td>
-            <td class="text-muted">{{ lead.dni }}</td>
-            <td><a href="tel:{{ lead.telefono }}" class="text-muted text-decoration-none">{{ lead.telefono }}</a></td>
-            <td class="small">{{ lead.plan_interes|default:"—" }}</td>
+            <td><a href="{% url 'leads:detail' lead.pk %}" class="fw-semibold text-decoration-none text-truncate d-block" style="max-width:160px;">{{ lead.nombre_completo }}</a></td>
+            <td class="text-muted d-none d-md-table-cell">{{ lead.dni }}</td>
+            <td class="d-none d-sm-table-cell"><a href="tel:{{ lead.telefono }}" class="text-muted text-decoration-none">{{ lead.telefono }}</a></td>
+            <td class="small d-none d-lg-table-cell">{{ lead.plan_interes|default:"—" }}</td>
             <td><span class="badge bg-{{ lead.get_estado_badge_class }}">{{ lead.get_estado_display }}</span></td>
-            <td><span class="badge bg-{{ lead.get_prioridad_badge_class }}">{{ lead.get_prioridad_display }}</span></td>
-            <td class="small">{{ lead.agente.display_name|default:"Sin asignar" }}</td>
-            <td class="small text-muted">{{ lead.created_at|date:"d/m/Y" }}</td>
+            <td class="d-none d-md-table-cell"><span class="badge bg-{{ lead.get_prioridad_badge_class }}">{{ lead.get_prioridad_display }}</span></td>
+            <td class="small d-none d-lg-table-cell">{{ lead.agente.display_name|default:"Sin asignar" }}</td>
+            <td class="small text-muted d-none d-xl-table-cell">{{ lead.created_at|date:"d/m/Y" }}</td>
             <td>
               <div class="d-flex gap-1">
                 <a href="{% url 'leads:detail' lead.pk %}" class="btn btn-sm btn-outline-primary" title="Ver lead"><i class="bi bi-eye"></i></a>
@@ -98,7 +105,7 @@
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="{% if request.user.can_see_all_leads %}10{% else %}9{% endif %}" class="text-center text-muted py-4">No se encontraron leads.</td></tr>
+          <tr><td colspan="10" class="text-center text-muted py-4">No se encontraron leads.</td></tr>
           {% endfor %}
         </tbody>
       </table>

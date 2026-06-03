@@ -55,11 +55,17 @@ def ejecutar_campana(self, campana_id: int):
     errores = 0
     interval = 60.0 / RATE_LIMIT_PER_MINUTE
 
+    import re
+    uses_named_vars = bool(re.search(r'\{\{[a-zA-Z_]', plantilla.cuerpo))
+
     for contact in recipients:
         is_cliente = isinstance(contact, Cliente)
         try:
-            variables_vals = _build_variables_for_contact(contact, variables_mapping)
-            text = plantilla.preview(variables_vals) if variables_vals else plantilla.cuerpo
+            if uses_named_vars:
+                text = plantilla.preview_for_contact(contact)
+            else:
+                variables_vals = _build_variables_for_contact(contact, variables_mapping)
+                text = plantilla.preview(variables_vals) if variables_vals else plantilla.cuerpo
             result = send_text_message(to=contact.telefono, body=text)
             wam_id = result.get('id', '')
             CampanaLog.objects.create(

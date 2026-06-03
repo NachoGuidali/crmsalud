@@ -182,7 +182,8 @@ def _accion_enviar_plantilla_wa(regla, lead, now):
     if not plantilla or not lead.telefono:
         return 'plantilla o teléfono no disponible'
 
-    text = plantilla.preview()
+    import re
+    text = plantilla.preview_for_contact(lead) if re.search(r'\{\{[a-zA-Z_]', plantilla.cuerpo) else plantilla.preview()
     result = send_text_message(to=lead.telefono, body=text)
     wam_id = result.get('id', '')
     conv, _ = Conversacion.objects.get_or_create(

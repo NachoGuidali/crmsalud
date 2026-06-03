@@ -15,6 +15,28 @@
   display: flex; flex-direction: column;
   background: var(--bg2); border-right: 1px solid var(--border); overflow: hidden;
 }
+/* ── Mobile: slide sidebar/chat ── */
+@media (max-width: 767.98px) {
+  .wa-wrap { position: relative; overflow: hidden; margin: -10px -12px 0; }
+  .wa-sidebar {
+    position: absolute; top: 0; left: 0; z-index: 2;
+    width: 100%; max-width: 100%; min-width: 0; height: 100%;
+    transition: transform .22s ease;
+  }
+  .wa-main {
+    position: absolute; top: 0; left: 0; z-index: 1;
+    width: 100%; height: 100%;
+    transform: translateX(100%);
+    transition: transform .22s ease;
+  }
+  .wa-wrap.wa-conv-selected .wa-sidebar { transform: translateX(-100%); }
+  .wa-wrap.wa-conv-selected .wa-main { transform: translateX(0); }
+  .wa-back-btn { display: flex !important; }
+  .bubble { max-width: 88%; }
+  .wa-main-header { flex-wrap: wrap; gap: 6px; }
+  .wa-main-header .d-flex.gap-2 { flex-wrap: wrap; }
+  audio { max-width: 180px; }
+}
 .wa-sidebar-header {
   padding: 10px 14px;
   background: #0a1520;
@@ -96,7 +118,7 @@ audio { max-width: 220px; }
 {% endblock %}
 
 {% block content %}
-<div class="wa-wrap">
+<div class="wa-wrap {% if selected_conv %}wa-conv-selected{% endif %}" id="waWrap">
 
   <!-- LEFT: conversation sidebar -->
   <div class="wa-sidebar">
@@ -173,6 +195,9 @@ audio { max-width: 220px; }
 
     <!-- Chat header -->
     <div class="wa-main-header">
+      <a href="{% url 'whatsapp:inbox' %}" class="btn btn-sm btn-outline-secondary py-1 px-2 wa-back-btn d-none me-1" title="Volver a conversaciones">
+        <i class="bi bi-arrow-left"></i>
+      </a>
       <div class="wa-conv-avatar" style="width:40px;height:40px;font-size:1.1rem;">
         <i class="bi bi-person"></i>
       </div>
@@ -212,7 +237,7 @@ audio { max-width: 220px; }
           <input type="hidden" name="_q" value="{{ q }}">
           <input type="hidden" name="_estado" value="{{ estado }}">
           <input type="hidden" name="_no_leidos" value="{{ solo_no_leidos }}">
-          <select name="agente_id" class="form-select form-select-sm" style="max-width:160px;" onchange="this.form.submit()">
+          <select name="agente_id" class="form-select form-select-sm" onchange="this.form.submit()">
             <option value="">Sin agente</option>
             {% for a in agents %}
             <option value="{{ a.pk }}" {% if selected_conv.agente_id == a.pk %}selected{% endif %}>{{ a.get_full_name }}</option>

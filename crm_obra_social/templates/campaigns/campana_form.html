@@ -32,19 +32,41 @@
             <div class="form-text">Solo se muestran plantillas activas.</div>
           </div>
           <div class="mb-0">
-            <label class="form-label fw-semibold">Programar envío (opcional)</label>
+            <label class="form-label fw-semibold">Programar envío <span class="fw-normal text-muted">(opcional)</span></label>
             {{ form.fecha_programada }}
             <div class="form-text">Si no completás este campo, la campaña se lanza manualmente.</div>
           </div>
         </div>
       </div>
 
-      <!-- Variable mapping -->
+      <!-- Variable mapping (legacy positional vars only) -->
       <div class="card border-0 shadow-sm mb-4" id="variablesMappingCard" style="display:none">
-        <div class="card-header bg-transparent fw-semibold"><i class="bi bi-braces"></i> Mapeo de variables</div>
+        <div class="card-header bg-transparent">
+          <div class="fw-semibold"><i class="bi bi-braces me-1"></i> ¿Qué va en cada variable?</div>
+          <div class="small mt-1" style="color:var(--text3)">
+            La plantilla usa <code>{% verbatim %}{{1}}{% endverbatim %}</code>, <code>{% verbatim %}{{2}}{% endverbatim %}</code>... — elegí qué campo del CRM reemplaza cada una.
+          </div>
+        </div>
         <div class="card-body">
-          <p class="text-muted small mb-3">Definí de dónde viene el valor de cada <code>{{1}}</code>, <code>{{2}}</code>... para cada contacto.</p>
           <div id="variableRows"></div>
+          <div id="mappedPreviewWrap" class="mt-3 p-2 rounded" style="background:var(--bg3); display:none;">
+            <div class="small fw-semibold mb-1" style="color:var(--text3)"><i class="bi bi-eye me-1"></i> Así se verá el mensaje:</div>
+            <div id="mappedPreviewBody" class="small" style="white-space:pre-wrap; color:var(--text); line-height:1.6;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Named vars info (auto-replaced, no mapping needed) -->
+      <div class="card border-0 shadow-sm mb-4" id="namedVarsCard" style="display:none">
+        <div class="card-header bg-transparent">
+          <div class="fw-semibold" style="color:var(--green)"><i class="bi bi-check-circle me-1"></i> Variables personalizadas — automáticas</div>
+          <div class="small mt-1" style="color:var(--text3)">
+            Esta plantilla usa variables con nombre. Al enviar, el CRM reemplaza cada <code>{% verbatim %}{{campo}}{% endverbatim %}</code>
+            con el valor real de cada contacto. No necesitás configurar nada.
+          </div>
+        </div>
+        <div class="card-body py-2">
+          <div id="namedVarsList" class="d-flex flex-wrap gap-2"></div>
         </div>
       </div>
 
@@ -58,7 +80,6 @@
         </div>
         <div class="card-body">
 
-          <!-- Mode tabs -->
           <div class="btn-group mb-3 w-100" role="group">
             <button type="button" class="btn btn-outline-primary active" id="btnModoSegmento" onclick="setModo('segmento')">
               <i class="bi bi-funnel"></i> Por segmento
@@ -70,7 +91,6 @@
 
           <!-- ── SEGMENT MODE ── -->
           <div id="panelSegmento">
-            <!-- Tipo destinatario -->
             <div class="mb-3">
               <label class="form-label small fw-semibold">¿A quiénes enviar?</label>
               <div class="btn-group w-100" role="group" id="tipoGroup">
@@ -110,8 +130,6 @@
 
           <!-- ── MANUAL MODE ── -->
           <div id="panelManual" style="display:none">
-
-            <!-- Type filter tabs -->
             <div class="btn-group btn-group-sm mb-3" role="group">
               <button type="button" class="btn btn-outline-secondary active" data-tipo-buscar="todos" onclick="setTipoBuscar('todos')">
                 <i class="bi bi-people"></i> Todos
@@ -124,7 +142,6 @@
               </button>
             </div>
 
-            <!-- Search -->
             <div class="mb-2">
               <div class="input-group input-group-sm">
                 <span class="input-group-text"><i class="bi bi-search"></i></span>
@@ -134,10 +151,9 @@
               <div class="form-text">Resultados en tiempo real.</div>
             </div>
 
-            <!-- Search results -->
             <div id="searchResults" class="border rounded mb-3" style="display:none;max-height:260px;overflow-y:auto;">
               <table class="table table-sm table-hover mb-0">
-                <thead class="table-light sticky-top small">
+                <thead class="sticky-top small" style="background:var(--bg3);">
                   <tr>
                     <th style="width:32px"></th>
                     <th>Nombre</th>
@@ -153,7 +169,6 @@
               <div id="searchEmpty" class="text-center text-muted small py-3" style="display:none">Sin resultados.</div>
             </div>
 
-            <!-- Selected contacts summary -->
             <div class="d-flex justify-content-between align-items-center mb-2">
               <div class="small fw-semibold">
                 Seleccionados:
@@ -179,15 +194,27 @@
 
     <!-- Preview panel -->
     <div class="col-12 col-lg-5">
-      <div class="card border-0 shadow-sm sticky-top" style="top:70px;" id="templatePreviewCard" style="display:none">
-        <div class="card-header bg-transparent fw-semibold"><i class="bi bi-eye"></i> Preview plantilla</div>
-        <div class="card-body" style="background:#e5ddd5;border-radius:0 0 8px 8px;">
-          <div class="bg-white rounded-3 p-3 shadow-sm" style="max-width:300px;font-size:.9rem;">
-            <div id="prevHeader" class="fw-semibold small mb-1 text-muted" style="display:none"></div>
-            <div id="prevBody" style="white-space:pre-wrap;color:#111;"></div>
-            <div id="prevFooter" class="text-muted small mt-1" style="display:none"></div>
-            <div id="prevBtns" class="mt-2"></div>
+      <div class="card border-0 shadow-sm sticky-top" style="top:70px;" id="templatePreviewCard">
+        <div class="card-header bg-transparent fw-semibold"><i class="bi bi-phone me-1"></i> Preview de la plantilla</div>
+        <div class="card-body p-3" style="background:#060c14; border-radius:0 0 8px 8px; min-height:80px;">
+          <div id="noTemplateMsg" class="text-center py-3" style="color:var(--text3); font-size:.9rem;">
+            <i class="bi bi-arrow-left-circle d-block mb-1" style="font-size:1.5rem;"></i>
+            Seleccioná una plantilla para ver el preview
           </div>
+          <div id="previewBubble" style="display:none;">
+            <div class="rounded-3 p-3" style="background:#1a3a5c; max-width:300px; font-size:.9rem; color:#e8edf3; word-break:break-word;">
+              <div id="prevHeader" class="fw-semibold small mb-1" style="display:none; color:#93c5fd;"></div>
+              <div id="prevBody" style="white-space:pre-wrap; line-height:1.5;"></div>
+              <div id="prevFooter" class="mt-1" style="display:none; font-size:.75rem; color:#94a3b8;"></div>
+              <div class="mt-1" style="font-size:.65rem; color:#64748b; text-align:right;">{{ "now"|date:"H:i" }} ✓✓</div>
+            </div>
+            <div id="prevBtns" class="mt-1" style="max-width:300px;"></div>
+          </div>
+        </div>
+        <!-- Variable legend -->
+        <div id="varLegendCard" class="card-footer p-2 border-top" style="display:none; background:var(--bg2);">
+          <div class="small fw-semibold mb-1" style="color:var(--text3)"><i class="bi bi-braces me-1"></i>Variables en esta plantilla:</div>
+          <div id="varLegendItems" class="d-flex flex-wrap gap-1"></div>
         </div>
       </div>
     </div>
@@ -201,21 +228,28 @@
 {{ planes|json_script:"planes-data" }}
 
 <script>
-const TEMPLATE_DATA = JSON.parse(document.getElementById('plantillas-data').textContent);
-const EXTRA_KEYS = JSON.parse(document.getElementById('extra-keys').textContent);
-const BUSCAR_URL = "{% url 'campaigns:api_contactos' %}";
+const TEMPLATE_DATA   = JSON.parse(document.getElementById('plantillas-data').textContent);
+const EXTRA_KEYS      = JSON.parse(document.getElementById('extra-keys').textContent);
+const BUSCAR_URL      = "{% url 'campaigns:api_contactos' %}";
 const PREVIEW_COUNT_URL = "{% url 'campaigns:api_preview_count' %}";
 
 const CAMPO_CHOICES = [
-  {val:'nombre_completo', label:'Nombre completo'},
-  {val:'email',           label:'Email'},
-  {val:'plan',            label:'Plan'},
-  {val:'localidad',       label:'Localidad'},
-  {val:'provincia',       label:'Provincia'},
-  {val:'telefono',        label:'Teléfono'},
+  {val:'nombre_completo', label:'Nombre completo',          ejemplo:'Juan Pérez'},
+  {val:'email',           label:'Email',                    ejemplo:'juan@gmail.com'},
+  {val:'plan',            label:'Plan',                     ejemplo:'Plan Familiar'},
+  {val:'localidad',       label:'Localidad',                ejemplo:'Buenos Aires'},
+  {val:'provincia',       label:'Provincia',                ejemplo:'Buenos Aires'},
+  {val:'telefono',        label:'Teléfono',                 ejemplo:'+5491112345678'},
+  {val:'dni',             label:'DNI',                      ejemplo:'30123456'},
 ];
 
-// ── Mode / Tipo ──────────────────────────────────────────────────────────────
+const VAR_COLORS = ['#3B7EF6','#8B5CF6','#06B6D4','#F59E0B','#10B981'];
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Mode / Tipo ───────────────────────────────────────────────────────────────
 let currentModo = 'segmento';
 let currentTipo = 'leads';
 let currentTipoBuscar = 'todos';
@@ -236,7 +270,6 @@ function setTipo(tipo) {
   document.querySelectorAll('#tipoGroup [data-tipo]').forEach(b => {
     b.classList.toggle('active', b.dataset.tipo === tipo);
   });
-  // Hide "estado" filter for clientes-only
   document.querySelectorAll('.seg-leads-only').forEach(el => {
     el.style.display = tipo === 'clientes' ? 'none' : '';
   });
@@ -252,7 +285,7 @@ function setTipoBuscar(tipo) {
   if (q.length >= 1 || tipo !== 'todos') fetchContactos(q, 1, false);
 }
 
-// ── Preview count ────────────────────────────────────────────────────────────
+// ── Preview count ─────────────────────────────────────────────────────────────
 let previewTimer = null;
 
 function updatePreviewCount() {
@@ -261,7 +294,7 @@ function updatePreviewCount() {
 }
 
 function _fetchPreviewCount() {
-  const badge = document.getElementById('previewBadge');
+  const badge   = document.getElementById('previewBadge');
   const countEl = document.getElementById('previewCount');
 
   if (currentModo === 'manual') {
@@ -273,17 +306,17 @@ function _fetchPreviewCount() {
     return;
   }
 
-  const estado = document.querySelector('[name="seg_estado"]')?.value || '';
-  const planEl = document.querySelector('[name="seg_plan"]');
+  const estado  = document.querySelector('[name="seg_estado"]')?.value || '';
+  const planEl  = document.querySelector('[name="seg_plan"]');
   const plan_id = planEl ? planEl.value : '';
   const provincia = document.querySelector('[name="seg_provincia"]')?.value || '';
-  const dias = document.querySelector('[name="seg_dias_sin_contacto"]')?.value || '';
+  const dias    = document.querySelector('[name="seg_dias_sin_contacto"]')?.value || '';
 
   const params = new URLSearchParams({tipo: currentTipo, modo: 'segmento'});
-  if (estado) params.set('estado', estado);
+  if (estado)  params.set('estado', estado);
   if (plan_id) params.set('plan_id', plan_id);
   if (provincia) params.set('provincia', provincia);
-  if (dias) params.set('dias', dias);
+  if (dias)    params.set('dias', dias);
 
   fetch(`${PREVIEW_COUNT_URL}?${params}`)
     .then(r => r.json())
@@ -294,7 +327,6 @@ function _fetchPreviewCount() {
     }).catch(() => {});
 }
 
-// Attach filter change listeners
 ['seg_estado','seg_plan','seg_provincia','seg_dias_sin_contacto'].forEach(name => {
   const el = document.querySelector(`[name="${name}"]`);
   if (el) el.addEventListener('change', updatePreviewCount);
@@ -302,7 +334,6 @@ function _fetchPreviewCount() {
 });
 
 // ── Contact search & selection ────────────────────────────────────────────────
-// selectedContacts: { "lead_1": {...}, "cliente_3": {...} }
 let selectedContacts = {};
 let currentPage = 1;
 let currentQ = '';
@@ -331,7 +362,7 @@ function fetchContactos(q, page, append) {
   fetch(`${BUSCAR_URL}?${params}`)
     .then(r => r.json())
     .then(data => {
-      const tbody = document.getElementById('searchResultsBody');
+      const tbody   = document.getElementById('searchResultsBody');
       const emptyEl = document.getElementById('searchEmpty');
       if (!append) tbody.innerHTML = '';
 
@@ -401,8 +432,8 @@ function clearSelection() {
 
 function renderSelectedChips() {
   const container = document.getElementById('selectedChips');
-  const leads = Object.values(selectedContacts).filter(c => c.tipo === 'lead');
-  const clientes = Object.values(selectedContacts).filter(c => c.tipo === 'cliente');
+  const leads     = Object.values(selectedContacts).filter(c => c.tipo === 'lead');
+  const clientes  = Object.values(selectedContacts).filter(c => c.tipo === 'cliente');
   document.getElementById('selectedLeadsCount').textContent = leads.length;
   document.getElementById('selectedClientesCount').textContent = clientes.length;
   document.getElementById('noSelectionWarning').style.display = leads.length + clientes.length === 0 ? '' : 'none';
@@ -417,49 +448,62 @@ function renderSelectedChips() {
 }
 
 function updateContactosJson() {
-  const leads = Object.values(selectedContacts).filter(c => c.tipo === 'lead').map(c => c.id);
+  const leads    = Object.values(selectedContacts).filter(c => c.tipo === 'lead').map(c => c.id);
   const clientes = Object.values(selectedContacts).filter(c => c.tipo === 'cliente').map(c => c.id);
   document.querySelector('[name="contactos_ids_json"]').value = JSON.stringify(leads);
   document.querySelector('[name="contactos_clientes_ids_json"]').value = JSON.stringify(clientes);
 }
 
-// ── Template variable mapping ─────────────────────────────────────────────────
+// ── Variable mapping ──────────────────────────────────────────────────────────
 let currentMapping = [];
+let currentTemplate = null;
 
 function buildVariableRows(template) {
-  const card = document.getElementById('variablesMappingCard');
+  const card      = document.getElementById('variablesMappingCard');
   const container = document.getElementById('variableRows');
   container.innerHTML = '';
+
   if (!template || !template.variables || template.variables.length === 0) {
-    card.style.display = 'none'; currentMapping = []; updateMappingJson(); return;
+    card.style.display = 'none';
+    currentMapping = [];
+    updateMappingJson();
+    updateMappedPreview();
+    return;
   }
+
   card.style.display = '';
-  currentMapping = template.variables.map(() => ({tipo:'campo', valor:'nombre_completo'}));
+  currentMapping = template.variables.map(() => ({tipo: 'campo', valor: 'nombre_completo'}));
 
   const extraOpts = EXTRA_KEYS.length > 0
-    ? EXTRA_KEYS.map(k => `<option value="${k}">${k} (dato extra)</option>`).join('')
-    : '<option value="" disabled>— importá un archivo primero —</option>';
+    ? EXTRA_KEYS.map(k => `<option value="${k}">${k}</option>`).join('')
+    : '<option value="" disabled>— no hay datos extra disponibles —</option>';
 
   template.variables.forEach((varName, i) => {
+    const color = VAR_COLORS[i % VAR_COLORS.length];
     const row = document.createElement('div');
-    row.className = 'mb-3 p-2 border rounded bg-light';
+    row.className = 'mb-3 p-3 rounded';
+    row.style.cssText = `background:var(--bg3); border-left:3px solid ${color};`;
     row.innerHTML = `
-      <label class="form-label small fw-semibold"><code>` + '{{' + (i+1) + '}}' + `</code> — ${varName}</label>
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <span class="badge font-monospace" style="background:${color}; font-size:.85rem; min-width:40px;">&#123;&#123;${i+1}&#125;&#125;</span>
+        <span class="fw-semibold small">${esc(varName) || `Variable ${i+1}`}</span>
+        <span class="small ms-auto" style="color:var(--text3)">→ ¿qué dato va acá?</span>
+      </div>
       <div class="row g-2">
         <div class="col-auto">
-          <select class="form-select form-select-sm var-tipo" data-idx="${i}">
+          <select class="form-select form-select-sm var-tipo" data-idx="${i}" style="min-width:150px;">
             <option value="campo">Campo del contacto</option>
-            <option value="extra">Dato extra</option>
-            <option value="fijo">Texto fijo</option>
+            <option value="extra">Dato extra (datos_extra)</option>
+            <option value="fijo">Texto fijo (igual para todos)</option>
           </select>
         </div>
         <div class="col">
           <select class="form-select form-select-sm var-campo" data-idx="${i}">
-            ${CAMPO_CHOICES.map(c=>`<option value="${c.val}"${c.val==='nombre_completo'?' selected':''}>${c.label}</option>`).join('')}
+            ${CAMPO_CHOICES.map(c => `<option value="${c.val}" ${c.val==='nombre_completo'?'selected':''}>${c.label} — ej: ${c.ejemplo}</option>`).join('')}
           </select>
           <select class="form-select form-select-sm var-extra d-none" data-idx="${i}">${extraOpts}</select>
-          <input type="text" class="form-control form-control-sm var-extra-manual d-none" data-idx="${i}" placeholder="Nombre columna extra">
-          <input type="text" class="form-control form-control-sm var-fijo d-none" data-idx="${i}" placeholder="Texto igual para todos">
+          <input type="text" class="form-control form-control-sm var-extra-manual d-none" data-idx="${i}" placeholder="Nombre del campo extra (ej: empresa)">
+          <input type="text" class="form-control form-control-sm var-fijo d-none" data-idx="${i}" placeholder="Texto igual para todos (ej: Supreg Salud)">
         </div>
       </div>`;
     container.appendChild(row);
@@ -467,49 +511,157 @@ function buildVariableRows(template) {
 
   container.querySelectorAll('.var-tipo').forEach(sel => {
     sel.addEventListener('change', function() {
-      const idx = parseInt(this.dataset.idx);
+      const idx  = parseInt(this.dataset.idx);
       const tipo = this.value;
-      const row = this.closest('.row');
-      row.querySelector('.var-campo').classList.toggle('d-none', tipo !== 'campo');
-      row.querySelector('.var-extra').classList.toggle('d-none', tipo !== 'extra' || EXTRA_KEYS.length === 0);
-      row.querySelector('.var-extra-manual').classList.toggle('d-none', tipo !== 'extra' || EXTRA_KEYS.length > 0);
-      row.querySelector('.var-fijo').classList.toggle('d-none', tipo !== 'fijo');
-      currentMapping[idx].tipo = tipo;
-      currentMapping[idx].valor = tipo === 'campo' ? row.querySelector('.var-campo').value
-        : tipo === 'extra' ? (EXTRA_KEYS.length>0 ? row.querySelector('.var-extra').value : row.querySelector('.var-extra-manual').value)
-        : '';
+      const rowEl = this.closest('.row');
+      rowEl.querySelector('.var-campo').classList.toggle('d-none', tipo !== 'campo');
+      rowEl.querySelector('.var-extra').classList.toggle('d-none', tipo !== 'extra' || EXTRA_KEYS.length === 0);
+      rowEl.querySelector('.var-extra-manual').classList.toggle('d-none', tipo !== 'extra' || EXTRA_KEYS.length > 0);
+      rowEl.querySelector('.var-fijo').classList.toggle('d-none', tipo !== 'fijo');
+      currentMapping[idx] = {tipo, valor: _getRowVal(rowEl, tipo)};
       updateMappingJson();
+      updateMappedPreview();
     });
   });
+
   container.querySelectorAll('.var-campo,.var-extra,.var-extra-manual,.var-fijo').forEach(el => {
-    el.addEventListener('change', function() { currentMapping[parseInt(this.dataset.idx)].valor = this.value; updateMappingJson(); });
-    el.addEventListener('input',  function() { currentMapping[parseInt(this.dataset.idx)].valor = this.value; updateMappingJson(); });
+    const onChange = function() {
+      const idx  = parseInt(this.dataset.idx);
+      currentMapping[idx].valor = this.value;
+      updateMappingJson();
+      updateMappedPreview();
+    };
+    el.addEventListener('change', onChange);
+    el.addEventListener('input',  onChange);
   });
+
   updateMappingJson();
+  updateMappedPreview();
+}
+
+function _getRowVal(rowEl, tipo) {
+  if (tipo === 'campo') return rowEl.querySelector('.var-campo').value;
+  if (tipo === 'extra') return EXTRA_KEYS.length > 0 ? rowEl.querySelector('.var-extra').value : rowEl.querySelector('.var-extra-manual').value;
+  return rowEl.querySelector('.var-fijo').value || '';
 }
 
 function updateMappingJson() {
   document.querySelector('[name="variables_mapping_json"]').value = JSON.stringify(currentMapping);
 }
 
+// Returns a human-readable label for what replaces {{N}}
+function _mappingLabel(i) {
+  const m = currentMapping[i];
+  if (!m) return `{{${i+1}}}`;
+  if (m.tipo === 'campo') {
+    const ch = CAMPO_CHOICES.find(c => c.val === m.valor);
+    return ch ? `[${ch.label}]` : `[${m.valor}]`;
+  }
+  if (m.tipo === 'extra') return m.valor ? `[dato extra: ${m.valor}]` : `[dato extra]`;
+  if (m.tipo === 'fijo')  return m.valor ? `"${m.valor}"` : `[texto fijo]`;
+  return `{{${i+1}}}`;
+}
+
+function _mappingExample(i) {
+  const m = currentMapping[i];
+  if (!m) return `{{${i+1}}}`;
+  if (m.tipo === 'campo') {
+    const ch = CAMPO_CHOICES.find(c => c.val === m.valor);
+    return ch ? ch.ejemplo : m.valor;
+  }
+  if (m.tipo === 'fijo') return m.valor || '...';
+  return `(dato extra: ${m.valor || '?'})`;
+}
+
+function updateMappedPreview() {
+  const wrap = document.getElementById('mappedPreviewWrap');
+  const bodyEl = document.getElementById('mappedPreviewBody');
+  if (!currentTemplate || !currentMapping.length) { wrap.style.display = 'none'; return; }
+
+  wrap.style.display = '';
+  const html = esc(currentTemplate.cuerpoRaw).replace(/\{\{(\d+)\}\}/g, (_, n) => {
+    const idx = parseInt(n) - 1;
+    const label = _mappingLabel(idx);
+    const color = VAR_COLORS[idx % VAR_COLORS.length];
+    return `<span style="background:${color}22; color:${color}; border:1px solid ${color}44; border-radius:4px; padding:0 4px; font-size:.82em; font-weight:600;">${esc(label)}</span>`;
+  });
+  bodyEl.innerHTML = html.replace(/\n/g, '<br>');
+}
+
 // ── Template preview ──────────────────────────────────────────────────────────
 function updateTemplatePreview(template) {
-  const card = document.getElementById('templatePreviewCard');
-  if (!template) { card.style.display = 'none'; return; }
-  card.style.display = '';
-  document.getElementById('prevBody').textContent = template.cuerpoRaw;
+  const noMsg  = document.getElementById('noTemplateMsg');
+  const bubble = document.getElementById('previewBubble');
+  const legend = document.getElementById('varLegendCard');
+
+  if (!template) {
+    noMsg.style.display  = '';
+    bubble.style.display = 'none';
+    legend.style.display = 'none';
+    return;
+  }
+  noMsg.style.display  = 'none';
+  bubble.style.display = '';
+
+  // Show raw body with {{N}} replaced by variable names (as colored badges)
+  const rawVars = template.variables || [];
+  const bodyHtml = esc(template.cuerpoRaw).replace(/\{\{(\d+)\}\}/g, (_, n) => {
+    const idx = parseInt(n) - 1;
+    const name = rawVars[idx] || `variable ${n}`;
+    const color = VAR_COLORS[idx % VAR_COLORS.length];
+    return `<span style="background:${color}22; color:${color}; border:1px solid ${color}44; border-radius:4px; padding:0 4px; font-size:.82em; font-weight:600;">${esc(name)}</span>`;
+  });
+  document.getElementById('prevBody').innerHTML = bodyHtml.replace(/\n/g, '<br>');
+
   const headerEl = document.getElementById('prevHeader');
   if (template.header_tipo !== 'none' && template.header_contenido) {
-    headerEl.textContent = template.header_tipo === 'text' ? template.header_contenido : `[${template.header_tipo.toUpperCase()}]`;
+    headerEl.textContent   = template.header_tipo === 'text' ? template.header_contenido : `[${template.header_tipo.toUpperCase()}]`;
     headerEl.style.display = '';
   } else headerEl.style.display = 'none';
+
   const footerEl = document.getElementById('prevFooter');
   if (template.footer) { footerEl.textContent = template.footer; footerEl.style.display = ''; }
   else footerEl.style.display = 'none';
-  document.getElementById('prevBtns').innerHTML = (template.botones || []).slice(0,3).map(b =>
-    `<div class="text-primary text-center border-top pt-1 mt-1 small">` +
-    (b.tipo==='url' ? '<i class="bi bi-box-arrow-up-right"></i> ' : b.tipo==='phone' ? '<i class="bi bi-telephone"></i> ' : '') +
-    b.texto + `</div>`
+
+  document.getElementById('prevBtns').innerHTML = (template.botones || []).slice(0, 3).map(b =>
+    `<div class="text-center py-1 px-2 rounded mt-1 small fw-semibold"
+          style="background:#1a3a5c; color:#60a5fa; border:1px solid #2d4e7a;">
+      ${b.tipo==='url' ? '<i class="bi bi-box-arrow-up-right me-1"></i>' : b.tipo==='phone' ? '<i class="bi bi-telephone me-1"></i>' : '<i class="bi bi-reply me-1"></i>'}
+      ${esc(b.texto)}
+    </div>`
+  ).join('');
+
+  // Variable legend in preview card
+  if (rawVars.length > 0) {
+    legend.style.display = '';
+    document.getElementById('varLegendItems').innerHTML = rawVars.map((name, i) => {
+      const color = VAR_COLORS[i % VAR_COLORS.length];
+      return `<span class="badge rounded-pill" style="background:${color}22; color:${color}; border:1px solid ${color}44;">&#123;&#123;${i+1}&#125;&#125; = ${esc(name) || `variable ${i+1}`}</span>`;
+    }).join('');
+  } else {
+    legend.style.display = 'none';
+  }
+}
+
+// ── Named vars detection ──────────────────────────────────────────────────────
+function showNamedVarsInfo(template) {
+  const card    = document.getElementById('namedVarsCard');
+  const listEl  = document.getElementById('namedVarsList');
+  const legacyCard = document.getElementById('variablesMappingCard');
+
+  if (!template) { card.style.display = 'none'; return; }
+
+  const matches = [...(template.cuerpoRaw || '').matchAll(/\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/g)];
+  const unique  = [...new Set(matches.map(m => m[1]))];
+
+  if (unique.length === 0) { card.style.display = 'none'; return; }
+
+  card.style.display = '';
+  legacyCard.style.display = 'none'; // named vars don't need mapping
+  listEl.innerHTML = unique.map(v =>
+    `<span class="badge rounded-pill" style="background:#10B98122; color:#10B981; border:1px solid #10B98144; font-size:.85rem;">
+      <i class="bi bi-braces me-1"></i>{{${esc(v)}}}
+    </span>`
   ).join('');
 }
 
@@ -518,14 +670,21 @@ const plantillaSelect = document.getElementById('id_plantilla');
 if (plantillaSelect) {
   plantillaSelect.addEventListener('change', function() {
     const pk = String(this.value);
-    const tpl = TEMPLATE_DATA[pk] || null;
-    buildVariableRows(tpl);
-    updateTemplatePreview(tpl);
+    currentTemplate = TEMPLATE_DATA[pk] || null;
+
+    // Detect named vs positional variables
+    const hasNamed = currentTemplate && /\{\{[a-zA-Z_]/.test(currentTemplate.cuerpoRaw || '');
+    if (hasNamed) {
+      showNamedVarsInfo(currentTemplate);
+    } else {
+      document.getElementById('namedVarsCard').style.display = 'none';
+      buildVariableRows(currentTemplate);
+    }
+    updateTemplatePreview(currentTemplate);
   });
   if (plantillaSelect.value) plantillaSelect.dispatchEvent(new Event('change'));
 }
 
-// Initial preview count
 updatePreviewCount();
 </script>
 {% endblock %}

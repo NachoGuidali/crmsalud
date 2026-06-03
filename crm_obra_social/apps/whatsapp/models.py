@@ -185,13 +185,40 @@ class PlantillaHSM(models.Model):
     def __str__(self):
         return self.nombre
 
+    # Fields accessible as named variables in templates
+    NAMED_FIELDS = {
+        'nombre_completo': lambda c: getattr(c, 'nombre_completo', '') or '',
+        'email':           lambda c: getattr(c, 'email', '') or '',
+        'plan':            lambda c: str(getattr(c, 'plan_interes', None) or getattr(c, 'plan', None) or ''),
+        'localidad':       lambda c: getattr(c, 'localidad', '') or '',
+        'provincia':       lambda c: getattr(c, 'provincia', '') or '',
+        'telefono':        lambda c: getattr(c, 'telefono', '') or '',
+        'dni':             lambda c: getattr(c, 'dni', '') or '',
+        'notas':           lambda c: getattr(c, 'notas', '') or '',
+    }
+
     def preview(self, valores=None):
-        """Return template body with variables replaced by given values."""
+        """Return body with positional {{1}}, {{2}} replaced by values list (legacy format)."""
         text = self.cuerpo
         if valores:
             for i, val in enumerate(valores, start=1):
                 text = text.replace(f'{{{{{i}}}}}', str(val))
         return text
+
+    def preview_for_contact(self, contact):
+        """Return body with named {{field_name}} variables replaced with contact data."""
+        import re
+
+        def replace(match):
+            field = match.group(1)
+            if field in self.NAMED_FIELDS:
+                return self.NAMED_FIELDS[field](contact)
+            # Fall back to datos_extra
+            extras = getattr(contact, 'datos_extra', {}) or {}
+            val = extras.get(field)
+            return str(val) if val is not None else f'{{{{{field}}}}}'
+
+        return re.sub(r'\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}', replace, self.cuerpo)
 
 
 class BotRespuesta(models.Model):

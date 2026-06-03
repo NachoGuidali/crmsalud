@@ -14,8 +14,8 @@
         <form method="post">
           {% csrf_token %}
 
-          <h6 class="fw-semibold text-muted mb-3">Datos básicos</h6>
-          <div class="row g-3 mb-3">
+          <h6 class="fw-semibold mb-3" style="color:var(--text2)">Datos básicos</h6>
+          <div class="row g-3 mb-4">
             <div class="col-md-8">
               <label class="form-label fw-semibold">Nombre *</label>
               <input name="nombre" class="form-control" value="{{ form.instance.nombre|default:'' }}" required placeholder="ej: bienvenida_obra_social">
@@ -26,10 +26,10 @@
             </div>
           </div>
 
-          <h6 class="fw-semibold text-muted mt-4 mb-3">Header (opcional)</h6>
-          <div class="row g-3 mb-3">
+          <h6 class="fw-semibold mb-3" style="color:var(--text2)">Header <span class="fw-normal text-muted">(opcional)</span></h6>
+          <div class="row g-3 mb-4">
             <div class="col-md-4">
-              <label class="form-label fw-semibold">Tipo de header</label>
+              <label class="form-label fw-semibold">Tipo</label>
               <select name="header_tipo" class="form-select" id="headerTipo">
                 {% for val, label in form.instance.HEADER_CHOICES %}
                 <option value="{{ val }}" {% if form.instance.header_tipo == val %}selected{% endif %}>{{ label }}</option>
@@ -42,57 +42,71 @@
                 {% endfor %}
               </select>
             </div>
-            <div class="col-md-8" id="headerContenidoWrap">
+            <div class="col-md-8">
               <label class="form-label fw-semibold">Contenido del header</label>
               <input name="header_contenido" class="form-control" value="{{ form.instance.header_contenido|default:'' }}"
-                     id="headerContenido" placeholder="Texto o URL del medio">
-              <div class="form-text">Texto si tipo=Texto · URL si tipo=Imagen/Video/Documento</div>
+                     id="headerContenido" placeholder="Texto o URL del archivo">
+              <div class="form-text">Texto si tipo=Texto · URL pública si tipo=Imagen/Video/Documento</div>
             </div>
           </div>
 
-          <h6 class="fw-semibold text-muted mt-4 mb-3">Cuerpo *</h6>
-          <div class="mb-3">
-            <textarea name="cuerpo" class="form-control" rows="5" id="cuerpoField"
-                      placeholder="Hola {{1}}, te contactamos de {{2}} para informarte..." required>{{ form.instance.cuerpo|default:'' }}</textarea>
-            <div class="form-text">Usá <code>{{1}}</code>, <code>{{2}}</code>... para variables personalizables.</div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Nombres de variables (en orden)</label>
-            <input name="variables" class="form-control" id="variablesField"
-                   value="{{ variables_json }}"
-                   placeholder='["nombre", "plan"]'>
-            <div class="form-text">JSON array con el nombre de cada variable: <code>["nombre del lead", "plan elegido"]</code></div>
+          <!-- ── CUERPO ──────────────────────────────────────────────────── -->
+          <h6 class="fw-semibold mb-1" style="color:var(--text2)">Cuerpo del mensaje *</h6>
+
+          <!-- Variable reference chips -->
+          <div class="mb-2">
+            <span class="small me-1" style="color:var(--text3)">Insertar variable:</span>
+            {% with vars="nombre_completo,email,plan,localidad,provincia,telefono,dni,notas" %}
+            {% for v in vars.split(",") %}
+            <button type="button" class="btn btn-sm me-1 mb-1 var-chip" data-var="{{v}}"
+                    style="background:var(--bg3); color:var(--blue); border:1px solid var(--blue)44; font-size:.75rem; padding:2px 8px; border-radius:20px;">
+              {{v}}
+            </button>
+            {% endfor %}
+            {% endwith %}
+            <span class="small ms-1" style="color:var(--text3)">· o escribí <code>{{mi_campo}}</code> directamente</span>
           </div>
 
-          <h6 class="fw-semibold text-muted mt-4 mb-3">Footer (opcional)</h6>
-          <div class="mb-3">
+          <div class="mb-2">
+            <textarea name="cuerpo" class="form-control" rows="6" id="cuerpoField"
+                      placeholder="Hola {{nombre_completo}}, te contactamos de Supreg sobre el plan {{plan}}." required>{{ form.instance.cuerpo|default:'' }}</textarea>
+            <div class="form-text">
+              Formato: <code>*negrita*</code> · <code>_cursiva_</code> · <code>~tachado~</code>
+            </div>
+          </div>
+
+          <!-- Hidden variables field (kept for backward compat, auto-populated) -->
+          <input type="hidden" name="variables" id="variablesField" value="{{ variables_json }}">
+
+          <!-- ── FOOTER ─────────────────────────────────────────────────── -->
+          <h6 class="fw-semibold mb-2 mt-4" style="color:var(--text2)">Footer <span class="fw-normal text-muted">(opcional)</span></h6>
+          <div class="mb-4">
             <input name="footer" class="form-control" maxlength="60"
                    value="{{ form.instance.footer|default:'' }}"
-                   placeholder="ej: Respondé STOP para cancelar">
-            <div class="form-text">Máximo 60 caracteres.</div>
+                   placeholder="ej: Respondé STOP para cancelar" id="footerField">
+            <div class="form-text">Aparece en letra pequeña debajo del mensaje. Máx. 60 caracteres.</div>
           </div>
 
-          <h6 class="fw-semibold text-muted mt-4 mb-3">Botones (opcional, máximo 3)</h6>
-          <div class="mb-3">
-            <textarea name="botones" class="form-control font-monospace" rows="4" id="botonesField"
-                      placeholder='[{"tipo":"reply","texto":"Sí, me interesa"},{"tipo":"url","texto":"Ver planes","valor":"https://..."}]'>{{ botones_json }}</textarea>
-            <div class="form-text">
-              JSON array. Tipos: <code>reply</code> (respuesta rápida),
-              <code>url</code> (abrir URL, campo <code>"valor"</code>),
-              <code>phone</code> (llamar, campo <code>"valor"</code>).
-            </div>
+          <!-- ── BOTONES ────────────────────────────────────────────────── -->
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-semibold mb-0" style="color:var(--text2)">Botones <span class="fw-normal text-muted">(opcional, máx. 3)</span></h6>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="btnAddBtn" onclick="addBtn()">
+              <i class="bi bi-plus-lg"></i> Agregar botón
+            </button>
           </div>
+          <div id="btnList" class="mb-4"></div>
+          <input type="hidden" name="botones" id="botonesField" value="{{ botones_json }}">
 
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Estado</label>
-            <div class="form-check mt-1">
+          <!-- ── ESTADO ─────────────────────────────────────────────────── -->
+          <div class="mb-4">
+            <div class="form-check">
               <input type="checkbox" name="activa" class="form-check-input" id="activaCheck"
                      {% if form.instance.activa or not form.instance.pk %}checked{% endif %}>
-              <label class="form-check-label" for="activaCheck">Activa para uso en campañas y automatizaciones</label>
+              <label class="form-check-label" for="activaCheck">Activa — disponible para campañas y automatizaciones</label>
             </div>
           </div>
 
-          <div class="d-flex gap-2 mt-4">
+          <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Guardar</button>
             <a href="{% url 'whatsapp:plantilla_list' %}" class="btn btn-outline-secondary">Cancelar</a>
           </div>
@@ -101,61 +115,199 @@
     </div>
   </div>
 
-  <!-- Preview panel -->
+  <!-- ── PREVIEW ─────────────────────────────────────────────────────────── -->
   <div class="col-12 col-lg-5">
-    <div class="card border-0 shadow-sm sticky-top" style="top: 70px;">
-      <div class="card-header bg-transparent fw-semibold"><i class="bi bi-phone"></i> Preview</div>
-      <div class="card-body" style="background:#e5ddd5; border-radius: 0 0 8px 8px;">
-        <div class="bg-white rounded-3 p-3 shadow-sm" style="max-width:300px; font-size:.9rem;">
-          <div id="previewHeader" class="fw-semibold text-muted small mb-1" style="display:none"></div>
-          <div id="previewBody" style="white-space:pre-wrap;">{{ form.instance.cuerpo|default:'' }}</div>
-          <div id="previewFooter" class="text-muted small mt-1" style="display:none"></div>
-          <div id="previewBtns" class="mt-2"></div>
-          <div class="text-muted" style="font-size:.65rem; margin-top:4px;">{{ "now"|date:"H:i" }} ✓✓</div>
-        </div>
+
+    <!-- Variable reference card -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header bg-transparent fw-semibold" style="color:var(--blue)"><i class="bi bi-braces me-1"></i> Variables disponibles</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0 small">
+          <tbody>
+            <tr><td class="ps-3"><code>{% verbatim %}{{nombre_completo}}{% endverbatim %}</code></td><td style="color:var(--text3)">Nombre completo del lead/cliente</td></tr>
+            <tr><td class="ps-3"><code>{% verbatim %}{{email}}{% endverbatim %}</code></td><td style="color:var(--text3)">Email</td></tr>
+            <tr><td class="ps-3"><code>{% verbatim %}{{plan}}{% endverbatim %}</code></td><td style="color:var(--text3)">Plan de interés / plan contratado</td></tr>
+            <tr><td class="ps-3"><code>{% verbatim %}{{localidad}}{% endverbatim %}</code></td><td style="color:var(--text3)">Localidad</td></tr>
+            <tr><td class="ps-3"><code>{% verbatim %}{{provincia}}{% endverbatim %}</code></td><td style="color:var(--text3)">Provincia</td></tr>
+            <tr><td class="ps-3"><code>{% verbatim %}{{telefono}}{% endverbatim %}</code></td><td style="color:var(--text3)">Teléfono</td></tr>
+            <tr><td class="ps-3"><code>{% verbatim %}{{dni}}{% endverbatim %}</code></td><td style="color:var(--text3)">DNI</td></tr>
+            <tr><td class="ps-3"><code>{% verbatim %}{{notas}}{% endverbatim %}</code></td><td style="color:var(--text3)">Notas</td></tr>
+            <tr style="border-top:1px solid var(--border)">
+              <td class="ps-3" colspan="2" style="color:var(--text3)">
+                <i class="bi bi-info-circle me-1"></i>
+                Campos extra de <code>datos_extra</code>: usá <code>{% verbatim %}{{nombre_del_campo}}{% endverbatim %}</code>
+                con el slug exacto (ej: <code>{% verbatim %}{{empresa}}{% endverbatim %}</code>)
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
+
+    <!-- Preview -->
+    <div class="card border-0 shadow-sm sticky-top" style="top:70px;">
+      <div class="card-header bg-transparent fw-semibold"><i class="bi bi-phone me-1"></i> Preview</div>
+      <div class="card-body p-3" style="background:#060c14; border-radius:0 0 8px 8px;">
+        <div class="rounded-3 p-3" style="background:#1a3a5c; max-width:300px; font-size:.9rem; color:#e8edf3; word-break:break-word;">
+          <div id="previewHeader" class="fw-semibold small mb-1" style="display:none; color:#93c5fd;"></div>
+          <div id="previewBody" style="line-height:1.5;"></div>
+          <div id="previewFooter" class="mt-1" style="display:none; font-size:.75rem; color:#94a3b8;"></div>
+          <div class="mt-1" style="font-size:.65rem; color:#64748b; text-align:right;">{{ "now"|date:"H:i" }} ✓✓</div>
+        </div>
+        <div id="previewBtns" class="mt-1" style="max-width:300px;"></div>
+      </div>
+    </div>
+
   </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function updatePreview() {
-  const body = document.getElementById('cuerpoField').value;
-  const footer = document.querySelector('[name="footer"]').value;
-  const headerTipo = document.getElementById('headerTipo').value;
-  const headerContenido = document.getElementById('headerContenido').value;
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-  document.getElementById('previewBody').textContent = body;
+// Example values shown in preview for each named variable
+const VAR_EXAMPLES = {
+  nombre_completo: 'María González',
+  email:           'maria@gmail.com',
+  plan:            'Plan Familiar',
+  localidad:       'Córdoba',
+  provincia:       'Córdoba',
+  telefono:        '+5493511234567',
+  dni:             '30123456',
+  notas:           '(notas del lead)',
+};
+
+// ── Insert variable at cursor ─────────────────────────────────────────────────
+document.querySelectorAll('.var-chip').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const ta  = document.getElementById('cuerpoField');
+    const ins = '{{' + this.dataset.var + '}}';
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    ta.value = ta.value.substring(0, s) + ins + ta.value.substring(e);
+    ta.selectionStart = ta.selectionEnd = s + ins.length;
+    ta.focus();
+    updatePreview();
+  });
+});
+
+// ── BUTTONS ──────────────────────────────────────────────────────────────────
+let buttons = [];
+
+function initBtns() {
+  try { buttons = JSON.parse(document.getElementById('botonesField').value || '[]'); } catch(e) { buttons = []; }
+  renderBtnRows();
+}
+
+function addBtn() {
+  if (buttons.length >= 3) return;
+  buttons.push({tipo: 'reply', texto: '', valor: ''});
+  renderBtnRows();
+  syncBtnsField();
+}
+
+function removeBtn(i) {
+  buttons.splice(i, 1);
+  renderBtnRows();
+  syncBtnsField();
+  updatePreview();
+}
+
+function updateBtnProp(i, prop, val) {
+  if (!buttons[i]) return;
+  buttons[i][prop] = val;
+  if (prop === 'tipo') renderBtnRows();
+  syncBtnsField();
+  updatePreview();
+}
+
+function renderBtnRows() {
+  const c = document.getElementById('btnList');
+  const addBtnEl = document.getElementById('btnAddBtn');
+  if (addBtnEl) addBtnEl.disabled = buttons.length >= 3;
+
+  if (buttons.length === 0) {
+    c.innerHTML = '<div class="small fst-italic mb-2" style="color:var(--text3)">Sin botones. Podés agregar hasta 3 botones de acción.</div>';
+    return;
+  }
+  c.innerHTML = buttons.map((btn, i) => `
+    <div class="border rounded p-2 mb-2" style="background:var(--bg3); border-color:var(--border)!important;">
+      <div class="d-flex gap-2 align-items-start flex-wrap">
+        <div>
+          <label class="form-label small mb-1" style="color:var(--text3)">Tipo</label>
+          <select class="form-select form-select-sm" style="min-width:150px;" onchange="updateBtnProp(${i},'tipo',this.value)">
+            <option value="reply" ${btn.tipo==='reply'?'selected':''}>↩ Respuesta rápida</option>
+            <option value="url"   ${btn.tipo==='url'  ?'selected':''}>🔗 Abrir URL</option>
+            <option value="phone" ${btn.tipo==='phone'?'selected':''}>📞 Llamar</option>
+          </select>
+        </div>
+        <div style="flex:1;min-width:120px;">
+          <label class="form-label small mb-1" style="color:var(--text3)">Texto del botón</label>
+          <input type="text" class="form-control form-control-sm" maxlength="25"
+                 value="${esc(btn.texto||'')}" placeholder="ej: Sí, me interesa"
+                 oninput="updateBtnProp(${i},'texto',this.value)">
+        </div>
+        ${btn.tipo !== 'reply' ? `
+        <div style="flex:1;min-width:140px;">
+          <label class="form-label small mb-1" style="color:var(--text3)">${btn.tipo==='url'?'URL de destino':'Número a llamar'}</label>
+          <input type="text" class="form-control form-control-sm"
+                 value="${esc(btn.valor||'')}" placeholder="${btn.tipo==='url'?'https://...':'+5411...'}"
+                 oninput="updateBtnProp(${i},'valor',this.value)">
+        </div>` : ''}
+        <div class="d-flex align-items-end pb-1">
+          <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeBtn(${i})"><i class="bi bi-trash"></i></button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function syncBtnsField() {
+  document.getElementById('botonesField').value = JSON.stringify(buttons);
+}
+
+// ── PREVIEW ──────────────────────────────────────────────────────────────────
+function updatePreview() {
+  const rawBody  = document.getElementById('cuerpoField').value;
+  const footer   = document.getElementById('footerField')?.value || '';
+  const headerT  = document.getElementById('headerTipo').value;
+  const headerC  = document.getElementById('headerContenido').value;
+
+  // Replace {{field_name}} with example value in a colored badge
+  const bodyHtml = esc(rawBody).replace(/\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/g, (_, field) => {
+    const example = VAR_EXAMPLES[field] || field;
+    return `<span style="background:#3B7EF622; color:#3B7EF6; border:1px solid #3B7EF644; border-radius:4px; padding:0 4px; font-size:.82em; font-weight:600;">${esc(example)}</span>`;
+  });
+  document.getElementById('previewBody').innerHTML = bodyHtml.replace(/\n/g, '<br>');
 
   const footerEl = document.getElementById('previewFooter');
-  if (footer) { footerEl.textContent = footer; footerEl.style.display = ''; }
-  else footerEl.style.display = 'none';
+  footerEl.textContent = footer;
+  footerEl.style.display = footer ? '' : 'none';
 
   const headerEl = document.getElementById('previewHeader');
-  if (headerTipo !== 'none' && headerContenido) {
-    headerEl.textContent = headerTipo === 'text' ? headerContenido : '[' + headerTipo.toUpperCase() + ']';
+  if (headerT && headerT !== 'none' && headerC) {
+    headerEl.textContent = headerT === 'text' ? headerC : `[${headerT.toUpperCase()}]`;
     headerEl.style.display = '';
   } else headerEl.style.display = 'none';
 
-  const btnsEl = document.getElementById('previewBtns');
-  try {
-    const btns = JSON.parse(document.getElementById('botonesField').value || '[]');
-    btnsEl.innerHTML = btns.slice(0,3).map(b =>
-      '<div class="text-primary text-center border-top pt-1 mt-1 small">' +
-      (b.tipo === 'url' ? '<i class="bi bi-box-arrow-up-right"></i> ' : b.tipo === 'phone' ? '<i class="bi bi-telephone"></i> ' : '') +
-      (b.texto || '') + '</div>'
-    ).join('');
-  } catch(e) { btnsEl.innerHTML = ''; }
+  document.getElementById('previewBtns').innerHTML = buttons.slice(0, 3).map(b => `
+    <div class="text-center py-1 px-2 rounded mt-1 small fw-semibold"
+         style="background:#1a3a5c; color:#60a5fa; border:1px solid #2d4e7a;">
+      ${b.tipo==='url'?'<i class="bi bi-box-arrow-up-right me-1"></i>':b.tipo==='phone'?'<i class="bi bi-telephone me-1"></i>':'<i class="bi bi-reply me-1"></i>'}
+      ${esc(b.texto||'Botón')}
+    </div>`).join('');
 }
 
+// ── Init ─────────────────────────────────────────────────────────────────────
+initBtns();
+updatePreview();
+
 document.getElementById('cuerpoField').addEventListener('input', updatePreview);
-document.querySelector('[name="footer"]').addEventListener('input', updatePreview);
+document.getElementById('footerField')?.addEventListener('input', updatePreview);
 document.getElementById('headerTipo').addEventListener('change', updatePreview);
 document.getElementById('headerContenido').addEventListener('input', updatePreview);
-document.getElementById('botonesField').addEventListener('input', updatePreview);
-
-updatePreview();
 </script>
 {% endblock %}

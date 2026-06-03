@@ -17,6 +17,12 @@
 .btn-interactivo { display: inline-block; border: 1px solid var(--blue); color: var(--blue); border-radius: 8px; padding: 3px 10px; margin: 2px 3px 0 0; font-size: .8rem; cursor: default; }
 .media-thumb { max-width: 220px; max-height: 200px; border-radius: 8px; cursor: pointer; }
 audio { max-width: 240px; }
+@media (max-width: 767.98px) {
+  .chat-container { height: calc(100vh - 220px); }
+  .bubble { max-width: 88%; }
+  audio { max-width: 180px; }
+  .media-thumb { max-width: 180px; }
+}
 #tab-template, #tab-interactive { background: var(--bg2) !important; border-color: var(--border) !important; }
 #plantillaPreview { background: var(--bg3) !important; color: var(--text2) !important; }
 .nav-tabs .nav-link { color: var(--text2); border-color: var(--border); }
@@ -59,7 +65,7 @@ audio { max-width: 240px; }
 <form method="post" class="mb-2 d-flex gap-2 align-items-center">
   {% csrf_token %}
   <input type="hidden" name="action" value="assign_agent">
-  <select name="agente_id" class="form-select form-select-sm" style="max-width:220px;">
+  <select name="agente_id" class="form-select form-select-sm">
     <option value="">Sin asignar</option>
     {% for a in agents %}
     <option value="{{ a.pk }}" {% if conv.agente_id == a.pk %}selected{% endif %}>{{ a.get_full_name }}</option>

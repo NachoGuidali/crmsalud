@@ -30,7 +30,7 @@
         <tr>
           <td>
             <div class="fw-semibold">{{ p.nombre }}</div>
-            <small class="text-muted text-truncate d-block" style="max-width:320px;">{{ p.cuerpo|truncatechars:60 }}</small>
+            <small class="text-muted text-truncate d-block" style="max-width:min(320px,100%);">{{ p.cuerpo|truncatechars:60 }}</small>
           </td>
           <td>
             {% if p.header_tipo != 'none' %}
