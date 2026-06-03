@@ -1,5 +1,7 @@
+import base64
 import json
 import logging
+import os
 import time
 
 import requests
@@ -316,3 +318,90 @@ def ensure_instance_exists():
         logger.error('Error creating Evolution API instance: %s', e)
     except Exception as e:
         logger.error('Error creating Evolution API instance: %s', e)
+
+
+# ── Media helpers ──────────────────────────────────────────────────────────────
+
+def get_mediatype(mime: str) -> str:
+    """Classify MIME type for Evolution API mediatype field."""
+    m = mime.split(';')[0].strip().lower()
+    if m.startswith('image/'): return 'image'
+    if m.startswith('video/'): return 'video'
+    if m.startswith('audio/'): return 'audio'
+    return 'document'
+
+
+def _ext_from_mime(mime: str, original_filename: str = '') -> str:
+    """Return file extension (.jpg, .pdf, …) based on MIME type or filename."""
+    if original_filename and '.' in original_filename:
+        return '.' + original_filename.rsplit('.', 1)[-1].lower()
+    base_mime = mime.split(';')[0].strip().lower()
+    mime_map = {
+        'image/jpeg': '.jpg', 'image/jpg': '.jpg', 'image/png': '.png',
+        'image/gif': '.gif', 'image/webp': '.webp',
+        'audio/ogg': '.ogg', 'audio/mpeg': '.mp3', 'audio/mp4': '.m4a',
+        'audio/wav': '.wav', 'audio/opus': '.ogg', 'audio/aac': '.aac',
+        'video/mp4': '.mp4', 'video/3gpp': '.3gp', 'video/webm': '.webm',
+        'application/pdf': '.pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+        'application/msword': '.doc', 'application/vnd.ms-excel': '.xls',
+        'application/zip': '.zip',
+    }
+    if base_mime in mime_map:
+        return mime_map[base_mime]
+    if base_mime.startswith('audio/'): return '.ogg'
+    if base_mime.startswith('image/'): return '.jpg'
+    if base_mime.startswith('video/'): return '.mp4'
+    return '.bin'
+
+
+def download_and_save_media(message_id: str, conv_pk: int, filename: str = '') -> tuple:
+    """
+    Ask Evolution API to decrypt and return the media as base64.
+    Saves the file locally under MEDIA_ROOT/uploads/conv_{pk}/.
+    Returns (local_url, mime) or ('', '') on failure.
+
+    Evolution API v2 endpoint:
+      POST /chat/getBase64FromMediaMessage/{instance}
+      Body: {"message": {"key": {"id": "<message_id>"}}}
+    """
+    try:
+        url = _evo_url(f'/chat/getBase64FromMediaMessage/{_instance()}')
+        r = requests.post(
+            url,
+            json={'message': {'key': {'id': message_id}}},
+            headers=_evo_headers(),
+            timeout=30,
+        )
+        if not r.ok:
+            logger.warning('getBase64FromMediaMessage %s → %s: %s', message_id, r.status_code, r.text[:200])
+            return '', ''
+
+        data = r.json()
+        b64 = data.get('base64') or data.get('data') or ''
+        if not b64:
+            logger.warning('getBase64FromMediaMessage %s: empty base64', message_id)
+            return '', ''
+
+        # Strip data URI prefix if present
+        if ',' in b64:
+            b64 = b64.split(',', 1)[1]
+
+        mime = data.get('mimetype') or data.get('mediaType') or 'application/octet-stream'
+        ext = _ext_from_mime(mime, filename)
+        safe_name = f'{message_id[:16]}{ext}'
+
+        upload_dir = os.path.join(settings.MEDIA_ROOT, 'uploads', f'conv_{conv_pk}')
+        os.makedirs(upload_dir, exist_ok=True)
+
+        with open(os.path.join(upload_dir, safe_name), 'wb') as f:
+            f.write(base64.b64decode(b64))
+
+        local_url = f'{settings.MEDIA_URL}uploads/conv_{conv_pk}/{safe_name}'
+        logger.info('Media saved locally: %s', local_url)
+        return local_url, mime
+
+    except Exception as e:
+        logger.error('Error downloading media %s: %s', message_id, e)
+        return '', ''

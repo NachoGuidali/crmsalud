@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -401,6 +402,8 @@ class ConversacionMessagesAPIView(LoginRequiredMixin, View):
                 'tipo': msg.tipo,
                 'contenido': msg.contenido,
                 'media_url': msg.media_url,
+                'media_mime': msg.media_mime,
+                'media_filename': msg.media_filename,
                 'status': msg.status,
                 'timestamp': msg.timestamp.strftime('%d/%m %H:%M'),
             })
@@ -900,17 +903,22 @@ class APIEnviarMensajeView(View):
 class SendMediaView(LoginRequiredMixin, View):
     """
     AJAX POST: upload a file and send it as a WhatsApp media message.
-    Accepts multipart/form-data with: conv_pk, media_file, caption (optional)
-    Returns JSON: {ok, msg_id, mediatype, filename, local_url}
+
+    Accepts multipart/form-data:
+      - conv_pk  (required): conversation PK
+      - media_file (required): the file
+      - caption (optional): text caption
+
+    Returns JSON: {ok, msg_id, mediatype, filename, media_url, media_mime, caption}
     """
-    MAX_SIZE_MB = 20
+    MAX_SIZE_MB = 16
 
     def post(self, request):
-        import base64
+        import base64 as b64_mod
         import mimetypes
-        from django.core.files.storage import default_storage
-        from django.core.files.base import ContentFile
-        from .sender import send_media_base64
+        import re as re_mod
+        from django.utils import timezone as tz
+        from .sender import get_mediatype, send_media_base64
 
         conv_pk = request.POST.get('conv_pk', '').strip()
         if not conv_pk:
@@ -918,7 +926,6 @@ class SendMediaView(LoginRequiredMixin, View):
 
         conv = get_object_or_404(Conversacion, pk=conv_pk)
 
-        # Permission: own conversations only (unless supervisor)
         if not request.user.can_see_all_leads:
             if conv.agente != request.user and getattr(conv.lead, 'agente', None) != request.user:
                 return JsonResponse({'ok': False, 'error': 'Sin permiso'}, status=403)
@@ -927,72 +934,89 @@ class SendMediaView(LoginRequiredMixin, View):
         if not uploaded:
             return JsonResponse({'ok': False, 'error': 'No se recibió ningún archivo'}, status=400)
 
-        # Size limit
         if uploaded.size > self.MAX_SIZE_MB * 1024 * 1024:
             return JsonResponse({'ok': False, 'error': f'El archivo supera {self.MAX_SIZE_MB} MB'}, status=400)
 
-        filename = uploaded.name
-        content_type = uploaded.content_type or mimetypes.guess_type(filename)[0] or 'application/octet-stream'
-        caption = request.POST.get('caption', '').strip()
+        filename  = uploaded.name or 'archivo'
+        mime      = uploaded.content_type or mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+        mediatype = get_mediatype(mime)
+        caption   = request.POST.get('caption', '').strip()
 
-        # Determine Evolution API mediatype
-        if content_type.startswith('image/'):
-            mediatype = 'image'
-            msg_tipo = Mensaje.TIPO_IMAGEN
-        elif content_type.startswith('video/'):
-            mediatype = 'video'
-            msg_tipo = Mensaje.TIPO_VIDEO
-        elif content_type.startswith('audio/'):
-            mediatype = 'audio'
-            msg_tipo = Mensaje.TIPO_AUDIO
-        else:
-            mediatype = 'document'
-            msg_tipo = Mensaje.TIPO_DOCUMENTO
+        tipo_map = {
+            'image':    Mensaje.TIPO_IMAGEN,
+            'video':    Mensaje.TIPO_VIDEO,
+            'audio':    Mensaje.TIPO_AUDIO,
+            'document': Mensaje.TIPO_DOCUMENTO,
+        }
+        msg_tipo = tipo_map.get(mediatype, Mensaje.TIPO_DOCUMENTO)
 
         file_bytes = uploaded.read()
-        b64 = base64.b64encode(file_bytes).decode('utf-8')
 
-        # Save locally for display in the chat and documents tab
-        from django.utils import timezone as tz
-        save_path = f'chat_media/{tz.now().strftime("%Y/%m")}/{filename}'
-        saved_name = default_storage.save(save_path, ContentFile(file_bytes))
-        local_url = default_storage.url(saved_name)
+        # Save locally first (so it's available in chat even if send fails partially)
+        safe_name = re_mod.sub(r'[^\w.\-]', '_', filename)
+        upload_dir = os.path.join(settings.MEDIA_ROOT, 'uploads', f'conv_{conv.pk}')
+        os.makedirs(upload_dir, exist_ok=True)
+        local_path = os.path.join(upload_dir, safe_name)
+        with open(local_path, 'wb') as fh:
+            fh.write(file_bytes)
+        local_url = f'{settings.MEDIA_URL}uploads/conv_{conv.pk}/{safe_name}'
 
-        try:
-            result = send_media_base64(conv.telefono, b64, mediatype, content_type, filename, caption)
-            wam_id = result.get('id', '')
-
-            msg = Mensaje.objects.create(
-                conversacion=conv,
-                lead=conv.lead,
-                direccion=Mensaje.DIR_SALIENTE,
-                tipo=msg_tipo,
-                contenido=caption or filename,
-                whatsapp_message_id=wam_id,
-                media_url=local_url,
-                status=Mensaje.STATUS_ENVIADO,
-                enviado_por=request.user,
-                timestamp=tz.now(),
-            )
-            Conversacion.objects.filter(pk=conv.pk).update(ultimo_mensaje_at=tz.now())
-            _auto_contactado(conv)
-
-            return JsonResponse({
-                'ok': True,
-                'msg_id': msg.pk,
-                'mediatype': mediatype,
-                'filename': filename,
-                'local_url': local_url,
-                'caption': caption,
-            })
-        except Exception as e:
-            # Clean up local file if send failed
+        # Send via Evolution API — try plain base64 first, then data URI
+        b64 = b64_mod.b64encode(file_bytes).decode('utf-8')
+        result = None
+        last_err = None
+        for media_data in [b64, f'data:{mime};base64,{b64}']:
             try:
-                default_storage.delete(saved_name)
+                result = send_media_base64(conv.telefono, media_data, mediatype, mime, filename, caption)
+                break
+            except Exception as e:
+                last_err = e
+
+        if result is None:
+            logger.error('SendMediaView: all send attempts failed for %s: %s', conv.telefono, last_err)
+            return JsonResponse({'ok': False, 'error': str(last_err)[:120]}, status=500)
+
+        wam_id = result.get('id', '')
+        msg = Mensaje.objects.create(
+            conversacion=conv,
+            lead=conv.lead,
+            direccion=Mensaje.DIR_SALIENTE,
+            tipo=msg_tipo,
+            contenido=caption or filename,
+            whatsapp_message_id=wam_id,
+            media_url=local_url,
+            media_mime=mime,
+            media_filename=filename,
+            status=Mensaje.STATUS_ENVIADO,
+            enviado_por=request.user,
+            timestamp=tz.now(),
+        )
+        Conversacion.objects.filter(pk=conv.pk).update(ultimo_mensaje_at=tz.now())
+        _auto_contactado(conv)
+
+        # Also save to lead's documents tab if it's a document
+        if conv.lead and mediatype == 'document':
+            try:
+                from apps.leads.models import Documento
+                Documento.objects.create(
+                    lead=conv.lead,
+                    nombre=f'WA enviado — {filename}',
+                    tipo=Documento.TIPO_OTRO,
+                    url_externa=local_url,
+                    fuente=Documento.FUENTE_WHATSAPP,
+                )
             except Exception:
                 pass
-            logger.error('SendMediaView error to %s: %s', conv.telefono, e)
-            return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+        return JsonResponse({
+            'ok': True,
+            'msg_id': msg.pk,
+            'mediatype': mediatype,
+            'filename': filename,
+            'media_url': local_url,
+            'media_mime': mime,
+            'caption': caption,
+        })
 
 
 class BotToggleView(LoginRequiredMixin, View):

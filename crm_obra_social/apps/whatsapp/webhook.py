@@ -75,7 +75,7 @@ def _parse_message_upsert(payload: dict) -> list:
 
         msg_type = _normalize_type(msg_type_raw)
         content = _extract_content_evo(message, msg_type_raw)
-        media_url = _extract_media_url_evo(message, msg_type_raw)
+        media_url, media_mime, media_filename = _extract_media_fields(message, msg_type_raw)
         contact_name = data.get('pushName', '')
 
         if isinstance(timestamp_val, (int, float)):
@@ -89,6 +89,8 @@ def _parse_message_upsert(payload: dict) -> list:
             'type': msg_type,
             'content': content,
             'media_url': media_url,
+            'media_mime': media_mime,
+            'media_filename': media_filename,
             'timestamp': ts,
             'contact_name': contact_name,
         })
@@ -154,22 +156,45 @@ def _extract_content_evo(message: dict, msg_type_raw: str) -> str:
     return f'[{msg_type_raw}]'
 
 
-def _extract_media_url_evo(message: dict, msg_type_raw: str) -> str:
-    """Extract direct media URL from Evolution API webhook (already included in payload)."""
-    media_keys = {
-        'imageMessage': 'imageMessage',
-        'videoMessage': 'videoMessage',
-        'documentMessage': 'documentMessage',
-        'audioMessage': 'audioMessage',
-        'stickerMessage': 'stickerMessage',
+def _extract_media_fields(message: dict, msg_type_raw: str) -> tuple:
+    """
+    Extract (url, mime, filename) from an Evolution API media message payload.
+    Returns ('', '', '') for non-media messages.
+    """
+    # Map messageType → (inner key, default mime, default filename)
+    type_map = {
+        'imageMessage':    ('imageMessage',    'image/jpeg',                ''),
+        'videoMessage':    ('videoMessage',    'video/mp4',                 ''),
+        'audioMessage':    ('audioMessage',    'audio/ogg; codecs=opus',    ''),
+        'stickerMessage':  ('stickerMessage',  'image/webp',                ''),
+        'documentMessage': ('documentMessage', 'application/octet-stream',  ''),
     }
-    key = media_keys.get(msg_type_raw)
-    if key:
-        return message.get(key, {}).get('url', '')
+
     if msg_type_raw == 'documentWithCaptionMessage':
-        inner = message.get('documentWithCaptionMessage', {}).get('message', {}).get('documentMessage', {})
-        return inner.get('url', '')
-    return ''
+        inner = (message.get('documentWithCaptionMessage', {})
+                 .get('message', {})
+                 .get('documentMessage', {}))
+        url  = inner.get('url', '') or inner.get('mediaUrl', '')
+        mime = inner.get('mimetype', 'application/octet-stream')
+        fname = inner.get('title', '') or inner.get('fileName', '') or inner.get('caption', '')
+        return url, mime, fname
+
+    entry = type_map.get(msg_type_raw)
+    if not entry:
+        return '', '', ''
+
+    inner_key, default_mime, _ = entry
+    obj = message.get(inner_key, {})
+    url   = obj.get('url', '') or obj.get('mediaUrl', '')
+    mime  = obj.get('mimetype', default_mime) or default_mime
+    fname = obj.get('title', '') or obj.get('fileName', '') or obj.get('caption', '')
+    return url, mime, fname
+
+
+def _extract_media_url_evo(message: dict, msg_type_raw: str) -> str:
+    """Kept for backwards compat — use _extract_media_fields() for new code."""
+    url, _, _ = _extract_media_fields(message, msg_type_raw)
+    return url
 
 
 def _process_status_updates(update_list: list):

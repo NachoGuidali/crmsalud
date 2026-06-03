@@ -254,19 +254,28 @@ audio { max-width: 220px; }
       <div class="d-flex {% if msg.direccion == 'out' %}justify-content-end{% endif %}" data-msg-id="{{ msg.pk }}">
         <div class="bubble {% if msg.direccion == 'out' %}bubble-out{% else %}bubble-in{% endif %}">
           {% if msg.tipo == 'image' %}
-            {% if msg.media_url %}<img src="{{ msg.media_url }}" class="media-thumb" onclick="window.open(this.src)" alt="Imagen">
+            {% if msg.media_url %}
+            <a href="{{ msg.media_url }}" target="_blank">
+              <img src="{{ msg.media_url }}" class="media-thumb" alt="Imagen" onerror="this.parentElement.innerHTML='[Imagen no disponible]'">
+            </a>
             {% else %}<i class="bi bi-image text-muted"></i> <span class="text-muted small">Imagen</span>{% endif %}
             {% if msg.contenido %}<div class="small mt-1">{{ msg.contenido }}</div>{% endif %}
           {% elif msg.tipo == 'video' %}
-            {% if msg.media_url %}<video class="media-thumb" controls><source src="{{ msg.media_url }}"></video>
+            {% if msg.media_url %}<a href="{{ msg.media_url }}" target="_blank" class="d-flex align-items-center gap-1 text-decoration-none"><i class="bi bi-camera-video me-1"></i>{{ msg.media_filename|default:"Video" }}</a>
             {% else %}<i class="bi bi-camera-video text-muted"></i> <span class="text-muted small">Video</span>{% endif %}
+            {% if msg.contenido %}<div class="small mt-1">{{ msg.contenido }}</div>{% endif %}
           {% elif msg.tipo == 'audio' %}
-            {% if msg.media_url %}<audio controls src="{{ msg.media_url }}"></audio>
+            {% if msg.media_url %}
+            <audio controls style="max-width:240px;height:36px;">
+              <source src="{{ msg.media_url }}" type="{{ msg.media_mime|default:'audio/ogg' }}">
+              Audio no disponible
+            </audio>
             {% else %}<i class="bi bi-mic text-muted"></i> <span class="text-muted small">Audio</span>{% endif %}
           {% elif msg.tipo == 'document' %}
             {% if msg.media_url %}
             <a href="{{ msg.media_url }}" target="_blank" class="d-flex align-items-center gap-1 text-decoration-none">
-              <i class="bi bi-file-earmark-pdf text-danger"></i> {{ msg.contenido|default:"Documento" }}
+              <i class="bi bi-file-earmark-arrow-down text-primary fs-5"></i>
+              <span>{{ msg.media_filename|default:msg.contenido|default:"Documento" }}</span>
             </a>
             {% else %}<i class="bi bi-file-earmark text-muted"></i> <span class="text-muted small">{{ msg.contenido|default:"Documento" }}</span>{% endif %}
           {% elif msg.tipo == 'interactive' %}
@@ -417,24 +426,52 @@ function scrollChat() {
 }
 scrollChat();
 
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderContenido(msg) {
+  const url   = msg.media_url || '';
+  const fname = msg.media_filename || msg.contenido || '';
+  const mime  = (msg.media_mime || '').split(';')[0];
+  const cap   = msg.contenido ? '<div class="small mt-1">' + escHtml(msg.contenido) + '</div>' : '';
+
+  if (msg.tipo === 'image' && url)
+    return '<a href="' + escHtml(url) + '" target="_blank">'
+         + '<img src="' + escHtml(url) + '" class="media-thumb" alt="Imagen"'
+         + ' onerror="this.parentElement.innerHTML=\'[Imagen no disponible]\'">'
+         + '</a>' + cap;
+
+  if (msg.tipo === 'audio' && url)
+    return '<audio controls style="max-width:240px;height:36px;">'
+         + '<source src="' + escHtml(url) + '" type="' + escHtml(mime || 'audio/ogg') + '">'
+         + 'Audio no disponible</audio>';
+
+  if (msg.tipo === 'video' && url)
+    return '<a href="' + escHtml(url) + '" target="_blank" class="d-flex align-items-center gap-1 text-decoration-none">'
+         + '<i class="bi bi-camera-video me-1"></i>' + escHtml(fname || 'Video') + '</a>' + cap;
+
+  if (msg.tipo === 'document' && url)
+    return '<a href="' + escHtml(url) + '" target="_blank" class="d-flex align-items-center gap-1 text-decoration-none">'
+         + '<i class="bi bi-file-earmark-arrow-down text-primary fs-5"></i>'
+         + escHtml(fname || 'Documento') + '</a>' + cap;
+
+  return escHtml(msg.contenido || '').replace(/\n/g,'<br>');
+}
+
 function renderBubble(msg) {
   const wrap = document.createElement('div');
   wrap.className = 'd-flex ' + (msg.direccion === 'out' ? 'justify-content-end' : '');
   wrap.dataset.msgId = msg.id;
-  let body = '';
-  if (msg.tipo === 'image' && msg.media_url)
-    body = `<img src="${msg.media_url}" class="media-thumb" onclick="window.open(this.src)" alt="Imagen">`;
-  else if (msg.tipo === 'audio' && msg.media_url)
-    body = `<audio controls src="${msg.media_url}"></audio>`;
-  else if (msg.tipo === 'video' && msg.media_url)
-    body = `<video class="media-thumb" controls><source src="${msg.media_url}"></video>`;
-  else if (msg.tipo === 'document' && msg.media_url)
-    body = `<a href="${msg.media_url}" target="_blank"><i class="bi bi-file-earmark-pdf text-danger"></i> ${msg.contenido || 'Documento'}</a>`;
-  else
-    body = (msg.contenido || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>');
+  const body = renderContenido(msg);
   const icons = {read:'bi-check2-all text-primary', delivered:'bi-check2-all', sent:'bi-check2', failed:'bi-x-circle text-danger', pending:'bi-clock'};
-  const statusIcon = msg.direccion === 'out' ? `<i class="bi ${icons[msg.status] || 'bi-clock'}"></i>` : '';
-  wrap.innerHTML = `<div class="bubble ${msg.direccion === 'out' ? 'bubble-out' : 'bubble-in'}">${body}<div class="bubble-time d-flex justify-content-between align-items-center gap-2"><span>${msg.timestamp}</span>${msg.direccion === 'out' ? `<span>${statusIcon}</span>` : ''}</div></div>`;
+  const statusIcon = msg.direccion === 'out' ? '<i class="bi ' + (icons[msg.status] || 'bi-clock') + '"></i>' : '';
+  wrap.innerHTML = '<div class="bubble ' + (msg.direccion === 'out' ? 'bubble-out' : 'bubble-in') + '">'
+    + body
+    + '<div class="bubble-time d-flex justify-content-between align-items-center gap-2">'
+    + '<span>' + escHtml(msg.timestamp) + '</span>'
+    + (msg.direccion === 'out' ? '<span>' + statusIcon + '</span>' : '')
+    + '</div></div>';
   const chat = document.getElementById('chatContainer');
   const empty = document.getElementById('empty-placeholder');
   if (empty) empty.remove();
@@ -590,22 +627,20 @@ document.getElementById('mediaFileInput').addEventListener('change', function() 
     .then(data => {
       if (data.ok) {
         document.getElementById('textInput').value = '';
-        // Show sent bubble immediately without full reload
         const chatArea = document.getElementById('chatContainer');
         if (chatArea) {
-          const wrap = document.createElement('div');
-          wrap.className = 'justify-content-end d-flex';
-          const typeIcon = {image:'bi-image', video:'bi-camera-video', audio:'bi-mic', document:'bi-file-earmark'}[data.mediatype] || 'bi-paperclip';
-          wrap.innerHTML = `<div class="bubble bubble-out">
-            <div class="d-flex align-items-center gap-1">
-              <i class="bi ${typeIcon}"></i>
-              <span>${data.filename}</span>
-            </div>
-            ${data.caption ? '<div class="small mt-1">'+data.caption+'</div>' : ''}
-            <div class="bubble-time text-end">ahora ✓</div>
-          </div>`;
-          chatArea.appendChild(wrap);
-          chatArea.scrollTop = chatArea.scrollHeight;
+          // Use renderBubble for consistent rendering
+          renderBubble({
+            id: data.msg_id,
+            direccion: 'out',
+            tipo: data.mediatype,
+            contenido: data.caption || data.filename,
+            media_url: data.media_url,
+            media_mime: data.media_mime,
+            media_filename: data.filename,
+            status: 'sent',
+            timestamp: 'ahora',
+          });
         }
       } else {
         alert('Error al enviar: ' + (data.error || 'desconocido'));

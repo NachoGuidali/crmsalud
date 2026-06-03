@@ -72,18 +72,37 @@ def process_incoming_message(self, message_data: dict):
                 nota='Cambio automático al recibir mensaje WhatsApp.',
             )
 
-        msg_type = message_data.get('type', Mensaje.TIPO_TEXTO)
+        msg_type     = message_data.get('type', Mensaje.TIPO_TEXTO)
+        message_id   = message_data.get('message_id', '')
+        media_url    = message_data.get('media_url', '')
+        media_mime   = message_data.get('media_mime', '')
+        media_filename = message_data.get('media_filename', '')
 
-        media_url = message_data.get('media_url', '')
+        # Decrypt and download media via Evolution API (WhatsApp encrypts all media)
+        if msg_type in (Mensaje.TIPO_IMAGEN, Mensaje.TIPO_DOCUMENTO,
+                        Mensaje.TIPO_AUDIO, Mensaje.TIPO_VIDEO) and message_id:
+            try:
+                from .sender import download_and_save_media
+                local_url, resolved_mime = download_and_save_media(
+                    message_id, conv.pk, filename=media_filename,
+                )
+                if local_url:
+                    media_url = local_url
+                if resolved_mime:
+                    media_mime = resolved_mime
+            except Exception as dl_err:
+                logger.warning('Media download failed for %s: %s', message_id, dl_err)
 
         mensaje = Mensaje.objects.create(
             conversacion=conv,
             lead=conv.lead,
-            whatsapp_message_id=message_data.get('message_id', ''),
+            whatsapp_message_id=message_id,
             direccion=Mensaje.DIR_ENTRANTE,
             tipo=msg_type,
             contenido=message_data.get('content', ''),
             media_url=media_url,
+            media_mime=media_mime,
+            media_filename=media_filename,
             status=Mensaje.STATUS_ENTREGADO,
             timestamp=message_data['timestamp'],
         )
@@ -103,9 +122,10 @@ def process_incoming_message(self, message_data: dict):
                 contact_name = (message_data.get('contact_name', '')
                                 or conv.nombre_contacto
                                 or conv.telefono)
+                doc_nombre = media_filename or f'{tipo_label} de {contact_name}'
                 Documento.objects.create(
                     lead=conv.lead,
-                    nombre=f'WhatsApp — {tipo_label} de {contact_name}',
+                    nombre=f'WA — {doc_nombre}',
                     tipo=Documento.TIPO_OTRO,
                     url_externa=media_url,
                     fuente=Documento.FUENTE_WHATSAPP,
