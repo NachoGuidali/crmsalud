@@ -1,11 +1,63 @@
 import logging
 
 from celery import shared_task
+from django.db.models import Count, Q
 from django.utils import timezone
 
 from utils.phone import normalize_ar_phone, ar_phone_variants
 
 logger = logging.getLogger('apps.whatsapp')
+
+
+def _assign_agent(conv):
+    """
+    Assign the available agent with the lowest open conversation load.
+    Returns the assigned User, or None if no agents are available.
+    Priority: ROLE_AGENTE first, ROLE_SUPERVISOR as fallback.
+    """
+    from apps.users.models import User
+    from .models import Conversacion
+
+    active_states = [Conversacion.ESTADO_PENDIENTE, Conversacion.ESTADO_ABIERTA]
+
+    for roles in ([User.ROLE_AGENTE], [User.ROLE_SUPERVISOR, User.ROLE_SUPERADMIN]):
+        agent = (
+            User.objects
+            .filter(is_active=True, disponible=True, role__in=roles)
+            .annotate(carga=Count(
+                'conversaciones',
+                filter=Q(conversaciones__estado__in=active_states),
+            ))
+            .order_by('carga', 'id')
+            .first()
+        )
+        if agent:
+            logger.info('Auto-assigned conv %s to %s (carga=%s)', conv.pk, agent.username,
+                        agent.carga if hasattr(agent, 'carga') else '?')
+            return agent
+
+    logger.warning('No available agents for conv %s — left unassigned', conv.pk)
+    return None
+
+
+def _redistribute_conversations(agent):
+    """
+    Redistribute open/pending conversations from a now-unavailable agent.
+    Called when an agent is deactivated or marks themselves unavailable.
+    """
+    from .models import Conversacion
+    convs = Conversacion.objects.filter(
+        agente=agent,
+        estado__in=[Conversacion.ESTADO_PENDIENTE, Conversacion.ESTADO_ABIERTA],
+    )
+    reassigned = 0
+    for conv in convs:
+        conv.agente = None  # clear first so _assign_agent doesn't count it
+        new_agent = _assign_agent(conv)
+        conv.agente = new_agent
+        conv.save(update_fields=['agente'])
+        reassigned += 1
+    logger.info('Redistributed %d conversations from %s', reassigned, agent.username)
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
@@ -32,6 +84,7 @@ def process_incoming_message(self, message_data: dict):
             conv = Conversacion.objects.create(
                 telefono=phone,
                 nombre_contacto=message_data.get('contact_name', ''),
+                estado=Conversacion.ESTADO_PENDIENTE,
             )
         elif message_data.get('contact_name') and not conv.nombre_contacto:
             conv.nombre_contacto = message_data['contact_name']
@@ -54,9 +107,13 @@ def process_incoming_message(self, message_data: dict):
                 )
             conv.lead = lead
 
-        # Sync conversation agente from lead agente
+        # Sync agente from lead; auto-assign if still None
         if conv.lead and conv.lead.agente_id and not conv.agente_id:
             conv.agente_id = conv.lead.agente_id
+        elif not conv.agente_id:
+            assigned = _assign_agent(conv)
+            if assigned:
+                conv.agente = assigned
 
         conv.ultimo_mensaje_at = message_data['timestamp']
         conv.mensajes_no_leidos += 1

@@ -6,6 +6,7 @@ app_name = 'whatsapp'
 urlpatterns = [
     path('webhook/', views.WebhookView.as_view(), name='webhook'),
     path('api/enviar/', views.APIEnviarMensajeView.as_view(), name='api_enviar'),
+    path('api/handoff/', views.HandoffAPIView.as_view(), name='api_handoff'),
 
     # Media upload
     path('send-media/', views.SendMediaView.as_view(), name='send_media'),
@@ -16,6 +17,7 @@ urlpatterns = [
 
     # Conversation
     path('conversacion/<int:pk>/', views.ConversacionDetailView.as_view(), name='conversacion'),
+    path('conversacion/<int:pk>/cerrar/', views.CerrarConversacionView.as_view(), name='cerrar_conversacion'),
     path('conversacion/<int:pk>/mensajes/', views.ConversacionMessagesAPIView.as_view(), name='conversacion_messages_api'),
     path('conversacion/<int:pk>/bot-toggle/', views.BotToggleView.as_view(), name='bot_toggle_conv'),
     path('conversacion/nueva/', views.NuevaConversacionView.as_view(), name='nueva_conversacion'),

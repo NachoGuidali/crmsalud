@@ -16,6 +16,11 @@ class User(AbstractUser):
     phone = models.CharField(max_length=30, blank=True, verbose_name='Teléfono interno')
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True, verbose_name='Foto')
     is_active = models.BooleanField(default=True)
+    disponible = models.BooleanField(
+        default=True,
+        verbose_name='Disponible para asignaciones',
+        help_text='Desactivar en vacaciones o ausencia. Sus conversaciones se redistribuyen automáticamente.',
+    )
 
     class Meta:
         verbose_name = 'Usuario'

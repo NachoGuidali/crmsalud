@@ -60,6 +60,15 @@ class ConfiguracionWhatsApp(models.Model):
 
 
 class Conversacion(models.Model):
+    ESTADO_PENDIENTE = 'pendiente'
+    ESTADO_ABIERTA   = 'abierta'
+    ESTADO_CERRADA   = 'cerrada'
+    ESTADO_CHOICES = [
+        (ESTADO_PENDIENTE, 'Pendiente'),
+        (ESTADO_ABIERTA,   'Abierta'),
+        (ESTADO_CERRADA,   'Cerrada'),
+    ]
+
     telefono = models.CharField(max_length=20, unique=True, db_index=True)
     nombre_contacto = models.CharField(max_length=200, blank=True)
     lead = models.OneToOneField(
@@ -73,6 +82,10 @@ class Conversacion(models.Model):
         null=True, blank=True,
         on_delete=models.SET_NULL,
         related_name='conversaciones',
+    )
+    estado = models.CharField(
+        max_length=20, choices=ESTADO_CHOICES, default=ESTADO_PENDIENTE,
+        db_index=True, verbose_name='Estado',
     )
     ultimo_mensaje_at = models.DateTimeField(null=True, blank=True)
     mensajes_no_leidos = models.PositiveIntegerField(default=0)

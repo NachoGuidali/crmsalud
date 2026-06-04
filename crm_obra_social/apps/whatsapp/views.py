@@ -156,7 +156,12 @@ class InboxView(LoginRequiredMixin, View):
         if conv_pk_str:
             try:
                 selected_conv = self._get_convs_qs(request).get(pk=int(conv_pk_str))
-                Conversacion.objects.filter(pk=selected_conv.pk).update(mensajes_no_leidos=0)
+                update_fields = {'mensajes_no_leidos': 0}
+                # Mark as abierta when agent opens it
+                if selected_conv.estado == Conversacion.ESTADO_PENDIENTE:
+                    update_fields['estado'] = Conversacion.ESTADO_ABIERTA
+                Conversacion.objects.filter(pk=selected_conv.pk).update(**update_fields)
+                selected_conv.estado = Conversacion.ESTADO_ABIERTA  # reflect in context
                 msgs_qs = selected_conv.mensajes.order_by('timestamp')
                 total = msgs_qs.count()
                 mensajes = list(msgs_qs[max(0, total - 60):])
@@ -411,15 +416,117 @@ class ConversacionMessagesAPIView(LoginRequiredMixin, View):
 
 
 class InboxUpdatesAPIView(LoginRequiredMixin, View):
-    """JSON polling endpoint: returns unread conversation counts for the inbox."""
+    """
+    JSON polling endpoint for the inbox.
+    Returns unread counts AND pending handoff notifications.
+    """
 
     def get(self, request):
-        qs = Conversacion.objects.filter(mensajes_no_leidos__gt=0)
+        from django.db.models import Q
+
+        base_qs = Conversacion.objects.all()
         if not request.user.can_see_all_leads:
-            qs = qs.filter(agente=request.user)
-        unread_total = qs.count()
-        conv_ids = list(qs.values_list('id', flat=True))
-        return JsonResponse({'unread_total': unread_total, 'conv_ids': conv_ids})
+            base_qs = base_qs.filter(
+                Q(agente=request.user) | Q(lead__agente=request.user)
+            ).distinct()
+
+        unread_qs = base_qs.filter(mensajes_no_leidos__gt=0)
+        unread_total = unread_qs.count()
+        conv_ids = list(unread_qs.values_list('id', flat=True))
+
+        # Pendientes = conversations handed off by bot waiting for this agent
+        pendiente_qs = base_qs.filter(
+            estado=Conversacion.ESTADO_PENDIENTE,
+            bot_n8n_activo=False,
+        )
+        pendiente_count = pendiente_qs.count()
+        pendiente_ids   = list(pendiente_qs.values_list('id', flat=True))
+
+        return JsonResponse({
+            'unread_total':    unread_total,
+            'conv_ids':        conv_ids,
+            'pendiente_count': pendiente_count,
+            'pendiente_ids':   pendiente_ids,
+        })
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class HandoffAPIView(View):
+    """
+    Called by n8n when the bot decides to hand off to a human agent.
+    POST /whatsapp/api/handoff/
+    Header: X-Api-Key: <CRM_API_KEY>
+    Body: {"telefono": "+5491112345678", "agente_id": 3}  (agente_id is optional)
+    """
+
+    def post(self, request):
+        from django.conf import settings as dj_settings
+        from utils.phone import normalize_ar_phone, ar_phone_variants
+        from .tasks import _assign_agent
+
+        api_key = (request.headers.get('X-Api-Key')
+                   or request.headers.get('X-API-KEY')
+                   or request.GET.get('api_key', ''))
+        configured = getattr(dj_settings, 'CRM_API_KEY', '')
+        if configured and api_key != configured:
+            return JsonResponse({'error': 'unauthorized'}, status=401)
+
+        try:
+            data = json.loads(request.body)
+        except Exception:
+            return JsonResponse({'error': 'invalid JSON'}, status=400)
+
+        raw_phone = data.get('telefono', '').strip()
+        if not raw_phone:
+            return JsonResponse({'error': 'telefono requerido'}, status=400)
+
+        phone = normalize_ar_phone(raw_phone)
+        conv = None
+        for variant in ar_phone_variants(phone):
+            conv = Conversacion.objects.filter(telefono=variant).first()
+            if conv:
+                break
+
+        if not conv:
+            return JsonResponse({'error': 'conversation_not_found', 'telefono': raw_phone}, status=404)
+
+        update = {
+            'bot_n8n_activo': False,
+            'estado': Conversacion.ESTADO_PENDIENTE,
+        }
+
+        # Auto-assign if no agent
+        if not conv.agente_id:
+            agente_id = data.get('agente_id')
+            if agente_id:
+                update['agente_id'] = agente_id
+            else:
+                assigned = _assign_agent(conv)
+                if assigned:
+                    update['agente_id'] = assigned.pk
+
+        Conversacion.objects.filter(pk=conv.pk).update(**update)
+
+        logger.info('Handoff: conv %s → pendiente (agente_id=%s)', conv.pk, update.get('agente_id'))
+        return JsonResponse({
+            'ok': True,
+            'conversacion_id': conv.pk,
+            'estado': 'pendiente',
+            'agente_id': update.get('agente_id') or conv.agente_id,
+        })
+
+
+class CerrarConversacionView(LoginRequiredMixin, View):
+    """AJAX POST: mark a conversation as cerrada."""
+
+    def post(self, request, pk):
+        from django.db.models import Q
+        qs = Conversacion.objects.all()
+        if not request.user.can_see_all_leads:
+            qs = qs.filter(Q(agente=request.user) | Q(lead__agente=request.user))
+        conv = get_object_or_404(qs, pk=pk)
+        Conversacion.objects.filter(pk=pk).update(estado=Conversacion.ESTADO_CERRADA)
+        return JsonResponse({'ok': True, 'estado': 'cerrada'})
 
 
 class BotReglaListView(LoginRequiredMixin, View):

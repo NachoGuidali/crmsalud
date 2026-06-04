@@ -114,6 +114,7 @@ audio { max-width: 220px; }
   border-color: var(--border) !important;
 }
 #plantillaPreview { background: var(--bg3) !important; color: var(--text2) !important; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
 </style>
 {% endblock %}
 
@@ -127,6 +128,10 @@ audio { max-width: 220px; }
         <i class="bi bi-whatsapp"></i>
         <span class="fw-semibold">WhatsApp</span>
         <span class="badge bg-danger {% if unread_total == 0 %}d-none{% endif %}" id="unreadBadge">{{ unread_total }}</span>
+        <span class="badge text-white d-none" id="handoffBadge"
+              style="background:var(--green); animation: blink 1s step-end infinite; font-size:.7rem;">
+          <i class="bi bi-person-raised-hand me-1"></i><span id="handoffCount">0</span> LISTO
+        </span>
       </div>
       <button class="btn btn-sm btn-outline-light py-1 px-2" title="Nueva conversación" data-bs-toggle="modal" data-bs-target="#nuevaConvModal">
         <i class="bi bi-pencil-square"></i>
@@ -177,6 +182,13 @@ audio { max-width: 220px; }
         </div>
         <div class="wa-conv-meta">
           <span class="wa-conv-time">{{ conv.ultimo_mensaje_at|date:"d/m H:i"|default:"" }}</span>
+          {% if conv.estado == 'pendiente' and not conv.bot_n8n_activo %}
+          <span class="badge" style="background:var(--green); font-size:.65rem; animation: blink 1s step-end infinite;">LISTO</span>
+          {% elif conv.estado == 'pendiente' %}
+          <span class="badge bg-warning" style="font-size:.65rem; color:#000;">BOT</span>
+          {% elif conv.estado == 'cerrada' %}
+          <span class="badge bg-secondary" style="font-size:.65rem;">CERRADA</span>
+          {% endif %}
           <span class="badge bg-danger rounded-pill conv-unread-badge {% if conv.mensajes_no_leidos == 0 %}d-none{% endif %}">{{ conv.mensajes_no_leidos }}</span>
         </div>
       </a>
@@ -215,6 +227,20 @@ audio { max-width: 220px; }
         <a href="{% url 'leads:detail' selected_conv.lead.pk %}" class="btn btn-sm btn-outline-secondary py-1" title="Ver lead">
           <i class="bi bi-person"></i>
         </a>
+        {% endif %}
+        <!-- Estado badge + cerrar -->
+        {% if selected_conv.estado == 'pendiente' %}
+        <span class="badge" style="background:var(--amber); color:#000; font-size:.72rem;">PENDIENTE</span>
+        {% elif selected_conv.estado == 'abierta' %}
+        <span class="badge bg-success" style="font-size:.72rem;">ABIERTA</span>
+        {% elif selected_conv.estado == 'cerrada' %}
+        <span class="badge bg-secondary" style="font-size:.72rem;">CERRADA</span>
+        {% endif %}
+        {% if selected_conv.estado != 'cerrada' %}
+        <button class="btn btn-sm btn-outline-secondary py-1" title="Cerrar conversación"
+                onclick="cerrarConversacion({{ selected_conv.pk }})">
+          <i class="bi bi-check2-circle"></i>
+        </button>
         {% endif %}
         <!-- Bot toggles -->
         <button id="inboxToggleCrm"
@@ -497,10 +523,50 @@ function pollMessages() {
 setInterval(pollMessages, 4000);
 {% endif %}
 
+// ── Notification helpers ──────────────────────────────────────────────────────
+let _notifAudio = null;
+let _tabFlashInterval = null;
+let _lastHandoffCount = 0;
+const _originalTitle = document.title;
+
+function playNotifSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine'; osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.02);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.35);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.35);
+  } catch(e) {}
+}
+
+function startTabFlash(msg) {
+  if (_tabFlashInterval) return;
+  let on = true;
+  _tabFlashInterval = setInterval(() => {
+    document.title = on ? ('🔔 ' + msg) : _originalTitle;
+    on = !on;
+  }, 900);
+}
+
+function stopTabFlash() {
+  if (_tabFlashInterval) { clearInterval(_tabFlashInterval); _tabFlashInterval = null; }
+  document.title = _originalTitle;
+}
+
+// Stop flash when user focuses the tab
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && _lastHandoffCount === 0) stopTabFlash();
+});
+
 function pollInbox() {
   fetch(INBOX_UPDATES_URL)
     .then(r => r.json())
     .then(data => {
+      // Unread badge
       const badge = document.getElementById('unreadBadge');
       if (badge) {
         if (data.unread_total > 0) {
@@ -510,6 +576,7 @@ function pollInbox() {
           badge.classList.add('d-none');
         }
       }
+      // Mark unread convs
       if (data.conv_ids) {
         document.querySelectorAll('[id^="conv-"]').forEach(el => {
           const cid = parseInt(el.id.replace('conv-', ''));
@@ -517,9 +584,38 @@ function pollInbox() {
           if (b && data.conv_ids.includes(cid)) b.classList.remove('d-none');
         });
       }
+      // Handoff / LISTO notification
+      const hCount = data.pendiente_count || 0;
+      const hBadge = document.getElementById('handoffBadge');
+      const hNum   = document.getElementById('handoffCount');
+      if (hBadge && hNum) {
+        hNum.textContent = hCount;
+        hBadge.classList.toggle('d-none', hCount === 0);
+      }
+      // Trigger notification only on NEW handoffs
+      if (hCount > _lastHandoffCount) {
+        playNotifSound();
+        startTabFlash(hCount + ' conversación(es) lista(s)');
+      } else if (hCount === 0) {
+        stopTabFlash();
+      }
+      _lastHandoffCount = hCount;
     }).catch(() => {});
 }
-setInterval(pollInbox, 8000);
+setInterval(pollInbox, 6000);
+
+// Cerrar conversación
+function cerrarConversacion(pk) {
+  if (!confirm('¿Marcar esta conversación como cerrada?')) return;
+  fetch('/whatsapp/conversacion/' + pk + '/cerrar/', {
+    method: 'POST',
+    headers: {'X-CSRFToken': '{{ csrf_token }}'},
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.ok) location.reload();
+  });
+}
 
 // Send tab switching
 document.querySelectorAll('[data-tab]').forEach(link => {
