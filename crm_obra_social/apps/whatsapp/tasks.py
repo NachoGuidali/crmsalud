@@ -86,7 +86,19 @@ def process_incoming_message(self, message_data: dict):
                 nombre_contacto=message_data.get('contact_name', ''),
                 estado=Conversacion.ESTADO_PENDIENTE,
             )
-        elif message_data.get('contact_name') and not conv.nombre_contacto:
+        else:
+            # Reopen closed conversations when the contact writes again
+            if conv.estado == Conversacion.ESTADO_CERRADA:
+                conv.estado = Conversacion.ESTADO_PENDIENTE
+                conv.bot_n8n_activo = True
+                if not conv.agente_id:
+                    assigned = _assign_agent(conv)
+                    if assigned:
+                        conv.agente = assigned
+                conv.save(update_fields=['estado', 'bot_n8n_activo', 'agente'])
+                logger.info('Conv %s reabierta: nuevo mensaje de %s', conv.pk, phone)
+
+        if message_data.get('contact_name') and not conv.nombre_contacto:
             conv.nombre_contacto = message_data['contact_name']
             conv.save(update_fields=['nombre_contacto'])
 
