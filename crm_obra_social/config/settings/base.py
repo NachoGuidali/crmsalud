@@ -137,6 +137,8 @@ EVOLUTION_WEBHOOK_TOKEN = os.environ.get('EVOLUTION_WEBHOOK_TOKEN', '')
 
 # n8n integration — forward incoming WhatsApp messages to this webhook (empty = disabled)
 N8N_WEBHOOK_URL = os.environ.get('N8N_WEBHOOK_URL', '')
+# Called when the agent re-activates the bot so n8n can rebuild its in-memory state
+N8N_ENCENDER_BOT_URL = os.environ.get('N8N_ENCENDER_BOT_URL', '')
 
 # External API key for n8n/bots to send messages via the CRM (empty = endpoint disabled)
 CRM_API_KEY = os.environ.get('CRM_API_KEY', '')

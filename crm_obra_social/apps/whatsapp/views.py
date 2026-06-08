@@ -57,7 +57,7 @@ def _forward_to_n8n(payload: dict):
         or data.get('messageType', '')
     )
 
-    # Include bot status so n8n can decide whether to respond
+    # Only forward if the bot is active for this conversation (new contacts default to active)
     bot_n8n_activo = True
     if phone:
         from utils.phone import normalize_ar_phone, ar_phone_variants
@@ -66,12 +66,14 @@ def _forward_to_n8n(payload: dict):
         if conv is not None:
             bot_n8n_activo = conv.bot_n8n_activo
 
+    if not bot_n8n_activo:
+        return
+
     enriched = {
         **payload,
         'phone': phone,
         'message': content,
         'contact_name': data.get('pushName', ''),
-        'bot_n8n_activo': bot_n8n_activo,
     }
 
     def _send():
@@ -1157,24 +1159,26 @@ class BotToggleView(LoginRequiredMixin, View):
         })
 
     def _notify_n8n_bot_status(self, conv, activo: bool):
+        if not activo:
+            return  # bot off = CRM stops forwarding messages; no need to notify n8n
+
         import threading
         import requests as req
         from django.conf import settings as dj_settings
-        url = getattr(dj_settings, 'N8N_WEBHOOK_URL', '')
+        url = getattr(dj_settings, 'N8N_ENCENDER_BOT_URL', '')
         if not url:
             return
 
         payload = {
-            'event': 'bot_status_changed',
             'phone': conv.telefono,
-            'bot_n8n_activo': activo,
             'conversacion_id': conv.pk,
         }
 
         def _send():
             try:
                 req.post(url, json=payload, timeout=5)
+                logger.info('n8n encender_bot notified for conv %s phone %s', conv.pk, conv.telefono)
             except Exception as e:
-                logger.warning('n8n bot status notify failed: %s', e)
+                logger.warning('n8n encender_bot notify failed: %s', e)
 
         threading.Thread(target=_send, daemon=True).start()
