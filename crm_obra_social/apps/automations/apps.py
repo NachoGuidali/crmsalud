@@ -15,14 +15,34 @@ class AutomationsConfig(AppConfig):
 def _setup_periodic_tasks(sender, **kwargs):
     try:
         from django_celery_beat.models import PeriodicTask, IntervalSchedule
-        schedule_1h, _ = IntervalSchedule.objects.get_or_create(
-            every=1, period=IntervalSchedule.HOURS
+
+        # Reglas de Automatización con ventana de tiempo (Inmediatamente se evalúa
+        # síncronamente vía señal; estas necesitan escaneo periódico — incluyendo
+        # delays en minutos/horas, por eso corre cada 10 minutos en vez de cada hora)
+        schedule_10m, _ = IntervalSchedule.objects.get_or_create(
+            every=10, period=IntervalSchedule.MINUTES
         )
-        PeriodicTask.objects.get_or_create(
+        task, _ = PeriodicTask.objects.get_or_create(
             name='ejecutar_automatizaciones',
             defaults={
                 'task': 'apps.automations.tasks.ejecutar_automatizaciones',
-                'interval': schedule_1h,
+                'interval': schedule_10m,
+                'enabled': True,
+            },
+        )
+        if task.interval_id != schedule_10m.id:
+            task.interval = schedule_10m
+            task.save(update_fields=['interval'])
+
+        # Reglas "campo de fecha = referencia ± offset" (ej: cumpleaños) — cron diario
+        schedule_1d, _ = IntervalSchedule.objects.get_or_create(
+            every=1, period=IntervalSchedule.DAYS
+        )
+        PeriodicTask.objects.get_or_create(
+            name='ejecutar_automatizaciones_fecha_campo',
+            defaults={
+                'task': 'apps.automations.tasks.ejecutar_automatizaciones_fecha_campo',
+                'interval': schedule_1d,
                 'enabled': True,
             },
         )

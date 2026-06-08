@@ -5,7 +5,7 @@ from django.dispatch import receiver
 
 logger = logging.getLogger('apps.automations')
 
-WATCHED_FIELDS = ('estado', 'prioridad')
+WATCHED_FIELDS = ('estado', 'prioridad', 'agente')
 
 
 @receiver(pre_save, sender='leads.Lead')
@@ -23,28 +23,47 @@ def lead_pre_save(sender, instance, **kwargs):
 
 @receiver(post_save, sender='leads.Lead')
 def lead_post_save(sender, instance, created, **kwargs):
-    """Fire event-based automations synchronously when a watched field changes."""
-    if created or getattr(instance, '_skip_automation', False):
+    """
+    Fire 'Disparador' rules (al crear / campo cambia / responsable cambia) and
+    'Automatización → Inmediatamente' rules synchronously after a lead is saved.
+    """
+    if getattr(instance, '_skip_automation', False):
         return
 
-    old_values = getattr(instance, '_pre_save_values', {})
-    if not old_values:
-        return
-
-    from apps.automations.tasks import ejecutar_automatizaciones_por_evento
+    from apps.automations.tasks import (
+        ejecutar_automatizaciones_por_evento,
+        ejecutar_automatizaciones_inmediatas,
+        ejecutar_disparadores_creacion,
+    )
 
     lead_pk = instance.pk  # capture before any action deletes the lead
-    for campo in WATCHED_FIELDS:
-        old_val = old_values.get(campo)
-        new_val = getattr(instance, campo)
-        if old_val is not None and old_val != new_val:
+
+    if created:
+        try:
+            ejecutar_disparadores_creacion(lead_id=lead_pk)
+        except Exception as e:
+            logger.error('Error procesando disparador "Al crear" lead #%s: %s', lead_pk, e)
+    else:
+        old_values = getattr(instance, '_pre_save_values', {})
+        for campo in WATCHED_FIELDS:
+            if campo not in old_values:
+                continue
+            old_val = old_values[campo]
+            new_val = getattr(instance, campo)
+            if old_val == new_val:
+                continue
             try:
                 ejecutar_automatizaciones_por_evento(
                     lead_id=lead_pk,
                     campo=campo,
-                    valor_anterior=old_val,
-                    valor_nuevo=new_val,
+                    valor_anterior=str(old_val) if old_val is not None else '',
+                    valor_nuevo=str(new_val) if new_val is not None else '',
                 )
             except Exception as e:
                 logger.error('Error procesando evento %s:%s→%s lead #%s: %s',
                              campo, old_val, new_val, lead_pk, e)
+
+    try:
+        ejecutar_automatizaciones_inmediatas(lead_id=lead_pk)
+    except Exception as e:
+        logger.error('Error procesando automatizaciones inmediatas lead #%s: %s', lead_pk, e)

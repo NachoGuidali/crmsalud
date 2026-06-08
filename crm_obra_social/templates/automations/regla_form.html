@@ -4,14 +4,17 @@
 {% block content %}
 <div class="mb-3">
   <a href="{% url 'automations:list' %}" class="text-muted text-decoration-none small"><i class="bi bi-chevron-left"></i> Automatizaciones</a>
-  <h4 class="mt-1 fw-bold">{% if instance.pk %}Editar regla{% else %}Nueva regla de automatización{% endif %}</h4>
+  <h4 class="mt-1 fw-bold">{% if instance.pk %}Editar regla{% else %}Nueva regla{% endif %}</h4>
 </div>
 
-<form method="post">
+<form method="post" id="reglaForm">
   {% csrf_token %}
-  <div class="row g-4">
-    <div class="col-12 col-lg-7">
+  <input type="hidden" name="tipo_regla" id="tipoRegla" value="{{ instance.tipo_regla|default:'automatizacion' }}">
 
+  <div class="row g-4">
+    <div class="col-12 col-lg-8">
+
+      <!-- General -->
       <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-transparent fw-semibold">General</div>
         <div class="card-body">
@@ -39,105 +42,173 @@
         </div>
       </div>
 
+      <!-- Tipo de regla -->
       <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-transparent fw-semibold"><i class="bi bi-lightning-charge"></i> Disparador</div>
+        <div class="card-header bg-transparent fw-semibold">1. Tipo de regla</div>
         <div class="card-body">
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Cuándo disparar</label>
-            <select name="trigger_tipo" class="form-select" id="triggerTipo">
-              {% for val, label in trigger_choices %}
+          <div class="btn-group w-100" role="group">
+            <button type="button" class="btn tipo-tab-btn text-start" data-tipo="automatizacion" onclick="setTipoRegla('automatizacion')">
+              <i class="bi bi-lightning-charge"></i> <strong>Automatización</strong>
+              <div class="small fw-normal opacity-75">Se dispara según el tiempo (inmediatamente, luego de X tiempo, etc.)</div>
+            </button>
+            <button type="button" class="btn tipo-tab-btn text-start" data-tipo="disparador" onclick="setTipoRegla('disparador')">
+              <i class="bi bi-bullseye"></i> <strong>Disparador</strong>
+              <div class="small fw-normal opacity-75">Se dispara al ocurrir un evento puntual (crear, cambiar un campo, etc.)</div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ AUTOMATIZACIÓN: paso de disparo ═══ -->
+      <div id="auto-view">
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-header bg-transparent fw-semibold">2. Tiempo de ejecución</div>
+          <div class="card-body">
+            <select name="trigger_tipo" id="triggerTipoAuto" class="form-select mb-3" onchange="updateAutoTrigger()">
+              {% for val, label in trigger_choices_automatizacion %}
               <option value="{{ val }}" {% if instance.trigger_tipo == val %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
-          </div>
 
-          <!-- Time-based fields -->
-          <div id="trigger-time-panel">
-            <label class="form-label fw-semibold">Cantidad de días</label>
-            <input type="number" name="trigger_dias" class="form-control" min="0"
-              value="{{ instance.trigger_dias|default:'3' }}" style="width:140px">
-          </div>
-
-          <!-- Event-based fields -->
-          <div id="trigger-event-panel" style="display:none">
-            <div class="alert alert-info py-2 small mb-3">
-              <i class="bi bi-info-circle"></i> Esta regla se dispara <strong>al instante</strong> cuando el campo indicado cambia de valor.
+            <div id="auto-trig-inmediato" class="auto-trig-panel">
+              <div class="alert alert-info py-2 small mb-0">
+                <i class="bi bi-info-circle"></i> Se ejecuta apenas el lead cumple la condición del paso siguiente — no espera al próximo escaneo periódico.
+              </div>
             </div>
-            <div class="row g-3">
-              <div class="col-md-4">
-                <label class="form-label fw-semibold">Campo que cambia</label>
-                <select name="trigger_campo" class="form-select">
-                  <option value="estado" {% if instance.trigger_campo == 'estado' or not instance.trigger_campo %}selected{% endif %}>Estado</option>
-                  <option value="prioridad" {% if instance.trigger_campo == 'prioridad' %}selected{% endif %}>Prioridad</option>
-                </select>
+
+            <div id="auto-trig-delay" class="auto-trig-panel d-flex align-items-center flex-wrap gap-2">
+              <span class="text-muted small">Ejecutar</span>
+              <input type="number" name="delay_cantidad" class="form-control" style="width:90px" min="1"
+                value="{{ instance.delay_cantidad|default:'1' }}">
+              <select name="delay_unidad" class="form-select" style="width:140px">
+                {% for val, label in delay_unidad_choices %}
+                <option value="{{ val }}" {% if instance.delay_unidad == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <span class="text-muted small">después de creado el lead</span>
+            </div>
+
+            <div id="auto-trig-fecha_campo" class="auto-trig-panel">
+              <div class="row g-2 align-items-center">
+                <div class="col-auto"><span class="text-muted small">Cuando</span></div>
+                <div class="col-auto">
+                  <select name="fecha_campo_objetivo" class="form-select">
+                    <option value="">— Seleccioná un campo de fecha —</option>
+                    {% for val, label in fecha_campo_choices %}
+                    <option value="{{ val }}" {% if instance.fecha_campo_objetivo == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-auto"><span class="text-muted small">cae</span></div>
+                <div class="col-auto">
+                  <input type="number" name="fecha_campo_offset_dias" class="form-control" style="width:90px" min="0"
+                    value="{{ instance.fecha_campo_offset_dias|default:'0' }}">
+                </div>
+                <div class="col-auto">
+                  <select name="fecha_campo_offset_signo" class="form-select" style="width:140px">
+                    {% for val, label in offset_signo_choices %}
+                    <option value="{{ val }}" {% if instance.fecha_campo_offset_signo == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-auto"><span class="text-muted small">de hoy</span></div>
               </div>
-              <div class="col-md-4">
-                <label class="form-label fw-semibold">Valor anterior</label>
-                <select name="trigger_valor_anterior" class="form-select trigger-estado-select trigger-prioridad-select">
-                  <option value="">Cualquiera</option>
-                  {% for val, label in estado_choices %}
-                  <option value="{{ val }}" data-tipo="estado" {% if instance.trigger_valor_anterior == val %}selected{% endif %}>{{ label }}</option>
-                  {% endfor %}
-                  {% for val, label in prioridad_choices %}
-                  <option value="{{ val }}" data-tipo="prioridad" {% if instance.trigger_valor_anterior == val %}selected{% endif %}>{{ label }}</option>
-                  {% endfor %}
-                </select>
+              <div class="form-text">Ej: 0 días después = el mismo día que cae la fecha; 7 días antes = una semana antes (recordatorios de cumpleaños, vencimientos, etc.). Se evalúa una vez por día y vuelve a dispararse cada año.</div>
+            </div>
+
+            <div id="auto-trig-tiempo_sin_cambio" class="auto-trig-panel d-flex align-items-center flex-wrap gap-2">
+              <span class="text-muted small">Si pasaron</span>
+              <input type="number" name="trigger_dias" class="form-control" style="width:90px" min="0"
+                value="{{ instance.trigger_dias|default:'3' }}">
+              <span class="text-muted small" id="tiempoSinCambioLabel">días sin cambios en el lead</span>
+            </div>
+          </div>
+        </div>
+      </div><!-- /auto-view -->
+
+      <!-- ═══ DISPARADOR: paso de evento ═══ -->
+      <div id="trig-view">
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-header bg-transparent fw-semibold">2. Evento que dispara</div>
+          <div class="card-body">
+            <select name="trigger_tipo" id="triggerTipoTrig" class="form-select mb-3" onchange="updateTrigTrigger()">
+              {% for val, label in trigger_choices_disparador %}
+              <option value="{{ val }}" {% if instance.trigger_tipo == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+
+            <div id="trig-trig-creado" class="trig-trig-panel">
+              <div class="alert alert-info py-2 small mb-0">
+                <i class="bi bi-info-circle"></i> Se ejecuta una sola vez, apenas se crea un lead nuevo.
               </div>
-              <div class="col-md-4">
-                <label class="form-label fw-semibold">Nuevo valor <span class="text-danger">*</span></label>
-                <select name="trigger_valor_nuevo" class="form-select trigger-estado-select trigger-prioridad-select">
-                  <option value="">— Seleccioná —</option>
-                  {% for val, label in estado_choices %}
-                  <option value="{{ val }}" data-tipo="estado" {% if instance.trigger_valor_nuevo == val %}selected{% endif %}>{{ label }}</option>
-                  {% endfor %}
-                  {% for val, label in prioridad_choices %}
-                  <option value="{{ val }}" data-tipo="prioridad" {% if instance.trigger_valor_nuevo == val %}selected{% endif %}>{{ label }}</option>
-                  {% endfor %}
-                </select>
+            </div>
+
+            <div id="trig-trig-responsable_cambia" class="trig-trig-panel">
+              <div class="alert alert-info py-2 small mb-0">
+                <i class="bi bi-info-circle"></i> Se ejecuta cada vez que cambia el agente asignado al lead (incluida la primera asignación).
+              </div>
+            </div>
+
+            <div id="trig-trig-campo_cambia" class="trig-trig-panel">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label small">Campo a observar</label>
+                  <select name="trigger_campo" class="form-select trig-campo-select">
+                    {% for val, label in campo_choices %}
+                    <option value="{{ val }}" {% if instance.trigger_campo == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="form-text">Se ejecuta cada vez que ese campo cambie a cualquier valor nuevo.</div>
+            </div>
+
+            <div id="trig-trig-campo_igual_a" class="trig-trig-panel">
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label small">Campo a observar</label>
+                  <select name="trigger_campo" class="form-select trig-campo-select">
+                    {% for val, label in campo_choices %}
+                    <option value="{{ val }}" {% if instance.trigger_campo == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small">Valor anterior <span class="text-muted">(opcional)</span></label>
+                  <input type="text" name="trigger_valor_anterior" class="form-control" placeholder="cualquiera"
+                    value="{{ instance.trigger_valor_anterior|default:'' }}">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small">Nuevo valor *</label>
+                  <input type="text" name="trigger_valor_nuevo" class="form-control" placeholder="ej: interesado"
+                    value="{{ instance.trigger_valor_nuevo|default:'' }}">
+                </div>
+              </div>
+              <div class="form-text">
+                Se ejecuta cuando el campo pasa a valer exactamente ese valor. Usá el valor interno del campo —
+                Estado: <code>nuevo, contactado, interesado, doc_pendiente, en_revision, afiliado, perdido</code> ·
+                Prioridad: <code>alta, media, baja</code> ·
+                Origen: <code>web, campana, referido, llamada, whatsapp</code>.
+                Para "Agente / Responsable" usá el nombre de usuario.
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </div><!-- /trig-view -->
 
+      <!-- Condición (compartida) -->
       <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-transparent fw-semibold"><i class="bi bi-filter"></i> Condiciones (opcionales)</div>
+        <div class="card-header bg-transparent fw-semibold">3. Condición <span class="fw-normal text-muted small">(opcional — si no agregás ninguna, la regla aplica a todos los leads)</span></div>
         <div class="card-body">
-          <p class="text-muted small mb-2">Si dejás todos vacíos, la regla aplica a todos los leads.</p>
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label small">Solo si estado es</label>
-              <select name="condicion_estado" class="form-select form-select-sm">
-                <option value="">Cualquier estado</option>
-                {% for val, label in estado_choices %}
-                <option value="{{ val }}" {% if instance.condicion_estado == val %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label small">Solo si prioridad es</label>
-              <select name="condicion_prioridad" class="form-select form-select-sm">
-                <option value="">Cualquier prioridad</option>
-                {% for val, label in prioridad_choices %}
-                <option value="{{ val }}" {% if instance.condicion_prioridad == val %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label small">Solo si origen es</label>
-              <select name="condicion_origen" class="form-select form-select-sm">
-                <option value="">Cualquier origen</option>
-                {% for val, label in origen_choices %}
-                <option value="{{ val }}" {% if instance.condicion_origen == val %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
-            </div>
-          </div>
+          <div id="cond-list"></div>
+          <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="addCond()"><i class="bi bi-plus-lg"></i> Agregar condición</button>
+          <div class="form-text mt-2">Las condiciones se evalúan en orden, combinando cada una con la siguiente según el conector (Y / O) que elijas.</div>
         </div>
       </div>
 
+      <!-- Acción (compartida) -->
       <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-transparent fw-semibold"><i class="bi bi-arrow-right-circle"></i> Acción</div>
+        <div class="card-header bg-transparent fw-semibold">4. Acción a ejecutar</div>
         <div class="card-body">
           <div class="mb-3">
             <label class="form-label fw-semibold">Qué hacer</label>
@@ -228,11 +299,31 @@
     </div>
   </div>
 </form>
+
+{{ campo_choices|json_script:"campo-choices-data" }}
+{{ condicion_operador_choices|json_script:"condicion-operador-choices-data" }}
+{{ condicion_join_choices|json_script:"condicion-join-choices-data" }}
+{{ condiciones_json|json_script:"condiciones-data" }}
 {% endblock %}
 
 {% block extra_js %}
+<style>
+  .tipo-tab-btn {
+    flex: 1;
+    border: 1px solid #dee2e6;
+    background: #fff;
+    border-radius: .5rem !important;
+    padding: .65rem 1rem;
+  }
+  .tipo-tab-btn + .tipo-tab-btn { margin-left: .5rem; }
+  .tipo-tab-btn.active { border-color: var(--bs-primary); background: rgba(var(--bs-primary-rgb), .07); }
+  .cond-item .cond-valor.d-none { visibility: hidden; }
+</style>
 <script>
-const TRIGGER_EVENT = "{{ trigger_event }}";
+const CAMPO_CHOICES = JSON.parse(document.getElementById('campo-choices-data').textContent);
+const OPERADOR_CHOICES = JSON.parse(document.getElementById('condicion-operador-choices-data').textContent);
+const JOIN_CHOICES = JSON.parse(document.getElementById('condicion-join-choices-data').textContent);
+const CONDICIONES_INICIALES = JSON.parse(document.getElementById('condiciones-data').textContent);
 
 const accionPanels = {
   'cambiar_estado':     'accion-cambiar-estado',
@@ -245,36 +336,119 @@ const accionPanels = {
   'convertir_cliente':  'accion-convertir-cliente',
 };
 
-function updateTriggerPanels() {
-  const isEvent = document.getElementById('triggerTipo').value === TRIGGER_EVENT;
-  document.getElementById('trigger-time-panel').style.display = isEvent ? 'none' : '';
-  document.getElementById('trigger-event-panel').style.display = isEvent ? '' : 'none';
-  if (isEvent) updateTriggerFieldOptions();
-}
-
-function updateTriggerFieldOptions() {
-  const campo = document.querySelector('[name=trigger_campo]').value;
-  ['trigger_valor_anterior','trigger_valor_nuevo'].forEach(name => {
-    const sel = document.querySelector(`[name=${name}]`);
-    Array.from(sel.options).forEach(opt => {
-      if (!opt.value) return; // keep "Cualquiera"
-      opt.hidden = opt.dataset.tipo && opt.dataset.tipo !== campo;
-    });
-  });
-}
-
 function updateAccionPanels() {
   const val = document.getElementById('accionTipo').value;
   document.querySelectorAll('.accion-panel').forEach(p => p.style.display = 'none');
   const target = accionPanels[val];
   if (target) document.getElementById(target).style.display = '';
 }
-
-document.getElementById('triggerTipo').addEventListener('change', updateTriggerPanels);
 document.getElementById('accionTipo').addEventListener('change', updateAccionPanels);
-document.querySelector('[name=trigger_campo]')?.addEventListener('change', updateTriggerFieldOptions);
 
-updateTriggerPanels();
+// ─── Tabs Automatización / Disparador ───────────────────────────────────────
+function setTipoRegla(tipo) {
+  document.getElementById('tipoRegla').value = tipo;
+  document.querySelectorAll('.tipo-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tipo === tipo));
+  const isAuto = tipo === 'automatizacion';
+  document.getElementById('auto-view').classList.toggle('d-none', !isAuto);
+  document.getElementById('trig-view').classList.toggle('d-none', isAuto);
+  // Sólo el <select> del tab activo debe enviarse como "trigger_tipo"
+  document.getElementById('triggerTipoAuto').disabled = !isAuto;
+  document.getElementById('triggerTipoTrig').disabled = isAuto;
+}
+
+// ─── Automatización: panel según tipo de disparo ────────────────────────────
+const AUTO_TRIGGER_PANELS = {
+  inmediato: 'inmediato',
+  delay: 'delay',
+  fecha_campo: 'fecha_campo',
+  tiempo_sin_cambio: 'tiempo_sin_cambio',
+  tiempo_sin_respuesta_wa: 'tiempo_sin_cambio',
+};
+const TIEMPO_SIN_LABELS = {
+  tiempo_sin_cambio: 'días sin cambios en el lead',
+  tiempo_sin_respuesta_wa: 'días sin respuesta de WhatsApp del cliente',
+};
+function updateAutoTrigger() {
+  const val = document.getElementById('triggerTipoAuto').value;
+  document.querySelectorAll('.auto-trig-panel').forEach(p => p.classList.add('d-none'));
+  const target = AUTO_TRIGGER_PANELS[val];
+  if (target) document.getElementById('auto-trig-' + target).classList.remove('d-none');
+  if (TIEMPO_SIN_LABELS[val]) document.getElementById('tiempoSinCambioLabel').textContent = TIEMPO_SIN_LABELS[val];
+}
+document.getElementById('triggerTipoAuto').addEventListener('change', updateAutoTrigger);
+
+// ─── Disparador: panel según tipo de evento ─────────────────────────────────
+const TRIG_TRIGGER_PANELS = {
+  creado: 'creado',
+  campo_cambia: 'campo_cambia',
+  campo_igual_a: 'campo_igual_a',
+  responsable_cambia: 'responsable_cambia',
+};
+function updateTrigTrigger() {
+  const val = document.getElementById('triggerTipoTrig').value;
+  document.querySelectorAll('.trig-trig-panel').forEach(p => p.classList.add('d-none'));
+  const target = TRIG_TRIGGER_PANELS[val];
+  if (target) document.getElementById('trig-trig-' + target).classList.remove('d-none');
+}
+document.getElementById('triggerTipoTrig').addEventListener('change', updateTrigTrigger);
+
+// ─── Constructor de condiciones genérico (Y/O) ──────────────────────────────
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = (s === null || s === undefined) ? '' : String(s);
+  return d.innerHTML;
+}
+function optionsHtml(choices, selected) {
+  return choices.map(([v, l]) =>
+    `<option value="${escapeHtml(v)}" ${v === selected ? 'selected' : ''}>${escapeHtml(l)}</option>`
+  ).join('');
+}
+function condBlockHtml(cond) {
+  cond = cond || {campo: '', operador: 'eq', valor: '', join: 'AND'};
+  const sinValor = (cond.operador === 'empty' || cond.operador === 'not_empty');
+  return `<div class="cond-item border rounded-3 p-2 mb-2">
+    <div class="row g-2 align-items-center">
+      <div class="col-12 col-md-3">
+        <select class="form-select form-select-sm" name="condicion_campo[]">${optionsHtml(CAMPO_CHOICES, cond.campo)}</select>
+      </div>
+      <div class="col-12 col-md-3">
+        <select class="form-select form-select-sm cond-operador" name="condicion_operador[]" onchange="updateCondValorVisibility(this)">${optionsHtml(OPERADOR_CHOICES, cond.operador)}</select>
+      </div>
+      <div class="col-9 col-md-3">
+        <input type="text" class="form-control form-control-sm cond-valor${sinValor ? ' d-none' : ''}" name="condicion_valor[]" value="${escapeHtml(cond.valor)}" placeholder="valor..." ${sinValor ? 'disabled' : ''}>
+      </div>
+      <div class="col-9 col-md-2">
+        <select class="form-select form-select-sm" name="condicion_join[]" title="Cómo se combina con la condición siguiente">${optionsHtml(JOIN_CHOICES, cond.join)}</select>
+      </div>
+      <div class="col-3 col-md-1 text-end">
+        <button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="removeCond(this)" title="Quitar condición"><i class="bi bi-x-lg"></i></button>
+      </div>
+    </div>
+  </div>`;
+}
+function addCond(cond) {
+  const list = document.getElementById('cond-list');
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = condBlockHtml(cond).trim();
+  list.appendChild(wrapper.firstElementChild);
+}
+function removeCond(btn) {
+  btn.closest('.cond-item').remove();
+}
+function updateCondValorVisibility(sel) {
+  const input = sel.closest('.cond-item').querySelector('.cond-valor');
+  const sinValor = (sel.value === 'empty' || sel.value === 'not_empty');
+  input.classList.toggle('d-none', sinValor);
+  input.disabled = sinValor;
+  if (!sinValor) input.classList.remove('d-none');
+}
+
+CONDICIONES_INICIALES.forEach(c => addCond(c));
+
+// ─── Estado inicial ──────────────────────────────────────────────────────────
+setTipoRegla(document.getElementById('tipoRegla').value || 'automatizacion');
+updateAutoTrigger();
+updateTrigTrigger();
 updateAccionPanels();
 </script>
 {% endblock %}

@@ -10,16 +10,81 @@ from .registry import register_action, ACTION_REGISTRY
 logger = logging.getLogger('apps.automations')
 
 
-# ─── Celery beat task (time-based) ─────────────────────────────────────────
+# ─── Condición genérica (campo · operador · valor, combinable Y/O) ─────────
+
+def _valor_campo(lead, campo):
+    if campo.startswith('cp:'):
+        return (lead.datos_extra or {}).get(campo[3:], '')
+    return getattr(lead, campo, '') or ''
+
+
+def _evaluar_operador(actual, operador, esperado):
+    from .models import CondicionRegla
+
+    actual = str(actual)
+    if operador == CondicionRegla.OP_EQ:
+        return actual == esperado
+    if operador == CondicionRegla.OP_NEQ:
+        return actual != esperado
+    if operador == CondicionRegla.OP_CONTAINS:
+        return esperado.lower() in actual.lower()
+    if operador == CondicionRegla.OP_EMPTY:
+        return not actual
+    if operador == CondicionRegla.OP_NOT_EMPTY:
+        return bool(actual)
+    if operador in (CondicionRegla.OP_GT, CondicionRegla.OP_LT):
+        try:
+            a, e = float(actual), float(esperado)
+        except ValueError:
+            return False
+        return a > e if operador == CondicionRegla.OP_GT else a < e
+    return False
+
+
+def _evaluar_condiciones(regla, lead):
+    """Evalúa el set de CondicionRegla de una regla, combinándolas con Y/O en orden."""
+    from .models import CondicionRegla
+
+    conds = list(regla.condiciones.all())
+    if not conds:
+        return True
+
+    resultado = _evaluar_operador(_valor_campo(lead, conds[0].campo), conds[0].operador, conds[0].valor)
+    for previa, actual_cond in zip(conds, conds[1:]):
+        actual = _evaluar_operador(_valor_campo(lead, actual_cond.campo), actual_cond.operador, actual_cond.valor)
+        if previa.join_siguiente == CondicionRegla.JOIN_AND:
+            resultado = resultado and actual
+        else:
+            resultado = resultado or actual
+    return resultado
+
+
+def _delay_a_timedelta(regla):
+    from .models import ReglaAutomatizacion
+    cantidad = regla.delay_cantidad or 0
+    if regla.delay_unidad == ReglaAutomatizacion.DELAY_MINUTOS:
+        return timedelta(minutes=cantidad)
+    if regla.delay_unidad == ReglaAutomatizacion.DELAY_HORAS:
+        return timedelta(hours=cantidad)
+    return timedelta(days=cantidad)
+
+
+# ─── Celery beat: reglas "Automatización" basadas en tiempo (delay / sin actividad) ─
 
 @shared_task
 def ejecutar_automatizaciones():
-    """Run all active time-based automation rules. Runs every hour via Celery Beat."""
+    """Run active time-window Automatización rules. Runs every ~10 min via Celery Beat."""
     from .models import ReglaAutomatizacion
 
     reglas = ReglaAutomatizacion.objects.filter(
         activa=True,
-    ).exclude(trigger_tipo=ReglaAutomatizacion.TRIGGER_ESTADO_CAMBIO).order_by('orden')
+        tipo_regla=ReglaAutomatizacion.TIPO_AUTOMATIZACION,
+        trigger_tipo__in=[
+            ReglaAutomatizacion.TRIGGER_DELAY,
+            ReglaAutomatizacion.TRIGGER_TIEMPO_SIN_CAMBIO,
+            ReglaAutomatizacion.TRIGGER_TIEMPO_SIN_WA,
+        ],
+    ).order_by('orden')
 
     now = timezone.now()
     total = 0
@@ -34,39 +99,35 @@ def ejecutar_automatizaciones():
 
 
 def _ejecutar_regla(regla, now):
-    """Apply a time-based rule to all matching leads. Returns count of leads affected."""
-    from .models import AutomatizacionLog
+    """Apply a time-window Automatización rule to all matching leads. Returns leads affected."""
+    from .models import AutomatizacionLog, ReglaAutomatizacion
     from apps.leads.models import Lead
 
-    delta = timedelta(days=regla.trigger_dias or 0)
-    ventana = timedelta(hours=2)
-
     qs = Lead.objects.exclude(estado__in=['afiliado', 'perdido'])
+    ventana = timedelta(minutes=15)
 
-    if regla.trigger_tipo == regla.TRIGGER_TIEMPO_CREACION:
-        target_start = now - delta - ventana
-        target_end   = now - delta
-        qs = qs.filter(created_at__gte=target_start, created_at__lte=target_end)
-    elif regla.trigger_tipo == regla.TRIGGER_TIEMPO_SIN_CAMBIO:
+    if regla.trigger_tipo == ReglaAutomatizacion.TRIGGER_DELAY:
+        delta = _delay_a_timedelta(regla)
+        qs = qs.filter(created_at__gte=now - delta - ventana, created_at__lte=now - delta)
+    elif regla.trigger_tipo == ReglaAutomatizacion.TRIGGER_TIEMPO_SIN_CAMBIO:
+        delta = timedelta(days=regla.trigger_dias or 0)
         qs = qs.filter(updated_at__lte=now - delta)
-    elif regla.trigger_tipo == regla.TRIGGER_TIEMPO_SIN_WA:
+    elif regla.trigger_tipo == ReglaAutomatizacion.TRIGGER_TIEMPO_SIN_WA:
+        delta = timedelta(days=regla.trigger_dias or 0)
         qs = qs.filter(
             conversacion_whatsapp__ultimo_mensaje_at__lte=now - delta,
         ).exclude(conversacion_whatsapp__isnull=True)
+    else:
+        return 0
 
-    if regla.condicion_estado:
-        qs = qs.filter(estado=regla.condicion_estado)
-    if regla.condicion_prioridad:
-        qs = qs.filter(prioridad=regla.condicion_prioridad)
-    if regla.condicion_origen:
-        qs = qs.filter(origen=regla.condicion_origen)
-
-    # Time-based rules run at most once per lead
+    # Time-based rules run at most once por lead
     ya_procesados = AutomatizacionLog.objects.filter(regla=regla).values_list('lead_id', flat=True)
     qs = qs.exclude(pk__in=ya_procesados)
 
     count = 0
     for lead in qs.select_related('agente', 'conversacion_whatsapp'):
+        if not _evaluar_condiciones(regla, lead):
+            continue
         resultado = _dispatch_action(regla, lead, now)
         AutomatizacionLog.objects.create(regla=regla, lead=lead, resultado=resultado, exitoso=True)
         count += 1
@@ -75,13 +136,120 @@ def _ejecutar_regla(regla, now):
     return count
 
 
-# ─── Event-based execution (called synchronously from signal) ──────────────
+# ─── Celery beat: reglas "Automatización" — campo de fecha = referencia ± offset ───
 
-def ejecutar_automatizaciones_por_evento(lead_id, campo, valor_anterior, valor_nuevo):
+@shared_task
+def ejecutar_automatizaciones_fecha_campo():
+    """Run active 'campo de fecha = referencia' Automatización rules. Runs once a day."""
+    from .models import ReglaAutomatizacion
+
+    reglas = ReglaAutomatizacion.objects.filter(
+        activa=True,
+        tipo_regla=ReglaAutomatizacion.TIPO_AUTOMATIZACION,
+        trigger_tipo=ReglaAutomatizacion.TRIGGER_FECHA_CAMPO,
+    ).order_by('orden')
+
+    now = timezone.now()
+    total = 0
+    for regla in reglas:
+        try:
+            total += _ejecutar_regla_fecha_campo(regla, now)
+        except Exception as e:
+            logger.error('Error ejecutando regla fecha-campo "%s": %s', regla.nombre, e)
+
+    logger.info('Automatizaciones fecha-campo: %d acciones ejecutadas', total)
+    return f'{total} acciones ejecutadas'
+
+
+def _ejecutar_regla_fecha_campo(regla, now):
     """
-    Fire all event-based rules that match the given field change on a lead.
-    Called synchronously from the Lead post_save signal — no Celery.
+    Match leads whose `fecha_campo_objetivo` (mes/día) coincide con hoy ± offset.
+    Dedup diario vía AutomatizacionLog — permite que la regla vuelva a dispararse
+    el año siguiente (útil para recordatorios anuales tipo cumpleaños).
     """
+    from .models import AutomatizacionLog, ReglaAutomatizacion
+    from apps.leads.models import Lead
+
+    campo = regla.fecha_campo_objetivo
+    if not campo:
+        return 0
+
+    hoy_local = timezone.localtime(now)
+    offset = timedelta(days=regla.fecha_campo_offset_dias or 0)
+    if regla.fecha_campo_offset_signo == ReglaAutomatizacion.OFFSET_ANTES:
+        objetivo = (hoy_local + offset).date()
+    else:
+        objetivo = (hoy_local - offset).date()
+
+    qs = Lead.objects.exclude(estado__in=['afiliado', 'perdido']).filter(**{
+        f'{campo}__month': objetivo.month,
+        f'{campo}__day': objetivo.day,
+    })
+
+    ya_procesados = AutomatizacionLog.objects.filter(
+        regla=regla, ejecutado_at__date=timezone.localtime(now).date(),
+    ).values_list('lead_id', flat=True)
+    qs = qs.exclude(pk__in=ya_procesados)
+
+    count = 0
+    for lead in qs.select_related('agente', 'conversacion_whatsapp'):
+        if not _evaluar_condiciones(regla, lead):
+            continue
+        resultado = _dispatch_action(regla, lead, now)
+        AutomatizacionLog.objects.create(regla=regla, lead=lead, resultado=resultado, exitoso=True)
+        count += 1
+        logger.info('Regla fecha-campo "%s" → lead #%d: %s', regla.nombre, lead.pk, resultado)
+
+    return count
+
+
+# ─── Síncrono: reglas "Automatización → Inmediatamente" ────────────────────
+
+def ejecutar_automatizaciones_inmediatas(lead_id):
+    """
+    Fire 'Automatización → Inmediatamente' rules for a lead right after it's saved.
+    Runs at most once por lead por regla (deduped vía AutomatizacionLog), igual que
+    el resto de reglas de Automatización — se ejecuta apenas la condición se cumple.
+    """
+    from .models import ReglaAutomatizacion, AutomatizacionLog
+    from apps.leads.models import Lead
+
+    try:
+        lead = Lead.objects.select_related('agente', 'conversacion_whatsapp').get(pk=lead_id)
+    except Lead.DoesNotExist:
+        return
+
+    ya_procesadas = AutomatizacionLog.objects.filter(
+        regla__tipo_regla=ReglaAutomatizacion.TIPO_AUTOMATIZACION,
+        regla__trigger_tipo=ReglaAutomatizacion.TRIGGER_INMEDIATO,
+        lead=lead,
+    ).values_list('regla_id', flat=True)
+
+    reglas = ReglaAutomatizacion.objects.filter(
+        activa=True,
+        tipo_regla=ReglaAutomatizacion.TIPO_AUTOMATIZACION,
+        trigger_tipo=ReglaAutomatizacion.TRIGGER_INMEDIATO,
+    ).exclude(pk__in=ya_procesadas).order_by('orden')
+
+    now = timezone.now()
+    for regla in reglas:
+        if not _evaluar_condiciones(regla, lead):
+            continue
+        lead_ref = lead.pk
+        log = AutomatizacionLog.objects.create(regla=regla, lead=lead, resultado='ejecutando...', exitoso=True)
+        try:
+            resultado = _dispatch_action(regla, lead, now)
+            AutomatizacionLog.objects.filter(pk=log.pk).update(resultado=resultado)
+            logger.info('Regla inmediata "%s" → lead #%s: %s', regla.nombre, lead_ref, resultado)
+        except Exception as e:
+            AutomatizacionLog.objects.filter(pk=log.pk).update(resultado=str(e)[:500], exitoso=False)
+            logger.error('Error en regla inmediata "%s" lead #%s: %s', regla.nombre, lead_ref, e)
+
+
+# ─── Síncrono: reglas "Disparador → Al crear el lead" ──────────────────────
+
+def ejecutar_disparadores_creacion(lead_id):
+    """Fire 'Disparador → Al crear el lead' rules right after a lead is created."""
     from .models import ReglaAutomatizacion, AutomatizacionLog
     from apps.leads.models import Lead
 
@@ -92,27 +260,63 @@ def ejecutar_automatizaciones_por_evento(lead_id, campo, valor_anterior, valor_n
 
     reglas = ReglaAutomatizacion.objects.filter(
         activa=True,
-        trigger_tipo=ReglaAutomatizacion.TRIGGER_ESTADO_CAMBIO,
-        trigger_campo=campo,
-        trigger_valor_nuevo=valor_nuevo,
-    ).filter(
-        models.Q(trigger_valor_anterior='') | models.Q(trigger_valor_anterior=valor_anterior)
+        tipo_regla=ReglaAutomatizacion.TIPO_DISPARADOR,
+        trigger_tipo=ReglaAutomatizacion.TRIGGER_CREADO,
     ).order_by('orden')
 
-    # Apply optional conditions
-    if reglas:
-        if any(r.condicion_estado for r in reglas):
-            pass  # evaluated per-rule below
+    now = timezone.now()
+    for regla in reglas:
+        if not _evaluar_condiciones(regla, lead):
+            continue
+        lead_ref = lead.pk
+        log = AutomatizacionLog.objects.create(
+            regla=regla, lead=lead, resultado='ejecutando...', exitoso=True, evento='lead creado',
+        )
+        try:
+            resultado = _dispatch_action(regla, lead, now)
+            AutomatizacionLog.objects.filter(pk=log.pk).update(resultado=resultado)
+            logger.info('Regla creación "%s" → lead #%s: %s', regla.nombre, lead_ref, resultado)
+        except Exception as e:
+            AutomatizacionLog.objects.filter(pk=log.pk).update(resultado=str(e)[:500], exitoso=False)
+            logger.error('Error en regla creación "%s" lead #%s: %s', regla.nombre, lead_ref, e)
+
+
+# ─── Síncrono: reglas "Disparador" basadas en cambio de campo ──────────────
+
+def ejecutar_automatizaciones_por_evento(lead_id, campo, valor_anterior, valor_nuevo):
+    """
+    Fire all "Disparador" rules that match a field change on a lead
+    (campo_cambia / campo_igual_a / responsable_cambia).
+    Called synchronously from the Lead post_save signal — no Celery.
+    """
+    from .models import ReglaAutomatizacion, AutomatizacionLog
+    from apps.leads.models import Lead
+
+    try:
+        lead = Lead.objects.select_related('agente', 'conversacion_whatsapp').get(pk=lead_id)
+    except Lead.DoesNotExist:
+        return
+
+    coincide = (
+        models.Q(trigger_tipo=ReglaAutomatizacion.TRIGGER_CAMPO_CAMBIA, trigger_campo=campo)
+        | models.Q(trigger_tipo=ReglaAutomatizacion.TRIGGER_CAMPO_IGUAL_A, trigger_campo=campo,
+                   trigger_valor_nuevo=valor_nuevo)
+    )
+    if campo == 'agente':
+        coincide |= models.Q(trigger_tipo=ReglaAutomatizacion.TRIGGER_RESPONSABLE_CAMBIA)
+
+    reglas = ReglaAutomatizacion.objects.filter(
+        activa=True, tipo_regla=ReglaAutomatizacion.TIPO_DISPARADOR,
+    ).filter(coincide).order_by('orden')
 
     evento_desc = f'{campo}:{valor_anterior}→{valor_nuevo}'
     now = timezone.now()
 
     for regla in reglas:
-        if regla.condicion_estado and lead.estado != regla.condicion_estado:
-            continue
-        if regla.condicion_prioridad and lead.prioridad != regla.condicion_prioridad:
-            continue
-        if regla.condicion_origen and lead.origen != regla.condicion_origen:
+        if regla.trigger_tipo == ReglaAutomatizacion.TRIGGER_CAMPO_IGUAL_A:
+            if regla.trigger_valor_anterior and regla.trigger_valor_anterior != valor_anterior:
+                continue
+        if not _evaluar_condiciones(regla, lead):
             continue
 
         # Create log BEFORE running action — action may delete the lead (convertir_cliente),

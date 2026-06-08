@@ -3,16 +3,53 @@ from django.db import models
 
 
 class ReglaAutomatizacion(models.Model):
-    # --- Trigger types ---
-    TRIGGER_TIEMPO_CREACION   = 'tiempo_desde_creacion'
+    # --- Tipo de regla: separa "Automatización" (dispara por tiempo) de "Disparador" (por evento) ---
+    TIPO_AUTOMATIZACION = 'automatizacion'
+    TIPO_DISPARADOR     = 'disparador'
+    TIPO_REGLA_CHOICES = [
+        (TIPO_AUTOMATIZACION, 'Automatización'),
+        (TIPO_DISPARADOR,     'Disparador'),
+    ]
+
+    # --- Trigger types — Automatización (dispara por tiempo) ---
+    TRIGGER_INMEDIATO         = 'inmediato'
+    TRIGGER_DELAY             = 'delay'
+    TRIGGER_FECHA_CAMPO       = 'fecha_campo'
     TRIGGER_TIEMPO_SIN_CAMBIO = 'tiempo_sin_cambio'
     TRIGGER_TIEMPO_SIN_WA     = 'tiempo_sin_respuesta_wa'
-    TRIGGER_ESTADO_CAMBIO     = 'estado_cambio'
-    TRIGGER_CHOICES = [
-        (TRIGGER_TIEMPO_CREACION,   'N días desde que ingresó el lead'),
+
+    # --- Trigger types — Disparador (dispara por evento) ---
+    TRIGGER_CREADO             = 'creado'
+    TRIGGER_CAMPO_CAMBIA       = 'campo_cambia'
+    TRIGGER_CAMPO_IGUAL_A      = 'campo_igual_a'
+    TRIGGER_RESPONSABLE_CAMBIA = 'responsable_cambia'
+
+    TRIGGER_CHOICES_AUTOMATIZACION = [
+        (TRIGGER_INMEDIATO,         'Inmediatamente (al cumplirse la condición)'),
+        (TRIGGER_DELAY,             'En X tiempo'),
+        (TRIGGER_FECHA_CAMPO,       'Cuando un campo de fecha coincide con una referencia'),
         (TRIGGER_TIEMPO_SIN_CAMBIO, 'N días sin actividad en el lead'),
         (TRIGGER_TIEMPO_SIN_WA,     'N días sin respuesta de WhatsApp del cliente'),
-        (TRIGGER_ESTADO_CAMBIO,     'Cuando un campo del lead cambia de valor'),
+    ]
+    TRIGGER_CHOICES_DISPARADOR = [
+        (TRIGGER_CREADO,             'Al crear el lead'),
+        (TRIGGER_CAMPO_CAMBIA,       'Cuando un campo cambia (a cualquier valor nuevo)'),
+        (TRIGGER_CAMPO_IGUAL_A,      'Cuando un campo pasa a valer un valor específico'),
+        (TRIGGER_RESPONSABLE_CAMBIA, 'Cuando cambia el responsable (agente) del lead'),
+    ]
+    TRIGGER_CHOICES = TRIGGER_CHOICES_AUTOMATIZACION + TRIGGER_CHOICES_DISPARADOR
+
+    DELAY_MINUTOS, DELAY_HORAS, DELAY_DIAS = 'minutos', 'horas', 'dias'
+    DELAY_UNIDAD_CHOICES = [
+        (DELAY_MINUTOS, 'Minutos'),
+        (DELAY_HORAS,   'Horas'),
+        (DELAY_DIAS,    'Días'),
+    ]
+
+    OFFSET_ANTES, OFFSET_DESPUES = 'antes', 'despues'
+    OFFSET_SIGNO_CHOICES = [
+        (OFFSET_ANTES,   'antes de'),
+        (OFFSET_DESPUES, 'después de'),
     ]
 
     # --- Action types ---
@@ -40,31 +77,40 @@ class ReglaAutomatizacion(models.Model):
     activa     = models.BooleanField(default=True, verbose_name='Activa', db_index=True)
     orden      = models.PositiveSmallIntegerField(default=0, verbose_name='Orden de ejecución')
 
-    # Trigger — time-based
+    tipo_regla = models.CharField(max_length=15, choices=TIPO_REGLA_CHOICES,
+                                  default=TIPO_AUTOMATIZACION, db_index=True,
+                                  verbose_name='Tipo de regla')
+
+    # Trigger — general
     trigger_tipo = models.CharField(max_length=30, choices=TRIGGER_CHOICES, verbose_name='Disparador')
     trigger_dias = models.PositiveSmallIntegerField(
-        null=True, blank=True,
-        verbose_name='Días', help_text='Número de días (solo para disparadores por tiempo)',
+        null=True, blank=True, verbose_name='Días',
+        help_text='Para "N días sin actividad" / "N días sin respuesta de WhatsApp"',
     )
 
-    # Trigger — event-based (used when trigger_tipo == TRIGGER_ESTADO_CAMBIO)
+    # Trigger — "En X tiempo" (tipo_regla=automatizacion, trigger_tipo=delay)
+    delay_cantidad = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Cantidad')
+    delay_unidad   = models.CharField(max_length=10, choices=DELAY_UNIDAD_CHOICES, blank=True,
+                                      default=DELAY_DIAS, verbose_name='Unidad')
+
+    # Trigger — "Cuando un campo de fecha coincide con una referencia"
+    # (tipo_regla=automatizacion, trigger_tipo=fecha_campo)
+    fecha_campo_objetivo = models.CharField(max_length=50, blank=True, verbose_name='Campo de fecha',
+                                            help_text='Campo del lead, ej: fecha_nacimiento, created_at')
+    fecha_campo_offset_dias  = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Offset (días)')
+    fecha_campo_offset_signo = models.CharField(max_length=10, choices=OFFSET_SIGNO_CHOICES, blank=True,
+                                                default=OFFSET_DESPUES, verbose_name='Offset')
+
+    # Trigger — evento (tipo_regla=disparador)
     trigger_campo           = models.CharField(max_length=50, blank=True, default='estado',
-                                               verbose_name='Campo que cambia',
-                                               help_text='Campo del lead (ej: estado, prioridad)')
+                                               verbose_name='Campo',
+                                               help_text='Campo del lead a observar (ej: estado, prioridad, agente)')
     trigger_valor_anterior  = models.CharField(max_length=100, blank=True,
                                                verbose_name='Valor anterior',
                                                help_text='Dejar vacío para "cualquier valor anterior"')
     trigger_valor_nuevo     = models.CharField(max_length=100, blank=True,
                                                verbose_name='Valor nuevo',
-                                               help_text='Valor al que cambia el campo')
-
-    # Conditions (optional filters — all must match)
-    condicion_estado    = models.CharField(max_length=20, blank=True, verbose_name='Solo si estado es',
-                                           help_text='Dejar vacío para cualquier estado')
-    condicion_prioridad = models.CharField(max_length=10, blank=True, verbose_name='Solo si prioridad es',
-                                           help_text='Dejar vacío para cualquier prioridad')
-    condicion_origen    = models.CharField(max_length=20, blank=True, verbose_name='Solo si origen es',
-                                           help_text='Dejar vacío para cualquier origen')
+                                               help_text='Valor al que debe cambiar el campo')
 
     # Action — common
     accion_tipo = models.CharField(max_length=30, choices=ACCION_CHOICES, verbose_name='Acción')
@@ -110,7 +156,46 @@ class ReglaAutomatizacion(models.Model):
 
     @property
     def es_event_based(self):
-        return self.trigger_tipo == self.TRIGGER_ESTADO_CAMBIO
+        return self.tipo_regla == self.TIPO_DISPARADOR
+
+
+class CondicionRegla(models.Model):
+    """Condición genérica (campo · operador · valor) combinable con Y/O dentro de una regla."""
+    OP_EQ, OP_NEQ, OP_GT, OP_LT, OP_CONTAINS, OP_EMPTY, OP_NOT_EMPTY = (
+        'eq', 'neq', 'gt', 'lt', 'contains', 'empty', 'not_empty')
+    OPERADOR_CHOICES = [
+        (OP_EQ, 'es igual a'),
+        (OP_NEQ, 'no es igual a'),
+        (OP_GT, 'mayor que'),
+        (OP_LT, 'menor que'),
+        (OP_CONTAINS, 'contiene'),
+        (OP_EMPTY, 'está vacío'),
+        (OP_NOT_EMPTY, 'no está vacío'),
+    ]
+
+    JOIN_AND, JOIN_OR = 'AND', 'OR'
+    JOIN_CHOICES = [
+        (JOIN_AND, 'Y'),
+        (JOIN_OR, 'O'),
+    ]
+
+    regla = models.ForeignKey(ReglaAutomatizacion, on_delete=models.CASCADE, related_name='condiciones')
+    orden = models.PositiveSmallIntegerField(default=0)
+    campo = models.CharField(max_length=50, verbose_name='Campo',
+                             help_text="ej: estado, prioridad, origen, agente, plan_interes, cp:<slug>")
+    operador = models.CharField(max_length=12, choices=OPERADOR_CHOICES, default=OP_EQ, verbose_name='Operador')
+    valor = models.CharField(max_length=200, blank=True, verbose_name='Valor')
+    join_siguiente = models.CharField(max_length=3, choices=JOIN_CHOICES, default=JOIN_AND,
+                                      verbose_name='Unión con la siguiente',
+                                      help_text='Cómo se combina con la condición que sigue (Y / O)')
+
+    class Meta:
+        verbose_name = 'Condición de regla'
+        verbose_name_plural = 'Condiciones de regla'
+        ordering = ['orden', 'id']
+
+    def __str__(self):
+        return f'{self.campo} {self.get_operador_display()} {self.valor}'.strip()
 
 
 class AutomatizacionLog(models.Model):

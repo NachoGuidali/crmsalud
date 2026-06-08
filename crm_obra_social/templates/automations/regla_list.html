@@ -11,8 +11,9 @@
 </div>
 
 <div class="alert alert-info small py-2 mb-3">
-  <strong>Reglas por tiempo:</strong> se evalúan cada hora — se aplican una sola vez por lead. Podés ejecutarlas manualmente con ▶.<br>
-  <strong>Reglas por evento:</strong> se disparan al instante cuando el campo configurado cambia de valor.
+  <strong>Automatización</strong> (dispara por tiempo): "Inmediatamente" corre al guardar el lead; "En X tiempo" y "N días sin..." se escanean cada 10 minutos;
+  "Campo de fecha = referencia" se evalúa una vez por día. Todas se aplican una sola vez por lead — podés forzar una ejecución manual con ▶.<br>
+  <strong>Disparador</strong> (dispara por evento): se ejecuta al instante cuando ocurre el evento configurado (crear el lead, que cambie un campo, etc.).
 </div>
 
 {% if reglas %}
@@ -26,22 +27,29 @@
             <span class="badge bg-{% if r.activa %}success{% else %}secondary{% endif %}">
               {% if r.activa %}Activa{% else %}Inactiva{% endif %}
             </span>
+            <span class="badge bg-{% if r.es_event_based %}info{% else %}warning text-dark{% endif %}">
+              <i class="bi bi-{% if r.es_event_based %}bullseye{% else %}lightning-charge{% endif %}"></i> {{ r.get_tipo_regla_display }}
+            </span>
             <h6 class="mb-0 fw-semibold">{{ r.nombre }}</h6>
           </div>
           {% if r.descripcion %}<p class="text-muted small mb-1">{{ r.descripcion }}</p>{% endif %}
           <div class="d-flex flex-wrap gap-2 small">
-            {% if r.es_event_based %}
             <span class="badge bg-light text-dark border">
-              <i class="bi bi-lightning-charge text-warning"></i> {{ r.get_trigger_tipo_display }}: {{ r.trigger_campo }}{% if r.trigger_valor_nuevo %} → {{ r.trigger_valor_nuevo }}{% endif %}
+              <i class="bi bi-{% if r.es_event_based %}bullseye{% else %}clock{% endif %}"></i>
+              {{ r.get_trigger_tipo_display }}
+              {% if r.trigger_tipo == 'delay' %}— {{ r.delay_cantidad }} {{ r.get_delay_unidad_display|lower }}{% endif %}
+              {% if r.trigger_tipo == 'fecha_campo' %}— {{ r.fecha_campo_objetivo }} ({{ r.fecha_campo_offset_dias }} días {{ r.get_fecha_campo_offset_signo_display }}){% endif %}
+              {% if r.trigger_tipo == 'tiempo_sin_cambio' or r.trigger_tipo == 'tiempo_sin_respuesta_wa' %}— {{ r.trigger_dias }} día{{ r.trigger_dias|pluralize }}{% endif %}
+              {% if r.trigger_tipo == 'campo_cambia' or r.trigger_tipo == 'campo_igual_a' %}— {{ r.trigger_campo }}{% if r.trigger_valor_nuevo %} → {{ r.trigger_valor_nuevo }}{% endif %}{% endif %}
             </span>
-            {% else %}
+            {% with conds=r.condiciones.all %}
+            {% if conds %}
             <span class="badge bg-light text-dark border">
-              <i class="bi bi-clock"></i> {{ r.get_trigger_tipo_display }} — {{ r.trigger_dias }} día{% if r.trigger_dias != 1 %}s{% endif %}
+              <i class="bi bi-filter"></i>
+              {% for c in conds %}{{ c.campo }} {{ c.get_operador_display }}{% if c.valor %} "{{ c.valor }}"{% endif %}{% if not forloop.last %} <strong>{{ c.get_join_siguiente_display }}</strong> {% endif %}{% endfor %}
             </span>
             {% endif %}
-            {% if r.condicion_estado %}
-            <span class="badge bg-light text-dark border"><i class="bi bi-filter"></i> Solo si: {{ r.condicion_estado }}</span>
-            {% endif %}
+            {% endwith %}
             <span class="badge bg-primary">
               <i class="bi bi-arrow-right"></i> {{ r.get_accion_tipo_display }}
               {% if r.accion_estado_destino %}: {{ r.accion_estado_destino }}{% endif %}
