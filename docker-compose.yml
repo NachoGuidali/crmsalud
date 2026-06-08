@@ -37,7 +37,7 @@ services:
       DJANGO_SETTINGS_MODULE: config.settings.production
     volumes:
       - ./crm_obra_social:/app
-      - media_data:/app/media
+      - ./crm_obra_social/media:/app/media
       - ./crm_obra_social/staticfiles:/app/staticfiles
     ports:
       - "8002:8000"
@@ -60,7 +60,7 @@ services:
       DJANGO_SETTINGS_MODULE: config.settings.production
     volumes:
       - ./crm_obra_social:/app
-      - media_data:/app/media
+      - ./crm_obra_social/media:/app/media
     depends_on:
       db:
         condition: service_healthy
@@ -109,5 +109,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  media_data:
   evolution_instances:
