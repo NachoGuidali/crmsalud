@@ -34,8 +34,9 @@ class LeadForm(forms.ModelForm):
             self.fields.pop('estado', None) if 'estado' in self.fields else None
 
         self.fields['plan_interes'].queryset = Plan.objects.filter(activo=True)
-        from apps.users.models import User as UserModel
-        self.fields['agente'].queryset = UserModel.objects.filter(is_active=True).order_by('first_name', 'last_name', 'username')
+        if 'agente' in self.fields:
+            from apps.users.models import User as UserModel
+            self.fields['agente'].queryset = UserModel.objects.filter(is_active=True).order_by('first_name', 'last_name', 'username')
         self.fields['telefono'].widget.attrs['placeholder'] = '+549XXXXXXXXXX'
         if not self.instance.pk:
             self.fields['telefono'].initial = '+549'
