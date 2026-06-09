@@ -11,7 +11,7 @@ class LeadForm(forms.ModelForm):
     class Meta:
         model = Lead
         fields = [
-            'nombre_completo', 'dni', 'fecha_nacimiento', 'telefono', 'email',
+            'nombre_completo', 'dni', 'fecha_nacimiento', 'edad', 'telefono', 'email',
             'localidad', 'provincia', 'plan_interes', 'grupo_familiar',
             'origen', 'agente', 'estado', 'prioridad', 'notas',
         ]
