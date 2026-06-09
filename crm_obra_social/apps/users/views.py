@@ -2,8 +2,10 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
+from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.views.generic import CreateView, UpdateView, ListView, DetailView, View
 
 from .forms import LoginForm, UserCreateForm, UserUpdateForm, ProfileForm
@@ -91,3 +93,22 @@ class ProfileView(LoginRequiredMixin, UpdateView):
     def form_valid(self, form):
         messages.success(self.request, 'Perfil actualizado correctamente.')
         return super().form_valid(form)
+
+
+class HeartbeatView(LoginRequiredMixin, View):
+    """Called every 60s by the browser to signal the agent is still active."""
+    def post(self, request):
+        User.objects.filter(pk=request.user.pk).update(ultimo_ping_at=timezone.now())
+        return JsonResponse({'ok': True})
+
+
+class ToggleDisponibleView(LoginRequiredMixin, View):
+    """Manual on/off duty toggle from the sidebar."""
+    def post(self, request):
+        user = request.user
+        nuevo = not user.disponible
+        user.disponible = nuevo
+        if nuevo:
+            user.ultimo_ping_at = timezone.now()
+        user.save(update_fields=['disponible', 'ultimo_ping_at'])
+        return JsonResponse({'ok': True, 'disponible': nuevo})

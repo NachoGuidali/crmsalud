@@ -108,24 +108,38 @@
     </nav>
 
     <!-- User info at bottom -->
-    <div class="sidebar-bottom">
-      <a href="{% url 'users:profile' %}" class="avatar-sm" title="Mi perfil">
-        {% if user.avatar %}
-        <img src="{{ user.avatar.url }}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;" alt="">
-        {% else %}
-        {{ user.get_full_name|default:user.username|slice:":2"|upper }}
-        {% endif %}
-      </a>
-      <div style="overflow:hidden;flex:1;">
-        <div class="user-name">{{ user.get_full_name|default:user.username }}</div>
-        <div class="user-role">{{ user.get_rol_display|default:"Agente" }}</div>
+    <div class="sidebar-bottom" style="flex-direction:column;gap:6px;padding-bottom:10px;">
+      <!-- En turno toggle -->
+      {% if user.is_authenticated %}
+      <button id="btnTurno"
+              onclick="toggleTurno()"
+              title="{% if user.disponible %}Estás en turno — clic para salir{% else %}Estás fuera de turno — clic para entrar{% endif %}"
+              style="width:100%;border:none;border-radius:8px;padding:5px 10px;font-size:0.78rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;
+                     background:{% if user.disponible %}#d1fae5{% else %}#f1f5f9{% endif %};
+                     color:{% if user.disponible %}#065f46{% else %}#64748b{% endif %};">
+        <span id="turnoIndicator" style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:{% if user.disponible %}#10b981{% else %}#94a3b8{% endif %};"></span>
+        <span id="turnoLabel">{% if user.disponible %}En turno{% else %}Fuera de turno{% endif %}</span>
+      </button>
+      {% endif %}
+      <div style="display:flex;align-items:center;gap:8px;width:100%;">
+        <a href="{% url 'users:profile' %}" class="avatar-sm" title="Mi perfil">
+          {% if user.avatar %}
+          <img src="{{ user.avatar.url }}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;" alt="">
+          {% else %}
+          {{ user.get_full_name|default:user.username|slice:":2"|upper }}
+          {% endif %}
+        </a>
+        <div style="overflow:hidden;flex:1;">
+          <div class="user-name">{{ user.get_full_name|default:user.username }}</div>
+          <div class="user-role">{{ user.get_rol_display|default:"Agente" }}</div>
+        </div>
+        <form method="post" action="{% url 'users:logout' %}" style="flex-shrink:0;">
+          {% csrf_token %}
+          <button type="submit" class="icon-btn" title="Cerrar sesión" style="background:transparent;border:none;color:var(--text3);">
+            <i class="bi bi-box-arrow-right"></i>
+          </button>
+        </form>
       </div>
-      <form method="post" action="{% url 'users:logout' %}" style="flex-shrink:0;">
-        {% csrf_token %}
-        <button type="submit" class="icon-btn" title="Cerrar sesión" style="background:transparent;border:none;color:var(--text3);">
-          <i class="bi bi-box-arrow-right"></i>
-        </button>
-      </form>
     </div>
 
   </aside>
@@ -216,5 +230,45 @@
 })();
 </script>
 {% block extra_js %}{% endblock %}
+
+{% if user.is_authenticated %}
+<script>
+// ── En turno: heartbeat + toggle ──────────────────────────────────────────────
+var _turnoActivo = {{ user.disponible|yesno:"true,false" }};
+var _csrfToken   = '{{ csrf_token }}';
+
+function _post(url) {
+  return fetch(url, {method:'POST', headers:{'X-CSRFToken': _csrfToken}});
+}
+
+function toggleTurno() {
+  _post('{% url "users:toggle_disponible" %}')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      _turnoActivo = data.disponible;
+      var btn  = document.getElementById('btnTurno');
+      var dot  = document.getElementById('turnoIndicator');
+      var lbl  = document.getElementById('turnoLabel');
+      if (_turnoActivo) {
+        btn.style.background = '#d1fae5'; btn.style.color = '#065f46';
+        dot.style.background = '#10b981';
+        lbl.textContent = 'En turno';
+        btn.title = 'Estás en turno — clic para salir';
+      } else {
+        btn.style.background = '#f1f5f9'; btn.style.color = '#64748b';
+        dot.style.background = '#94a3b8';
+        lbl.textContent = 'Fuera de turno';
+        btn.title = 'Estás fuera de turno — clic para entrar';
+      }
+    });
+}
+
+// Heartbeat cada 60s — mantiene "en turno" mientras el navegador está abierto
+setInterval(function() {
+  _post('{% url "users:heartbeat" %}');
+}, 60000);
+</script>
+{% endif %}
 </body>
 </html>

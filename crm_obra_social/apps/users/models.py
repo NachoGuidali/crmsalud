@@ -18,8 +18,12 @@ class User(AbstractUser):
     is_active = models.BooleanField(default=True)
     disponible = models.BooleanField(
         default=True,
-        verbose_name='Disponible para asignaciones',
-        help_text='Desactivar en vacaciones o ausencia. Sus conversaciones se redistribuyen automáticamente.',
+        verbose_name='En turno',
+        help_text='Se activa al iniciar sesión y se desactiva al cerrar o por inactividad. Solo agentes en turno reciben conversaciones nuevas.',
+    )
+    ultimo_ping_at = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name='Último ping de actividad',
     )
 
     class Meta:
