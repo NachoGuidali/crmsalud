@@ -458,7 +458,8 @@ def _normalize_phone(raw: str, codigo_pais: str = '54') -> str:
     else:
         digits_stripped = cleaned.lstrip('0') or cleaned
         codigo = re.sub(r'\D', '', str(codigo_pais)).lstrip('0') or '54'
-        digits = codigo + digits_stripped
+        # Avoid double-prepending if the number already includes the country code
+        digits = digits_stripped if digits_stripped.startswith(codigo) else codigo + digits_stripped
     return ('+' + digits) if len(digits) >= 7 else ''
 
 
