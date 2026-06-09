@@ -122,13 +122,19 @@ class LeadCreateAPIView(View):
         plan_nombre = str(data.get('plan') or '').strip()
         plan = Plan.objects.filter(nombre__iexact=plan_nombre).first() if plan_nombre else None
 
-        # datos_extra — any unknown fields + explicit datos_extra dict
+        # datos_extra — any unknown fields + explicit datos_extra dict (empty values excluded)
         known = {'nombre_completo', 'nombre', 'name', 'telefono', 'phone', 'codigo_pais',
                  'country_code', 'email', 'dni', 'localidad', 'provincia', 'plan', 'notas',
-                 'origen', 'datos_extra', 'api_key'}
-        datos_extra = {k: str(v) for k, v in data.items() if k not in known and v}
+                 'origen', 'estado', 'prioridad', 'edad', 'datos_extra', 'api_key'}
+        datos_extra = {k: str(v) for k, v in data.items() if k not in known and str(v).strip()}
         if isinstance(data.get('datos_extra'), dict):
-            datos_extra.update(data['datos_extra'])
+            datos_extra.update({k: v for k, v in data['datos_extra'].items() if str(v).strip()})
+
+        # Resolve estado/prioridad — validate against allowed choices
+        estado_validos = dict(Lead.ESTADO_CHOICES)
+        prioridad_validos = dict(Lead.PRIORIDAD_CHOICES)
+        estado_req = str(data.get('estado') or '').strip().lower()
+        prioridad_req = str(data.get('prioridad') or '').strip().lower()
 
         existing = Lead.objects.filter(telefono=phone).first()
         if existing:
@@ -138,12 +144,22 @@ class LeadCreateAPIView(View):
                 existing.email = str(data['email']).strip(); updated.append('email')
             if not existing.notas and data.get('notas'):
                 existing.notas = str(data['notas']).strip(); updated.append('notas')
+            if estado_req and estado_req in estado_validos:
+                existing.estado = estado_req; updated.append('estado')
+            if prioridad_req and prioridad_req in prioridad_validos:
+                existing.prioridad = prioridad_req; updated.append('prioridad')
+            edad_req = data.get('edad')
+            if edad_req is not None:
+                try:
+                    existing.edad = int(edad_req); updated.append('edad')
+                except (ValueError, TypeError):
+                    pass
             if datos_extra:
                 current = existing.datos_extra or {}
                 current.update(datos_extra)
                 existing.datos_extra = current; updated.append('datos_extra')
             if updated:
-                existing.save(update_fields=updated + ['updated_at'])
+                existing.save(update_fields=list(set(updated)) + ['updated_at'])
             resp = {'status': 'updated', 'lead_id': existing.pk, 'telefono': phone}
             _log_request(api_key, '/api/v1/leads/', 'POST', request, 200, resp, lead=existing)
             return JsonResponse(resp, status=200)
@@ -158,6 +174,17 @@ class LeadCreateAPIView(View):
         }
         origen = origen_map.get(origen_raw.lower(), Lead.ORIGEN_WEB)
 
+        edad_val = None
+        try:
+            edad_val = int(data['edad']) if data.get('edad') is not None else None
+        except (ValueError, TypeError):
+            pass
+
+        estado_final = (estado_req if estado_req in estado_validos
+                        else api_key.estado_inicial or Lead.ESTADO_NUEVO)
+        prioridad_final = (prioridad_req if prioridad_req in prioridad_validos
+                           else Lead.PRIORIDAD_MEDIA)
+
         lead = Lead.objects.create(
             nombre_completo=nombre,
             dni=dni,
@@ -169,7 +196,9 @@ class LeadCreateAPIView(View):
             origen=origen,
             plan_interes=plan,
             agente=api_key.agente_default,
-            estado=api_key.estado_inicial or Lead.ESTADO_NUEVO,
+            estado=estado_final,
+            prioridad=prioridad_final,
+            edad=edad_val,
             datos_extra=datos_extra,
         )
         HistorialEstado.objects.create(

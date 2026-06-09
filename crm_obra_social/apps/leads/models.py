@@ -173,6 +173,7 @@ class Lead(models.Model):
     nombre_completo = models.CharField(max_length=200, verbose_name='Nombre completo')
     dni = models.CharField(max_length=8, validators=[dni_validator], verbose_name='DNI', db_index=True)
     fecha_nacimiento = models.DateField(null=True, blank=True, verbose_name='Fecha de nacimiento')
+    edad = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name='Edad')
     telefono = models.CharField(max_length=20, validators=[phone_validator], verbose_name='Teléfono (WhatsApp)', db_index=True)
     email = models.EmailField(blank=True, verbose_name='Email')
     localidad = models.CharField(max_length=100, blank=True, verbose_name='Localidad')
