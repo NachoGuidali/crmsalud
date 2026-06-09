@@ -158,6 +158,11 @@ class LeadCreateAPIView(View):
                 current = existing.datos_extra or {}
                 current.update(datos_extra)
                 existing.datos_extra = current; updated.append('datos_extra')
+                nota_bot = _datos_extra_as_notas(datos_extra)
+                if nota_bot:
+                    existing.notas = (existing.notas + '\n\n' + nota_bot).strip() if existing.notas else nota_bot
+                    if 'notas' not in updated:
+                        updated.append('notas')
             if updated:
                 existing.save(update_fields=list(set(updated)) + ['updated_at'])
             resp = {'status': 'updated', 'lead_id': existing.pk, 'telefono': phone}
@@ -185,6 +190,10 @@ class LeadCreateAPIView(View):
         prioridad_final = (prioridad_req if prioridad_req in prioridad_validos
                            else Lead.PRIORIDAD_MEDIA)
 
+        notas_manual = str(data.get('notas') or '').strip()
+        nota_bot = _datos_extra_as_notas(datos_extra)
+        notas_final = '\n\n'.join(filter(None, [notas_manual, nota_bot]))
+
         lead = Lead.objects.create(
             nombre_completo=nombre,
             dni=dni,
@@ -192,7 +201,7 @@ class LeadCreateAPIView(View):
             email=str(data.get('email') or '').strip(),
             localidad=str(data.get('localidad') or '').strip(),
             provincia=str(data.get('provincia') or '').strip(),
-            notas=str(data.get('notas') or '').strip(),
+            notas=notas_final,
             origen=origen,
             plan_interes=plan,
             agente=api_key.agente_default,
@@ -455,6 +464,17 @@ def _create_lead_from_data(api_key, data, request, endpoint):
     resp = {'status': 'created', 'lead_id': lead.pk}
     _log_request(api_key, endpoint, 'POST', request, 201, resp, lead=lead)
     return JsonResponse(resp, status=201)
+
+
+def _datos_extra_as_notas(datos_extra: dict, fuente: str = 'Bot n8n') -> str:
+    """Format a datos_extra dict as human-readable bullet points for the notas field."""
+    if not datos_extra:
+        return ''
+    lines = [f'{fuente}:']
+    for k, v in datos_extra.items():
+        label = k.replace('_', ' ').capitalize()
+        lines.append(f'• {label}: {v}')
+    return '\n'.join(lines)
 
 
 def _lead_to_dict(lead) -> dict:
