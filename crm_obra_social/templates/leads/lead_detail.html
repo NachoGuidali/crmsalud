@@ -43,6 +43,7 @@
           <dt class="col-5">Teléfono</dt><dd class="col-7"><a href="tel:{{ lead.telefono }}">{{ lead.telefono }}</a></dd>
           <dt class="col-5">Email</dt><dd class="col-7">{{ lead.email|default:"—" }}</dd>
           <dt class="col-5">Nacimiento</dt><dd class="col-7">{{ lead.fecha_nacimiento|date:"d/m/Y"|default:"—" }}</dd>
+          {% if lead.edad %}<dt class="col-5">Edad</dt><dd class="col-7">{{ lead.edad }} años</dd>{% endif %}
           <dt class="col-5">Localidad</dt><dd class="col-7">{{ lead.localidad|default:"—" }}</dd>
           <dt class="col-5">Provincia</dt><dd class="col-7">{{ lead.provincia|default:"—" }}</dd>
           <dt class="col-5">Plan</dt><dd class="col-7">{{ lead.plan_interes|default:"—" }}</dd>
